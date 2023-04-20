@@ -11,6 +11,8 @@
 #include <camera.hpp>
 #include <shader.hpp>
 #include <logger.hpp>
+#include <window_manager.hpp>
+#include <main_app.hpp>
 
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
@@ -88,6 +90,25 @@ void processInput(GLFWwindow* window, float delta_time)
 int main()
 {
 	rose::Logger::Initialize();
-	LOG_INFO("Welcome to the Rose engine!");
+	LOG_INFO("Welcome to Rose!");
 
+	rose::RoseApp application = rose::RoseApp(rose::RoseApp::Platform::OpenGL);
+
+	if (application.GetPlatform() == rose::RoseApp::Platform::OpenGL)
+	{
+		auto glad_success = gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
+
+		if (!glad_success)
+		{
+			LOG_ERROR("Failed to initialize GLAD");
+			return -1;
+		}
+	}
+
+	application.Run();
+
+	glViewport(0, 0, 1280, 720);
+	glEnable(GL_DEPTH_TEST);
+
+	return 0;
 }

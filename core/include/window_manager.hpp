@@ -4,17 +4,57 @@
 
 #include<GLFW/glfw3.h>
 
-class WindowManagerGLFW
+namespace rose
 {
-public:
-	WindowManagerGLFW();
+	/*
+	For now, only GLFW windows are supported. However, we have an abstract base class in the case
+	that we add support in the future for other window creation APIs
+	*/
+	class Window
+	{
+	public:
+		Window();
 
-	~WindowManagerGLFW();
+		virtual ~Window();
 
-	unsigned int screen_width;
-	unsigned int screen_height;
+		virtual void EnableVSync(bool enable) = 0;
 
-private:
-	
-	GLFWwindow* m_window;
-};
+		virtual void Update() = 0;
+		
+	private:
+
+	};
+
+	class WindowGLFW : public Window
+	{
+	public:
+
+		WindowGLFW(std::string name = "Rose", int height = 720, int width = 1280);
+
+		virtual ~WindowGLFW();
+
+		void SetScrollCallback();
+
+		void SetMouseCallback();
+
+		void SetFramebufferSizeCallback();
+
+		double GetTime();
+
+		virtual void EnableVSync(bool enable);
+
+		virtual void Update();
+
+	private:
+
+		void Initialize();
+
+		void Destroy();
+
+		unsigned int width_;
+		unsigned int height_;
+		GLFWwindow* window_;
+		bool is_glfw_initialized;
+		std::string name;
+	};
+}

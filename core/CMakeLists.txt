@@ -1,5 +1,6 @@
 include_directories("include")
 
+# For now OpenGL is the only supported API
 find_package(OpenGL REQUIRED)
 
 if (NOT OPENGL_FOUND)         
@@ -25,12 +26,14 @@ add_library(rose_lib
     "src/texture.cpp"
     "src/window_manager.cpp"
     "src/logger.cpp"
+    "src/main_app.cpp"
 
     "include/shader.hpp"
     "include/camera.hpp"
     "include/texture.hpp"
     "include/window_manager.hpp"
     "include/logger.hpp"
+    "include/main_app.hpp"
 )
 
 set_property(TARGET rose_lib PROPERTY LINKER_LANGUAGE CXX)
