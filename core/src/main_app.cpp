@@ -3,7 +3,7 @@
 
 namespace rose
 {
-	RoseApp::RoseApp(Platform platform) : window_(nullptr), platform_(platform), is_running(false)
+	RoseApp::RoseApp(Platform platform) : window(nullptr), platform_(platform), is_running(false)
 	{
 		switch (platform)
 		{
@@ -12,8 +12,7 @@ namespace rose
 			break;
 		case RoseApp::Platform::OpenGL:
 			LOG_INFO("Successfully created OpenGL app");
-			is_running = true;
-			window_ = std::make_unique<rose::WindowGLFW>();
+			window = std::make_unique<rose::WindowGLFW>();
 			break;
 		default:
 			break;
@@ -22,15 +21,16 @@ namespace rose
 
 	void RoseApp::Run()
 	{
+		is_running = true;
 		while (is_running)
 		{
 			glClearColor(0.95f, 0.23f, 0.42f, 1.0f);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			window_->Update();
+			window->Update();
 		}
 	};
 
-	RoseApp::Platform RoseApp::GetPlatform() const
+	RoseApp::Platform RoseApp::get_platform() const
 	{
 		return platform_;
 	};

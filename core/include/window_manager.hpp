@@ -10,6 +10,8 @@ namespace rose
 	For now, only GLFW windows are supported. However, we have an abstract base class in the case
 	that we add support in the future for other window creation APIs
 	*/
+
+	// Interface
 	class Window
 	{
 	public:
@@ -20,8 +22,15 @@ namespace rose
 		virtual void EnableVSync(bool enable) = 0;
 
 		virtual void Update() = 0;
+
+		virtual void AddEventBinding(int event, const std::function<void ()>&) = 0;
 		
+		void HandleEvent(int event);
+
 	private:
+
+		// Mapping of events to their registered callback fns
+		std::unordered_map<int, std::vector<std::function<void()>>> event_callbacks;
 
 	};
 

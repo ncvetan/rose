@@ -1,58 +1,71 @@
 #pragma once
 
+#include <vector>
+
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include <vector>
+#include <logger.hpp>
 
-enum class CameraMovement
+namespace rose
 {
-    FORWARD,
-    BACKWARD,
-    LEFT,
-    RIGHT,
-    UP,
-    DOWN
-};
+    enum class CameraMovement
+    {
+        FORWARD,
+        BACKWARD,
+        LEFT,
+        RIGHT,
+        UP,
+        DOWN
+    };
 
-const float YAW = -90.0f;
-const float PITCH = 0.0f;
-const float SPEED = 2.5f;
-const float SENSITIVITY = 0.1f;
-const float ZOOM = 45.0f;
+    const float YAW = -90.0f;
+    const float PITCH = 0.0f;
+    const float SPEED = 2.5f;
+    const float SENSITIVITY = 0.1f;
+    const float ZOOM = 45.0f;
 
-class Camera
-{
-public:
+    class CameraGL
+    {
+    public:
 
-    Camera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), float yaw = YAW, float pitch = PITCH);
-    
-    Camera(float posX, float posY, float posZ, float upX, float upY, float upZ, float yaw, float pitch);
+        CameraGL(float fov, float aspect_ratio, float near_clip = 0.1f, float far_clip = 100.0f);
 
-    glm::mat4 GetViewMatrix();
+        CameraGL(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), float yaw = YAW, float pitch = PITCH);
 
-    void ProcessKeyboard(CameraMovement direction, float deltaTime);
+        CameraGL(float posX, float posY, float posZ, float upX, float upY, float upZ, float yaw, float pitch);
 
-    void ProcessMouseMovement(float xoffset, float yoffset, GLboolean constrainPitch = true);
+        glm::mat4 GetViewMatrix();
 
-    void ProcessMouseScroll(float yoffset);
+        void UpdateProjectionMatrix();
 
-    glm::vec3 m_position;
-    glm::vec3 m_front;
-    glm::vec3 m_up;
-    glm::vec3 m_right;
-    glm::vec3 m_world_up;
+        void ProcessKeyboard(CameraMovement direction, float deltaTime);
 
-    float m_yaw;
-    float m_pitch;
+        void ProcessMouseMovement(float xoffset, float yoffset, GLboolean constrainPitch = true);
 
-    float m_speed;
-    float m_sensitivity;
-    float m_zoom;
+        void ProcessMouseScroll(float yoffset);
 
-private:
+        glm::vec3 camera_position;
+        glm::vec3 front;
+        glm::vec3 up;
+        glm::vec3 right;
+        glm::vec3 world_up;
 
-    void updateCameraVectors();
+        glm::mat4x4 projection;
 
-};
+        float yaw;
+        float pitch;
+        float aspect_ratio;
+        float near_plane;
+        float far_plane;
+        float speed;
+        float sensitivity;
+        float fov;
+
+    private:
+
+        void updateCameraVectors();
+
+    };
+}

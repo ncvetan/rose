@@ -14,11 +14,11 @@ namespace rose
 
 		void operator=(const Logger&) = delete;
 
-		static void Initialize();
+		static void initialize();
 
-		static std::shared_ptr<spdlog::logger>& GetLogger();
+		static std::shared_ptr<spdlog::logger>& get_logger();
 
-		static void SetLevel(spdlog::level::level_enum level);
+		static void set_level(spdlog::level::level_enum level);
 
 	private:
 
@@ -31,16 +31,17 @@ namespace rose
 	};
 }
 
-// We can exclude our logging on release builds by using conditional compilation
-#define LOG_TRACE(...)	rose::Logger::GetLogger()->trace(__VA_ARGS__)
-#define LOG_INFO(...)	rose::Logger::GetLogger()->info(__VA_ARGS__)
-#define LOG_WARN(...)	rose::Logger::GetLogger()->warn(__VA_ARGS__)
-#define LOG_ERROR(...)	rose::Logger::GetLogger()->error(__VA_ARGS__)
+#define LOG_TRACE(...)	rose::Logger::get_logger()->trace(__VA_ARGS__)
+#define LOG_DEBUG(...)	rose::Logger::get_logger()->debug(__VA_ARGS__)
+#define LOG_INFO(...)	rose::Logger::get_logger()->info(__VA_ARGS__)
+#define LOG_WARN(...)	rose::Logger::get_logger()->warn(__VA_ARGS__)
+#define LOG_ERROR(...)	rose::Logger::get_logger()->error(__VA_ARGS__)
 
+// Strip logging on release builds
 #ifdef ROSE_RELEASE_BUILD
-#define LOG_TRACE
-#define LOG_INFO
-#define LOG_WARN
-#define LOG_ERROR
+#define LOG_TRACE(...)
+#define LOG_INFO(...)
+#define LOG_WARN(...)
+#define LOG_ERROR(...)
 #endif
 

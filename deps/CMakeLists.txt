@@ -1,0 +1,5 @@
+add_subdirectory("glew-cmake")
+add_subdirectory("glfw")
+set(BUILD_STATIC_LIBS true)
+add_subdirectory("glm")
+add_subdirectory("spdlog")

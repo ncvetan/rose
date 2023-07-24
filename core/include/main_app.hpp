@@ -18,12 +18,12 @@ namespace rose
 
 		void Run();
 
-		Platform GetPlatform() const;
+		Platform get_platform() const;
 
 	private:
 
 		Platform platform_ = Platform::None;
-		std::unique_ptr<rose::Window> window_;
+		std::unique_ptr<rose::Window> window;
 		bool is_running;
 	};
 }
