@@ -2,9 +2,8 @@
 
 #include <vector>
 
-#include <glad/glad.h>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#include <glm.hpp>
+#include <gtc/matrix_transform.hpp>
 
 #include <logger.hpp>
 
@@ -19,53 +18,42 @@ namespace rose
         UP,
         DOWN
     };
-
-    const float YAW = -90.0f;
-    const float PITCH = 0.0f;
-    const float SPEED = 2.5f;
-    const float SENSITIVITY = 0.1f;
-    const float ZOOM = 45.0f;
+    
+    class Camera{};
 
     class CameraGL
     {
     public:
 
-        CameraGL(float fov, float aspect_ratio, float near_clip = 0.1f, float far_clip = 100.0f);
+        CameraGL();
 
-        CameraGL(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), float yaw = YAW, float pitch = PITCH);
+        glm::mat4 get_view_matrix();
 
-        CameraGL(float posX, float posY, float posZ, float upX, float upY, float upZ, float yaw, float pitch);
+        void update_projection_mat();
 
-        glm::mat4 GetViewMatrix();
+        void process_keyboard(CameraMovement direction, float deltaTime);
 
-        void UpdateProjectionMatrix();
+        void process_mouse_movement(float xoffset, float yoffset, bool constrain_pitch = true);
 
-        void ProcessKeyboard(CameraMovement direction, float deltaTime);
+        void process_mouse_scroll(float yoffset);
 
-        void ProcessMouseMovement(float xoffset, float yoffset, GLboolean constrainPitch = true);
+        glm::vec3 camera_position = glm::vec3(0.0f, 0.0f, 0.0f);
+        glm::vec3 front = glm::vec3(1.0f, 0.0f, 0.0f);
+        glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
+        glm::vec3 right = glm::vec3(1.0f, 0.0f, 0.0f);;
+        glm::vec3 world_up = glm::vec3(0.0f, 1.0f, 0.0f);;
+        glm::mat4x4 projection{};
 
-        void ProcessMouseScroll(float yoffset);
-
-        glm::vec3 camera_position;
-        glm::vec3 front;
-        glm::vec3 up;
-        glm::vec3 right;
-        glm::vec3 world_up;
-
-        glm::mat4x4 projection;
-
-        float yaw;
-        float pitch;
-        float aspect_ratio;
-        float near_plane;
-        float far_plane;
-        float speed;
-        float sensitivity;
-        float fov;
+        float yaw = -90.0f;
+        float pitch = 0.0f;
+        float speed = 2.5f;
+        float sensitivity = 0.1f;
+        float zoom = 45.0f;
+        float aspect_ratio = 16 / 9;
+        float near_plane = 0.1f;
+        float far_plane = 100.0f;
 
     private:
-
-        void updateCameraVectors();
-
+        void update_camera_vectors();
     };
 }

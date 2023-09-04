@@ -1,6 +1,6 @@
 .vs/
 .git/
+out/
+build/
 CMakeSettings.json
-.build/
-.out/
 TODO.txt

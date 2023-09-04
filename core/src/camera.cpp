@@ -1,39 +1,20 @@
 #include <camera.hpp>
 
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#include <glm.hpp>
+#include <gtc/matrix_transform.hpp>
 
 namespace rose
 {
-    CameraGL::CameraGL(float fov, float aspect_ratio, float near_plane, float far_plane) 
-        : fov(fov), aspect_ratio(aspect_ratio), up(glm::vec3(0.0f, 1.0f, 0.0f)), near_plane(near_plane), far_plane(far_plane), world_up(glm::vec3(0.0f, 1.0f, 0.0f)) {};
+    CameraGL::CameraGL() {}
 
-    //CameraGL::CameraGL(glm::vec3 position, glm::vec3 up, float yaw, float pitch) : front(glm::vec3(0.0f, 0.0f, -1.0f)), speed(SPEED), sensitivity(SENSITIVITY), fov(ZOOM)
-    //{
-    //    camera_position = position;
-    //    world_up = up;
-    //    yaw = yaw;
-    //    pitch = pitch;
-    //    updateCameraVectors();
-    //}
-    //
-    //CameraGL::CameraGL(float posX, float posY, float posZ, float upX, float upY, float upZ, float yaw, float pitch) : front(glm::vec3(0.0f, 0.0f, -1.0f)), speed(SPEED), sensitivity(SENSITIVITY), fov(ZOOM)
-    //{
-    //    camera_position = glm::vec3(posX, posY, posZ);
-    //    world_up = glm::vec3(upX, upY, upZ);
-    //    yaw = yaw;
-    //    pitch = pitch;
-    //    updateCameraVectors();
-    //}
-
-    glm::mat4 CameraGL::GetViewMatrix()
+    glm::mat4 CameraGL::get_view_matrix()
     {
         return glm::lookAt(camera_position, camera_position + front, up);
     }
 
-    void CameraGL::ProcessKeyboard(CameraMovement direction, float deltaTime)
+    void CameraGL::process_keyboard(CameraMovement direction, float delta_time)
     {
-        float velocity = speed * deltaTime;
+        float velocity = speed * delta_time;
 
         if (direction == CameraMovement::FORWARD)
             camera_position += front * velocity;
@@ -49,7 +30,7 @@ namespace rose
             camera_position -= up * velocity;
     }
 
-    void CameraGL::ProcessMouseMovement(float xoffset, float yoffset, GLboolean constrainPitch)
+    void CameraGL::process_mouse_movement(float xoffset, float yoffset, bool constrain_pitch)
     {
         xoffset *= sensitivity;
         yoffset *= sensitivity;
@@ -57,37 +38,35 @@ namespace rose
         yaw += xoffset;
         pitch += yoffset;
 
-        if (constrainPitch)
+        if (constrain_pitch)
         {
             if (pitch > 89.0f) pitch = 89.0f;
             if (pitch < -89.0f) pitch = -89.0f;
         }
    
-        updateCameraVectors();
+        update_camera_vectors();
     }
 
-    void CameraGL::ProcessMouseScroll(float yoffset)
+    void CameraGL::process_mouse_scroll(float yoffset)
     {
-        fov -= yoffset;
+        zoom -= yoffset;
 
-        if (fov < 1.0f) fov = 1.0f;
-        if (fov > 45.0f) fov = 45.0f;
+        if (zoom < 1.0f) zoom = 1.0f;
+        if (zoom > 45.0f) zoom = 45.0f;
     }
 
-    void CameraGL::UpdateProjectionMatrix()
+    void CameraGL::update_projection_mat()
     {
-        projection = glm::perspective(glm::radians(fov), aspect_ratio, near_plane, far_plane);
+        projection = glm::perspective(glm::radians(zoom), aspect_ratio, near_plane, far_plane);
     };
 
-    void CameraGL::updateCameraVectors()
+    void CameraGL::update_camera_vectors()
     {
-
         glm::vec3 front;
         front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
         front.y = sin(glm::radians(pitch));
         front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
         front = glm::normalize(front);
-
         right = glm::normalize(glm::cross(front, world_up));
         up = glm::normalize(glm::cross(right, front));
     }

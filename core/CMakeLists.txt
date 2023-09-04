@@ -1,29 +1,26 @@
-include_directories("include")
-include_directories("${PROJECT_SOURCE_DIR}/deps/stb")
+include_directories("./include")
 
-set(DEPENDENCIES glm::glm_static spdlog::spdlog libglew_static glfw)
-set(core_lib "${PROJECT_NAME}_lib")
-
-add_library(core_lib STATIC
-    "src/shader.cpp"
+add_library(rose_lib STATIC
+    "src/application.cpp"
     "src/camera.cpp"
-    "src/texture.cpp"
-    "src/window_manager.cpp"
+    "src/event.cpp"
     "src/logger.cpp"
-    "src/main_app.cpp"
+    "src/shader.cpp"
+    "src/texture.cpp"
+    "src/window.cpp"
 
-    "include/shader.hpp"
+    "include/application.hpp"
     "include/camera.hpp"
-    "include/texture.hpp"
-    "include/window_manager.hpp"
+    "include/event.hpp"
     "include/logger.hpp"
-    "include/main_app.hpp"
+    "include/shader.hpp"
+    "include/texture.hpp"
+    "include/window.hpp"
 )
 
-set_property(TARGET core_lib PROPERTY LINKER_LANGUAGE CXX)
-set_property(TARGET core_lib PROPERTY CXX_STANDARD 17)
-target_link_libraries(core_lib PUBLIC DEPENDENCIES)
+target_include_directories(rose_lib PUBLIC ${DEPS_INCLUDE_DIRS})
+target_link_libraries(rose_lib PUBLIC ${DEPS_LIBRARIES})
 
-add_executable(${PROJECT_NAME} "main.cpp")
-target_link_libraries(${PROJECT_NAME} PUBLIC core_lib DEPENDENCIES)
-add_compile_definitions("$<$<CONFIG:Release>:ATLAS_RELEASE_BUILD>")
+add_executable(rose "main.cpp")
+target_link_libraries(rose PUBLIC rose_lib)
+add_compile_definitions("$<$<CONFIG:Release>:ROSE_RELEASE_BUILD>")
