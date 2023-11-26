@@ -11,22 +11,7 @@
 
 namespace rose {
 
-// Interface
-template <typename T>
-class Window {
-  public:
-    Window() = default;
-
-    inline bool init() { return static_cast<T*>(this)->init(); };
-
-    inline void enable_vsync(bool enable) { static_cast<T*>(this)->enable_vsync(); };
-
-    inline void update() { static_cast<T*>(this)->update(); };
-
-    inline void destroy() { static_cast<T*>(this)->destroy(); };
-};
-
-class WindowGLFW : public Window<WindowGLFW> {
+class WindowGLFW {
   public:
     WindowGLFW() = default;
 

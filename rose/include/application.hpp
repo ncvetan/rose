@@ -1,23 +1,32 @@
 #pragma once
 
 #include <window.hpp>
+#include <concepts>
 
 namespace rose {
-template <typename T>
+
+template <class T>
+concept platform = requires(T t) {
+    { t.init() } -> std::same_as<bool>;
+    { t.update() } -> std::same_as<void>;
+    { t.destroy() } -> std::same_as<void>;
+};
+
+template <platform T>
 class RoseApp {
   public:
     RoseApp() = default;
 
-    bool init() { return static_cast<Window<T>*>(&window)->init(); }
+    bool init() { return window.init(); }
 
     void run() {
         is_running = true;
         while (is_running) {
-            static_cast<Window<T>*>(&window)->update();
+            window.update();
         }
     }
 
-    void shutdown() { static_cast<Window<T>*>(&window)->destroy(); }
+    void shutdown() { window.destroy(); }
 
     T window;
     bool is_running = false;
