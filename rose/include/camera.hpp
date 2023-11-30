@@ -17,7 +17,7 @@ class CameraGL {
     CameraGL();
 
     glm::mat4 view_matrix();
-    glm::mat4 projection_matrix();
+    glm::mat4 projection_matrix(float aspect_ratio);
     void process_keyboard(CameraMovement direction, float delta_time);
     void process_mouse_movement(float xoffset, float yoffset);
     void process_mouse_scroll(float yoffset);
@@ -34,7 +34,6 @@ class CameraGL {
     float speed = 2.5f;
     float sensitivity = 0.1f;
     float zoom = 45.0f;
-    float aspect_ratio = 16 / 9;
     float near_plane = 0.1f;
     float far_plane = 100.0f;
 

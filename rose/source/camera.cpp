@@ -14,7 +14,7 @@ glm::mat4 CameraGL::view_matrix() {
     return test;
 }
 
-glm::mat4 CameraGL::projection_matrix() {
+glm::mat4 CameraGL::projection_matrix(float aspect_ratio) {
     return glm::perspective(glm::radians(zoom), aspect_ratio, near_plane, far_plane);
 }
 

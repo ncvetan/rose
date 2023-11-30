@@ -23,7 +23,9 @@ class WindowGLFW {
     double get_time();
 
     GLFWwindow* window = nullptr;
-    ShaderGL shader{};
+    ShaderGL texture_shader{};
+    ShaderGL light_object_shader{};
+    ShaderGL light_source_shader{};
     CameraGL camera{};
 
   private:

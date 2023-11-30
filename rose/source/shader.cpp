@@ -92,4 +92,8 @@ void ShaderGL::set_mat4(const std::string& name, const glm::mat4& value) const {
     glUniformMatrix4fv(glGetUniformLocation(id, name.c_str()), 1, GL_FALSE, &value[0][0]);
 }
 
+void ShaderGL::set_vec3(const std::string& name, const glm::vec3& value) const {
+    glUniform3f(glGetUniformLocation(id, name.c_str()), value.x, value.y, value.z);
+}
+
 } // namespace rose
