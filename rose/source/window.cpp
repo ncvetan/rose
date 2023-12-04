@@ -14,7 +14,7 @@ float LAST_X = 400, LAST_Y = 300;
 float delta_time = 0.0f;
 float last_frame_time = 0.0f;
 
-float vertices[] = {
+float cube_vertices[] = {
     // positions // normals // texture coords
     -0.5f, -0.5f, -0.5f, 0.0f,  0.0f,  -1.0f, 0.0f, 0.0f, 0.5f,  -0.5f, -0.5f, 0.0f,  0.0f,  -1.0f, 1.0f, 0.0f,
     0.5f,  0.5f,  -0.5f, 0.0f,  0.0f,  -1.0f, 1.0f, 1.0f, 0.5f,  0.5f,  -0.5f, 0.0f,  0.0f,  -1.0f, 1.0f, 1.0f,
@@ -36,16 +36,10 @@ float vertices[] = {
     -0.5f, 0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 0.0f, -0.5f, 0.5f,  -0.5f, 0.0f,  1.0f,  0.0f,  0.0f, 1.0f
 };
 
-static glm::vec3 cube_positions[] = { glm::vec3(0.0f, 0.0f, 0.0f),    glm::vec3(2.0f, 5.0f, -15.0f),
-                                      glm::vec3(-1.5f, -2.2f, -2.5f), glm::vec3(-3.8f, -2.0f, -12.3f),
-                                      glm::vec3(2.4f, -0.4f, -3.5f),  glm::vec3(-1.7f, 3.0f, -7.5f),
-                                      glm::vec3(1.3f, -2.0f, -2.5f),  glm::vec3(1.5f, 2.0f, -2.5f),
-                                      glm::vec3(1.5f, 0.2f, -1.5f),   glm::vec3(-1.3f, 1.0f, -1.5f) };
-
 glm::vec3 light_pos = { 1.2f, 1.0f, 2.0f };
 
 static unsigned int VBO{};
-static unsigned int VAO{};
+static unsigned int object_VAO{};
 static unsigned int light_VAO{};
 
 bool WindowGLFW::init() {
@@ -73,6 +67,7 @@ bool WindowGLFW::init() {
 
     glfwSetWindowUserPointer(window, this);
     glfwMakeContextCurrent(window);
+    glfwSetWindowSizeCallback(window, resize_callback);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
@@ -89,16 +84,16 @@ bool WindowGLFW::init() {
 
     LOG_INFO("Glew successfully initialized version: {}", (const char*)glewGetString(GLEW_VERSION));
 
-    glViewport(0, 0, 1280, 720);
+    glViewport(0, 0, width, height);
     glEnable(GL_DEPTH_TEST);
 
-    glGenVertexArrays(1, &VAO);
+    glGenVertexArrays(1, &object_VAO);
     glGenBuffers(1, &VBO);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(cube_vertices), cube_vertices, GL_STATIC_DRAW);
 
-    glBindVertexArray(VAO);
+    glBindVertexArray(object_VAO);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
@@ -111,7 +106,7 @@ bool WindowGLFW::init() {
 
     glGenVertexArrays(1, &light_VAO);
     glBindVertexArray(light_VAO);
-    
+
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
@@ -149,26 +144,23 @@ void WindowGLFW::update() {
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        int window_w = 0;
-        int window_h = 0;
-        glfwGetWindowSize(window, &window_w, &window_h);
-
-
         light_object_shader.use();
-        light_object_shader.set_vec3("object_color", glm::vec3(1.0f, 0.5f, 0.31f));
-        light_object_shader.set_vec3("light_color", glm::vec3(1.0f, 1.0f, 1.0f));
-        light_object_shader.set_vec3("light_pos", light_pos);
-        
-        glm::mat4 projection = camera.projection_matrix(static_cast<float>(window_w / window_h));
+        // vertex shader uniforms
+        glm::mat4 projection = camera.projection_matrix(static_cast<float>(width / height));
         light_object_shader.set_mat4("projection", projection);
-        
         glm::mat4 view = camera.view_matrix();
         light_object_shader.set_mat4("view", view);
-        
         glm::mat4 model = glm::mat4(1.0f);
         light_object_shader.set_mat4("model", model);
 
-        glBindVertexArray(VAO);
+        // fragment shader uniforms
+        light_object_shader.set_vec3("object_color", glm::vec3(1.0f, 0.5f, 0.31f));
+        light_object_shader.set_vec3("light_color", glm::vec3(1.0f, 1.0f, 1.0f));
+        light_object_shader.set_vec3("light_pos", light_pos);
+        light_object_shader.set_vec3("camera_pos", camera.position);
+
+
+        glBindVertexArray(object_VAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
         light_source_shader.use();
@@ -190,7 +182,7 @@ void WindowGLFW::destroy() {
     glfwDestroyWindow(window);
     glfwTerminate();
     window = nullptr;
-    glDeleteVertexArrays(1, &VAO);
+    glDeleteVertexArrays(1, &object_VAO);
     glDeleteBuffers(1, &VBO);
 };
 
@@ -218,6 +210,12 @@ void mouse_callback(GLFWwindow* window, double xpos_in, double ypos_in) {
     LAST_Y = ypos;
 
     window_state->camera.process_mouse_movement(xoffset, yoffset);
+}
+
+void resize_callback(GLFWwindow* window, int width, int height) {
+    WindowGLFW* window_state = (WindowGLFW*)glfwGetWindowUserPointer(window);
+    window_state->width = width;
+    window_state->height = height;
 }
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {

@@ -10,7 +10,7 @@ namespace rose {
 CameraGL::CameraGL() {}
 
 glm::mat4 CameraGL::view_matrix() {
-    auto test = glm::lookAt(camera_position, camera_position + front, up);
+    auto test = glm::lookAt(position, position + front, up);
     return test;
 }
 
@@ -20,12 +20,12 @@ glm::mat4 CameraGL::projection_matrix(float aspect_ratio) {
 
 void CameraGL::process_keyboard(CameraMovement direction, float delta_time) {
     float velocity = speed * delta_time;
-    if (direction == CameraMovement::FORWARD) camera_position += front * velocity;
-    if (direction == CameraMovement::BACKWARD) camera_position -= front * velocity;
-    if (direction == CameraMovement::LEFT) camera_position -= right * velocity;
-    if (direction == CameraMovement::RIGHT) camera_position += right * velocity;
-    if (direction == CameraMovement::UP) camera_position += up * velocity;
-    if (direction == CameraMovement::DOWN) camera_position -= up * velocity;
+    if (direction == CameraMovement::FORWARD) position += front * velocity;
+    if (direction == CameraMovement::BACKWARD) position -= front * velocity;
+    if (direction == CameraMovement::LEFT) position -= right * velocity;
+    if (direction == CameraMovement::RIGHT) position += right * velocity;
+    if (direction == CameraMovement::UP) position += up * velocity;
+    if (direction == CameraMovement::DOWN) position -= up * velocity;
 }
 
 void CameraGL::process_mouse_movement(float xoffset, float yoffset) {

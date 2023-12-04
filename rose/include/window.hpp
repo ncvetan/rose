@@ -28,11 +28,12 @@ class WindowGLFW {
     ShaderGL light_source_shader{};
     CameraGL camera{};
 
-  private:
-    unsigned int width = 1280;
-    unsigned int height = 720;
+    uint16_t width = 1280;
+    uint16_t height = 720;
     std::string name = "Rose";
 };
+
+void resize_callback(GLFWwindow* window, int width, int height);
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 
