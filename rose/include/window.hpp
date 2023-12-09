@@ -20,17 +20,16 @@ class WindowGLFW {
     void update();
     void destroy();
 
-    double get_time();
-
     GLFWwindow* window = nullptr;
-    ShaderGL texture_shader{};
     ShaderGL light_object_shader{};
     ShaderGL light_source_shader{};
     CameraGL camera{};
+    unsigned int texture;
 
     uint16_t width = 1280;
     uint16_t height = 720;
     std::string name = "Rose";
+    glm::vec2 last_xy = { 0.0f, 0.0f };
 };
 
 void resize_callback(GLFWwindow* window, int width, int height);

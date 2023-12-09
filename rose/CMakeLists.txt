@@ -26,5 +26,5 @@ target_link_libraries(rose PUBLIC rose_lib)
 
 target_compile_definitions(rose PUBLIC OPENGL)
 
-add_compile_definitions(SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+add_compile_definitions(SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 add_compile_definitions("$<$<CONFIG:Release>:ROSE_RELEASE_BUILD>")

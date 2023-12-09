@@ -3,38 +3,17 @@
 
 #include <logger.hpp>
 #include <shader.hpp>
+#include <texture.hpp>
 #include <window.hpp>
+#include <object.hpp>
 
 #include <format>
 #include <iostream>
 
 namespace rose {
 
-float LAST_X = 400, LAST_Y = 300;
 float delta_time = 0.0f;
 float last_frame_time = 0.0f;
-
-float cube_vertices[] = {
-    // positions // normals // texture coords
-    -0.5f, -0.5f, -0.5f, 0.0f,  0.0f,  -1.0f, 0.0f, 0.0f, 0.5f,  -0.5f, -0.5f, 0.0f,  0.0f,  -1.0f, 1.0f, 0.0f,
-    0.5f,  0.5f,  -0.5f, 0.0f,  0.0f,  -1.0f, 1.0f, 1.0f, 0.5f,  0.5f,  -0.5f, 0.0f,  0.0f,  -1.0f, 1.0f, 1.0f,
-    -0.5f, 0.5f,  -0.5f, 0.0f,  0.0f,  -1.0f, 0.0f, 1.0f, -0.5f, -0.5f, -0.5f, 0.0f,  0.0f,  -1.0f, 0.0f, 0.0f,
-    -0.5f, -0.5f, 0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f, 0.5f,  -0.5f, 0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 0.0f,
-    0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 1.0f, 0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 1.0f,
-    -0.5f, 0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 1.0f, -0.5f, -0.5f, 0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
-    -0.5f, 0.5f,  0.5f,  -1.0f, 0.0f,  0.0f,  1.0f, 0.0f, -0.5f, 0.5f,  -0.5f, -1.0f, 0.0f,  0.0f,  1.0f, 1.0f,
-    -0.5f, -0.5f, -0.5f, -1.0f, 0.0f,  0.0f,  0.0f, 1.0f, -0.5f, -0.5f, -0.5f, -1.0f, 0.0f,  0.0f,  0.0f, 1.0f,
-    -0.5f, -0.5f, 0.5f,  -1.0f, 0.0f,  0.0f,  0.0f, 0.0f, -0.5f, 0.5f,  0.5f,  -1.0f, 0.0f,  0.0f,  1.0f, 0.0f,
-    0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f, 0.5f,  0.5f,  -0.5f, 1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
-    0.5f,  -0.5f, -0.5f, 1.0f,  0.0f,  0.0f,  0.0f, 1.0f, 0.5f,  -0.5f, -0.5f, 1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-    0.5f,  -0.5f, 0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 0.0f, 0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
-    -0.5f, -0.5f, -0.5f, 0.0f,  -1.0f, 0.0f,  0.0f, 1.0f, 0.5f,  -0.5f, -0.5f, 0.0f,  -1.0f, 0.0f,  1.0f, 1.0f,
-    0.5f,  -0.5f, 0.5f,  0.0f,  -1.0f, 0.0f,  1.0f, 0.0f, 0.5f,  -0.5f, 0.5f,  0.0f,  -1.0f, 0.0f,  1.0f, 0.0f,
-    -0.5f, -0.5f, 0.5f,  0.0f,  -1.0f, 0.0f,  0.0f, 0.0f, -0.5f, -0.5f, -0.5f, 0.0f,  -1.0f, 0.0f,  0.0f, 1.0f,
-    -0.5f, 0.5f,  -0.5f, 0.0f,  1.0f,  0.0f,  0.0f, 1.0f, 0.5f,  0.5f,  -0.5f, 0.0f,  1.0f,  0.0f,  1.0f, 1.0f,
-    0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f, 0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
-    -0.5f, 0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 0.0f, -0.5f, 0.5f,  -0.5f, 0.0f,  1.0f,  0.0f,  0.0f, 1.0f
-};
 
 glm::vec3 light_pos = { 1.2f, 1.0f, 2.0f };
 
@@ -87,11 +66,13 @@ bool WindowGLFW::init() {
     glViewport(0, 0, width, height);
     glEnable(GL_DEPTH_TEST);
 
+    Cube cube{};
+
     glGenVertexArrays(1, &object_VAO);
     glGenBuffers(1, &VBO);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(cube_vertices), cube_vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, cube.size(), cube.verts.data(), GL_STATIC_DRAW);
 
     glBindVertexArray(object_VAO);
 
@@ -112,22 +93,23 @@ bool WindowGLFW::init() {
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
-    if (!texture_shader.init(std::format("{}/shaders/texture_mixed.vs", SOURCE_DIR),
-                             std::format("{}/shaders/texture_mixed.fs", SOURCE_DIR))) {
-        LOG_ERROR("Unable to texture shader");
-    }
-
-    if (!light_object_shader.init(std::format("{}/shaders/light_object.vs", SOURCE_DIR),
-                                  std::format("{}/shaders/light_object.fs", SOURCE_DIR))) {
+    if (!light_object_shader.init(std::format("{}/rose/shaders/light_object.vert", SOURCE_DIR),
+                                  std::format("{}/rose/shaders/light_object.frag", SOURCE_DIR))) {
         LOG_ERROR("Unable to load light object shader");
     }
 
-    if (!light_source_shader.init(std::format("{}/shaders/light_source.vs", SOURCE_DIR),
-                                  std::format("{}/shaders/light_source.fs", SOURCE_DIR))) {
+    if (!light_source_shader.init(std::format("{}/rose/shaders/light_source.vert", SOURCE_DIR),
+                                  std::format("{}/rose/shaders/light_source.frag", SOURCE_DIR))) {
         LOG_ERROR("Unable to load light source shader");
     }
 
     stbi_set_flip_vertically_on_load(true);
+
+    // Load and create texture
+
+    std::optional<unsigned int> texture = load_texture(std::format("{}/textures/texture1.png", SOURCE_DIR));
+
+    if (texture) this->texture = texture.value();
 
     return true;
 };
@@ -145,20 +127,24 @@ void WindowGLFW::update() {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         light_object_shader.use();
-        // vertex shader uniforms
-        glm::mat4 projection = camera.projection_matrix(static_cast<float>(width / height));
+        glm::mat4 projection = camera.projection_matrix(static_cast<float>(width) / static_cast<float>(height));
         light_object_shader.set_mat4("projection", projection);
         glm::mat4 view = camera.view_matrix();
         light_object_shader.set_mat4("view", view);
         glm::mat4 model = glm::mat4(1.0f);
         light_object_shader.set_mat4("model", model);
-
-        // fragment shader uniforms
-        light_object_shader.set_vec3("object_color", glm::vec3(1.0f, 0.5f, 0.31f));
-        light_object_shader.set_vec3("light_color", glm::vec3(1.0f, 1.0f, 1.0f));
-        light_object_shader.set_vec3("light_pos", light_pos);
         light_object_shader.set_vec3("camera_pos", camera.position);
 
+        light_object_shader.set_vec3("light_pos", light_pos);
+        light_object_shader.set_vec3("light.diffuse", glm::vec3(1.0f, 1.0f, 1.0f));
+        light_object_shader.set_vec3("light.specular", glm::vec3(1.0f, 1.0f, 1.0f));
+        light_object_shader.set_vec3("material.ambient", glm::vec3(1.0f, 0.5f, 0.31f));
+        light_object_shader.set_int("material.diffuse", 0);
+        light_object_shader.set_vec3("material.specular", glm::vec3(0.5f, 0.5f, 0.5f));
+        light_object_shader.set_float("material.shine_factor", 32.0f);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texture);
 
         glBindVertexArray(object_VAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
@@ -186,14 +172,7 @@ void WindowGLFW::destroy() {
     glDeleteBuffers(1, &VBO);
 };
 
-double WindowGLFW::get_time() { return glfwGetTime(); };
-
-void WindowGLFW::enable_vsync(bool enable) {
-    if (enable)
-        glfwSwapInterval(1);
-    else
-        glfwSwapInterval(0);
-};
+void WindowGLFW::enable_vsync(bool enable) { (enable) ? glfwSwapInterval(1) : glfwSwapInterval(0); };
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) { glViewport(0, 0, width, height); }
 
@@ -203,11 +182,11 @@ void mouse_callback(GLFWwindow* window, double xpos_in, double ypos_in) {
     float xpos = static_cast<float>(xpos_in);
     float ypos = static_cast<float>(ypos_in);
 
-    float xoffset = xpos - LAST_X;
-    float yoffset = LAST_Y - ypos;
+    float xoffset = xpos - window_state->last_xy.x;
+    float yoffset = window_state->last_xy.y - ypos;
 
-    LAST_X = xpos;
-    LAST_Y = ypos;
+    window_state->last_xy.x = xpos;
+    window_state->last_xy.y = ypos;
 
     window_state->camera.process_mouse_movement(xoffset, yoffset);
 }

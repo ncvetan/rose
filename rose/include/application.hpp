@@ -1,4 +1,5 @@
-#pragma once
+#ifndef ROSE_INCLUDE_APPLICATION
+#define ROSE_INCLUDE_APPLICATION
 
 #include <window.hpp>
 #include <concepts>
@@ -32,3 +33,5 @@ class RoseApp {
     bool is_running = false;
 };
 } // namespace rose
+
+#endif

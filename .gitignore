@@ -2,5 +2,6 @@
 .git/
 out/
 build/
+textures/
 CMakeSettings.json
 TODO.txt
