@@ -6,8 +6,8 @@ layout (location = 2) in vec2 a_tex_coords;
 
 out vec3 frag_pos;
 out vec3 normal;
-out vec3 light_pos_view;
 out vec2 tex_coords;
+out vec3 light_pos_view;
 
 uniform vec3 light_pos;
 uniform mat4 model;

@@ -136,6 +136,7 @@ void WindowGLFW::update() {
         light_object_shader.set_vec3("camera_pos", camera.position);
 
         light_object_shader.set_vec3("light_pos", light_pos);
+        light_object_shader.set_vec3("light.ambient", glm::vec3(1.0f, 1.0f, 1.0f));
         light_object_shader.set_vec3("light.diffuse", glm::vec3(1.0f, 1.0f, 1.0f));
         light_object_shader.set_vec3("light.specular", glm::vec3(1.0f, 1.0f, 1.0f));
         light_object_shader.set_vec3("material.ambient", glm::vec3(1.0f, 0.5f, 0.31f));
@@ -153,7 +154,7 @@ void WindowGLFW::update() {
         light_source_shader.set_mat4("projection", projection);
         light_source_shader.set_mat4("view", view);
         model = glm::translate(model, light_pos);
-        model = glm::scale(model, glm::vec3(0.2f)); // a smaller cube
+        model = glm::scale(model, glm::vec3(0.2f));
         light_source_shader.set_mat4("model", model);
 
         glBindVertexArray(light_VAO);
