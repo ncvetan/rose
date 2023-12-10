@@ -2,10 +2,10 @@
 #include <stb_image.h>
 
 #include <logger.hpp>
+#include <object.hpp>
 #include <shader.hpp>
 #include <texture.hpp>
 #include <window.hpp>
-#include <object.hpp>
 
 #include <format>
 #include <iostream>
@@ -107,9 +107,11 @@ bool WindowGLFW::init() {
 
     // Load and create texture
 
-    std::optional<unsigned int> texture = load_texture(std::format("{}/textures/texture1.png", SOURCE_DIR));
+    std::optional<unsigned int> diffuse_map = load_texture(std::format("{}/textures/diffuse_map.png", SOURCE_DIR));
+    if (diffuse_map) this->diffuse_map = diffuse_map.value();
 
-    if (texture) this->texture = texture.value();
+    std::optional<unsigned int> specular_map = load_texture(std::format("{}/textures/specular_map.png", SOURCE_DIR));
+    if (specular_map) this->specular_map = specular_map.value();
 
     return true;
 };
@@ -136,16 +138,18 @@ void WindowGLFW::update() {
         light_object_shader.set_vec3("camera_pos", camera.position);
 
         light_object_shader.set_vec3("light_pos", light_pos);
-        light_object_shader.set_vec3("light.ambient", glm::vec3(1.0f, 1.0f, 1.0f));
-        light_object_shader.set_vec3("light.diffuse", glm::vec3(1.0f, 1.0f, 1.0f));
+        light_object_shader.set_vec3("light.ambient", glm::vec3(0.15f, 0.15f, 0.15f));
+        light_object_shader.set_vec3("light.diffuse", glm::vec3(0.5f, 0.5f, 0.5f));
         light_object_shader.set_vec3("light.specular", glm::vec3(1.0f, 1.0f, 1.0f));
-        light_object_shader.set_vec3("material.ambient", glm::vec3(1.0f, 0.5f, 0.31f));
         light_object_shader.set_int("material.diffuse", 0);
-        light_object_shader.set_vec3("material.specular", glm::vec3(0.5f, 0.5f, 0.5f));
+        light_object_shader.set_int("material.specular", 1);
+        light_object_shader.set_vec3("material.ambient", glm::vec3(1.0f, 0.5f, 0.31f));
         light_object_shader.set_float("material.shine_factor", 32.0f);
 
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texture);
+        glBindTexture(GL_TEXTURE_2D, diffuse_map);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, specular_map);
 
         glBindVertexArray(object_VAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);

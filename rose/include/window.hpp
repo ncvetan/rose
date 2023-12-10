@@ -24,7 +24,8 @@ class WindowGLFW {
     ShaderGL light_object_shader{};
     ShaderGL light_source_shader{};
     CameraGL camera{};
-    unsigned int texture;
+    unsigned int diffuse_map;
+    unsigned int specular_map;
 
     uint16_t width = 1280;
     uint16_t height = 720;
