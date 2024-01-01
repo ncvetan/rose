@@ -113,10 +113,20 @@ bool WindowGLFW::init() {
     std::optional<unsigned int> specular_map = load_texture(std::format("{}/textures/specular_map.png", SOURCE_DIR));
     if (specular_map) this->specular_map = specular_map.value();
 
+    std::optional<unsigned int> emission_map = load_texture(std::format("{}/textures/emission_map.jpg", SOURCE_DIR));
+    if (emission_map) this->emission_map = emission_map.value();
+
     return true;
 };
 
 void WindowGLFW::update() {
+
+    glm::vec3 cube_positions[] = { glm::vec3(0.0f, 0.0f, 0.0f),    glm::vec3(2.0f, 5.0f, -15.0f),
+                                   glm::vec3(-1.5f, -2.2f, -2.5f), glm::vec3(-3.8f, -2.0f, -12.3f),
+                                   glm::vec3(2.4f, -0.4f, -3.5f),  glm::vec3(-1.7f, 3.0f, -7.5f),
+                                   glm::vec3(1.3f, -2.0f, -2.5f),  glm::vec3(1.5f, 2.0f, -2.5f),
+                                   glm::vec3(1.5f, 0.2f, -1.5f),   glm::vec3(-1.3f, 1.0f, -1.5f) };
+
     while (!glfwWindowShouldClose(window)) {
 
         float current_frame_time = static_cast<float>(glfwGetTime());
@@ -133,14 +143,20 @@ void WindowGLFW::update() {
         light_object_shader.set_mat4("projection", projection);
         glm::mat4 view = camera.view_matrix();
         light_object_shader.set_mat4("view", view);
-        glm::mat4 model = glm::mat4(1.0f);
-        light_object_shader.set_mat4("model", model);
         light_object_shader.set_vec3("camera_pos", camera.position);
 
-        light_object_shader.set_vec3("light_pos", light_pos);
+        // light properties
+        light_object_shader.set_vec3("light.direction", camera.front); // Spotlight
+        light_object_shader.set_float("light.cutoff", glm::cos(glm::radians(12.5f)));
+
         light_object_shader.set_vec3("light.ambient", glm::vec3(0.15f, 0.15f, 0.15f));
         light_object_shader.set_vec3("light.diffuse", glm::vec3(0.5f, 0.5f, 0.5f));
         light_object_shader.set_vec3("light.specular", glm::vec3(1.0f, 1.0f, 1.0f));
+        light_object_shader.set_float("light.attn_const", 1.0f);
+        light_object_shader.set_float("light.attn_lin", 0.09f);
+        light_object_shader.set_float("light.attn_quads", 0.032f);
+
+        // material properties
         light_object_shader.set_int("material.diffuse", 0);
         light_object_shader.set_int("material.specular", 1);
         light_object_shader.set_vec3("material.ambient", glm::vec3(1.0f, 0.5f, 0.31f));
@@ -152,11 +168,21 @@ void WindowGLFW::update() {
         glBindTexture(GL_TEXTURE_2D, specular_map);
 
         glBindVertexArray(object_VAO);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
+
+        for (unsigned int i = 0; i < 10; i++) {
+            glm::mat4 model = glm::mat4(1.0f);
+            model = glm::translate(model, cube_positions[i]);
+            float angle = 20.0f * i;
+            model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
+            light_object_shader.set_mat4("model", model);
+            glDrawArrays(GL_TRIANGLES, 0, 36);
+        }
 
         light_source_shader.use();
         light_source_shader.set_mat4("projection", projection);
         light_source_shader.set_mat4("view", view);
+
+        glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model, light_pos);
         model = glm::scale(model, glm::vec3(0.2f));
         light_source_shader.set_mat4("model", model);

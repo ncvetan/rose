@@ -26,6 +26,7 @@ class WindowGLFW {
     CameraGL camera{};
     unsigned int diffuse_map;
     unsigned int specular_map;
+    unsigned int emission_map;
 
     uint16_t width = 1280;
     uint16_t height = 720;
