@@ -25,6 +25,7 @@ class ShaderGL {
     void set_float(const std::string& name, float value) const;
     void set_mat4(const std::string& name, const glm::mat4& value) const;
     void set_vec3(const std::string& name, const glm::vec3&) const;
+    void set_vec4(const std::string& name, const glm::vec4& value) const;
 };
 
 } // namespace rose
