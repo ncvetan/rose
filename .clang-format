@@ -1,8 +1,7 @@
-IndentWidth: 4
-NamespaceIndentation: All
-ColumnLimit: 120
-PointerAlignment: Left
-AllowShortIfStatementsOnASingleLine: true
-Cpp11BracedListStyle: false
-AlwaysBreakTemplateDeclarations: Yes
-NamespaceIndentation: None
+AllowShortIfStatementsOnASingleLine:		true
+AlwaysBreakTemplateDeclarations:			Yes
+ColumnLimit:								120
+Cpp11BracedListStyle:						false
+IndentWidth:								4
+NamespaceIndentation:						None
+PointerAlignment:							Left

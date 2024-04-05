@@ -1,13 +1,14 @@
 #ifndef ROSE_INCLUDE_WINDOW
 #define ROSE_INCLUDE_WINDOW
 
-#include <iostream>
+#include <optional>
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
 #include <camera.hpp>
 #include <shader.hpp>
+#include <err.hpp>
 
 namespace rose {
 
@@ -15,7 +16,7 @@ class WindowGLFW {
   public:
     WindowGLFW() = default;
 
-    bool init();
+    std::optional<rses> init();
     void enable_vsync(bool enable);
     void update();
     void destroy();

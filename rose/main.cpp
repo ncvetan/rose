@@ -1,6 +1,6 @@
 #include <application.hpp>
 #include <logger.hpp>
-#include <window.hpp>
+#include <err.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -15,10 +15,13 @@ int main() {
     return -1;
 #endif
 
-    if (!application.init()) {
-        LOG_ERROR("Rose failed to initialize!");
+    std::optional<rses> err = application.init();
+
+    if (err) { 
+        err::print(err.value());    
         return -1;
     }
+
     application.run();
     application.shutdown();
     return 0;

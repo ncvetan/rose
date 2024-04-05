@@ -8,7 +8,10 @@ namespace rose {
 
 class Texture {
   public:
-    bool init(const std::string& path){};
+    bool init(const std::string& path);
+
+    uint32_t id;
+    enum class Type { NONE, DIFFUSE, SPECULAR } type = Type::NONE;
 };
 
 std::optional<unsigned int> load_texture(const std::string& path);

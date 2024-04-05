@@ -1,8 +1,9 @@
 #include <glm.hpp>
 #include <stb_image.h>
 
+#include <err.hpp>
 #include <logger.hpp>
-#include <object.hpp>
+#include <mesh.hpp>
 #include <shader.hpp>
 #include <texture.hpp>
 #include <window.hpp>
@@ -19,11 +20,10 @@ static unsigned int VBO{};
 static unsigned int object_VAO{};
 static unsigned int light_VAO{};
 
-bool WindowGLFW::init() {
+std::optional<rses> WindowGLFW::init() {
 
-    if (!glfwInit()) {
-        LOG_ERROR("GLFW failed to initialize");
-        return false;
+    if (glfwInit() == GLFW_FALSE) {
+        return rses().gl("GLFW failed to initialize");
     }
 
     LOG_INFO("GLFW successfully initialized version: {}", glfwGetVersionString());
@@ -34,10 +34,9 @@ bool WindowGLFW::init() {
 
     window = glfwCreateWindow(width, height, name.c_str(), NULL, NULL);
 
-    if (window == nullptr) {
-        LOG_ERROR("Failed to create GLFW window");
+    if (!window) {
         glfwTerminate();
-        return false;
+        return rses().gl("Failed to create GLFW window");
     }
 
     LOG_INFO("GLFW window has been successfully created");
@@ -55,8 +54,7 @@ bool WindowGLFW::init() {
     GLenum glew_success = glewInit();
 
     if (glew_success != GLEW_OK) {
-        LOG_ERROR("Glew failed to initialize: {}", (const char*)glewGetErrorString(glew_success));
-        return false;
+        return rses().gl(std::format("Glew failed to initialize: {}", (const char*)glewGetErrorString(glew_success)));
     }
 
     LOG_INFO("Glew successfully initialized version: {}", (const char*)glewGetString(GLEW_VERSION));
@@ -64,13 +62,14 @@ bool WindowGLFW::init() {
     glViewport(0, 0, width, height);
     glEnable(GL_DEPTH_TEST);
 
-    Cube cube{};
+    // todo: fix this code
+    // Cube cube{};
 
     glGenVertexArrays(1, &object_VAO);
     glGenBuffers(1, &VBO);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, cube.size(), cube.verts.data(), GL_STATIC_DRAW);
+    // glBufferData(GL_ARRAY_BUFFER, cube.size(), cube.verts.data(), GL_STATIC_DRAW);
 
     glBindVertexArray(object_VAO);
 
@@ -93,12 +92,12 @@ bool WindowGLFW::init() {
 
     if (!light_object_shader.init(std::format("{}/rose/shaders/light_object.vert", SOURCE_DIR),
                                   std::format("{}/rose/shaders/light_object.frag", SOURCE_DIR))) {
-        LOG_ERROR("Unable to load light object shader");
+        LOG_WARN("Unable to load light object shader");
     }
 
     if (!light_source_shader.init(std::format("{}/rose/shaders/light_source.vert", SOURCE_DIR),
                                   std::format("{}/rose/shaders/light_source.frag", SOURCE_DIR))) {
-        LOG_ERROR("Unable to load light source shader");
+        LOG_WARN("Unable to load light source shader");
     }
 
     stbi_set_flip_vertically_on_load(true);
@@ -114,7 +113,7 @@ bool WindowGLFW::init() {
     std::optional<unsigned int> emission_map = load_texture(std::format("{}/textures/emission_map.jpg", SOURCE_DIR));
     if (emission_map) this->emission_map = emission_map.value();
 
-    return true;
+    return std::nullopt;
 };
 
 void WindowGLFW::update() {
@@ -162,7 +161,7 @@ void WindowGLFW::update() {
         }
 
         // light properties
-        light_object_shader.set_vec3("spot_light.direction", camera.front); // Spotlight
+        light_object_shader.set_vec3("spot_light.direction", camera.front);   // Spotlight
         light_object_shader.set_vec3("spot_light.position", camera.position); // Spotlight
         light_object_shader.set_float("spot_light.inner_cutoff", glm::cos(glm::radians(12.5f)));
         light_object_shader.set_float("spot_light.outer_cutoff", glm::cos(glm::radians(17.5f)));
@@ -200,11 +199,11 @@ void WindowGLFW::update() {
 
         glBindVertexArray(light_VAO);
 
-        for (int i = 0; i < 4; ++i){
+        for (int i = 0; i < 4; ++i) {
             glm::mat4 model = glm::mat4(1.0f);
             model = glm::translate(model, point_light_positions[i]);
             model = glm::scale(model, glm::vec3(0.2f));
-            light_source_shader.set_mat4("model", model);        
+            light_source_shader.set_mat4("model", model);
             glDrawArrays(GL_TRIANGLES, 0, 36);
         }
 
