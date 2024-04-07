@@ -23,7 +23,7 @@ class Mesh {
     Mesh(std::vector<Vertex> verts, std::vector<uint32_t> indices, std::vector<Texture> textures);
 
     void init();
-    void draw(ShaderGL& shader);
+    void draw(ShaderGL& shader) const;
 
     std::vector<Vertex> verts;
     std::vector<uint32_t> indices;
@@ -35,10 +35,10 @@ class Mesh {
 };
 
 class Model {
-  public:
+public:
     Model() = default;
 
-    void draw(ShaderGL& shader);
+    void draw(ShaderGL& shader) const;
     std::optional<rses> load(const std::filesystem::path& path);
 
     std::vector<Mesh> meshes;

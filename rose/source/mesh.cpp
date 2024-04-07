@@ -9,7 +9,14 @@
 #include <format>
 #include <logger.hpp>
 
+namespace fs = std::filesystem;
+
 namespace rose {
+
+// Used for avoiding loading the same texture from disk multiple times
+namespace globals {
+    static std::vector<Texture> loaded_textures = {};
+}
 
 Mesh::Mesh(std::vector<Vertex> verts, std::vector<uint32_t> indices, std::vector<Texture> textures)
     : verts(verts), indices(indices), textures(textures) {}
@@ -35,7 +42,7 @@ void Mesh::init() {
     glBindVertexArray(0);
 }
 
-void Mesh::draw(ShaderGL& shader) {
+void Mesh::draw(ShaderGL& shader) const {
 
     uint32_t diff_n = 1;
     uint32_t spec_n = 1;
@@ -57,100 +64,117 @@ void Mesh::draw(ShaderGL& shader) {
             assert(false);
             break;
         }
-
         glBindTexture(GL_TEXTURE_2D, textures[i].id);
     }
 
     glActiveTexture(GL_TEXTURE0);
-
     glBindVertexArray(VAO);
     glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 }
 
-void Model::draw(ShaderGL& shader) {
+void Model::draw(ShaderGL& shader) const {
     for (auto& mesh : meshes) {
         mesh.draw(shader);
     }
 }
 
-std::optional<rses> Model::load(const std::filesystem::path& path) {
+static void process_assimp_node(aiNode* ai_node, const aiScene* ai_scene, std::vector<Mesh>& meshes, const fs::path& root_path);
+
+std::optional<rses> Model::load(const fs::path& path) {
     Assimp::Importer import;
+
     // note: for dx12 this will need the aiProcess_MakeLeftHanded flag set
     const aiScene* scene =
         import.ReadFile(path.generic_string(), aiProcess_GenNormals | aiProcess_Triangulate | aiProcess_FlipUVs);
+
+    fs::path root_path = path.parent_path();
 
     if (!scene) {
         return rses().io("Error importing scene : {}", import.GetErrorString());
     }
 
-    meshes = {};
+    process_assimp_node(scene->mRootNode, scene, meshes, root_path);
 
-    // todo: Do loading here
+    for (auto& mesh : meshes) {
+        mesh.init();
+    }
 
     return std::nullopt;
 }
 
-static Mesh process_assimp_mesh(aiMesh* ai_mesh, const aiScene* ai_scene) {
+static std::vector<Texture> load_mat_textures(aiMaterial* mat, aiTextureType ty, const fs::path& root_path) {
 
-    std::vector<Vertex> verts;
-    std::vector<uint32_t> indices;
     std::vector<Texture> textures;
+    textures.reserve(mat->GetTextureCount(ty));
 
-    for (int i = 0; i < ai_mesh->mNumVertices; ++i) {
-        Vertex vertex;
-        vertex.pos = { ai_mesh->mVertices[i].x, ai_mesh->mVertices[i].y, ai_mesh->mVertices[i].z };
-        vertex.norm = { ai_mesh->mNormals[i].x, ai_mesh->mNormals[i].y, ai_mesh->mNormals[i].z };
-        if (ai_mesh->mTextureCoords) vertex.tex = { ai_mesh->mTextureCoords[0][i].x, ai_mesh->mTextureCoords[0][i].y };
-        else vertex.tex = { 0.0f, 0.0f };
-        verts.push_back(std::move(vertex));
-    }
+    for (int i = 0; i < mat->GetTextureCount(ty); ++i) {
+        aiString ai_str;
+        mat->GetTexture(ty, i, &ai_str);
+        bool loaded = false;
+        fs::path texture_path = root_path / std::string(ai_str.C_Str());
 
-    for (int i = 0; i < ai_mesh->mNumFaces; ++i) {
-        aiFace face = ai_mesh->mFaces[i];
-        for (int j = 0; j < face.mNumIndices; ++j) {
-            indices.push_back(face.mIndices[j]);
+        // check to see if the texture has been loaded previously before loading from disk
+        for (int j = 0; j < globals::loaded_textures.size(); ++j) {
+            if (globals::loaded_textures[j].path == texture_path) {
+                textures.push_back(globals::loaded_textures[j]);
+                loaded = true;
+                break;
+            }
+        }
+        if (!loaded) {
+            // todo: add error handling for load_texture fn
+            Texture texture = { .id = *load_texture(texture_path), .type = Texture::Type::NONE , .path = texture_path };
+            switch (ty) {
+            case aiTextureType_DIFFUSE:
+                texture.type = Texture::Type::DIFFUSE;
+                break;
+            case aiTextureType_SPECULAR:
+                texture.type = Texture::Type::SPECULAR;
+                break;
+            }
+            textures.push_back(texture);
+            globals::loaded_textures.push_back(texture);
         }
     }
-
-    // Loading material textures
-    if (ai_mesh->mMaterialIndex >= 0) {
-        aiMaterial* material = ai_scene->mMaterials[ai_mesh->mMaterialIndex];
-        std::vector<Texture> diff_maps;
-        std::vector<Texture> spec_maps;
-
-        for (int i = 0; i < material->GetTextureCount(aiTextureType_DIFFUSE); ++i) {
-            aiString path;
-            material->GetTexture(aiTextureType_DIFFUSE, i, &path);
-            Texture tex;
-            tex.init(path.C_Str());
-            tex.type = Texture::Type::DIFFUSE;
-            diff_maps.push_back(tex);
-        }
-
-        for (int i = 0; i < material->GetTextureCount(aiTextureType_SPECULAR); ++i) {
-            aiString path;
-            material->GetTexture(aiTextureType_SPECULAR, i, &path);
-            Texture tex;
-            tex.init(path.C_Str());
-            tex.type = Texture::Type::SPECULAR;
-            spec_maps.push_back(tex);
-        }
-
-    }
-
-    return { verts, indices, textures };
+    return textures;
 }
 
-static void process_assimp_node(aiNode* ai_node, const aiScene* ai_scene, std::vector<Mesh>& meshes) {
+static void process_assimp_node(aiNode* ai_node, const aiScene* ai_scene, std::vector<Mesh>& meshes, const fs::path& root_path) {
     for (int i = 0; i < ai_node->mNumMeshes; ++i) {
         aiMesh* ai_mesh = ai_scene->mMeshes[ai_node->mMeshes[i]];
-        meshes.push_back(process_assimp_mesh(ai_mesh, ai_scene));
+        std::vector<Vertex> verts;
+        std::vector<uint32_t> indices;
+        std::vector<Texture> textures;
+
+        for (int i = 0; i < ai_mesh->mNumVertices; ++i) {
+            Vertex vertex;
+            vertex.pos = { ai_mesh->mVertices[i].x, ai_mesh->mVertices[i].y, ai_mesh->mVertices[i].z };
+            vertex.norm = { ai_mesh->mNormals[i].x, ai_mesh->mNormals[i].y, ai_mesh->mNormals[i].z };
+            if (ai_mesh->mTextureCoords) vertex.tex = { ai_mesh->mTextureCoords[0][i].x, ai_mesh->mTextureCoords[0][i].y };
+            else vertex.tex = { 0.0f, 0.0f };
+            verts.push_back(std::move(vertex));
+        }
+
+        for (int i = 0; i < ai_mesh->mNumFaces; ++i) {
+            aiFace face = ai_mesh->mFaces[i];
+            for (int j = 0; j < face.mNumIndices; ++j) {
+                indices.push_back(face.mIndices[j]);
+            }
+        }
+
+        // Loading material textures
+        if (ai_mesh->mMaterialIndex >= 0) {
+            aiMaterial* material = ai_scene->mMaterials[ai_mesh->mMaterialIndex];
+            std::vector<Texture> diff_maps = load_mat_textures(material, aiTextureType_DIFFUSE, root_path);
+            std::vector<Texture> spec_maps = load_mat_textures(material, aiTextureType_SPECULAR, root_path);
+        }
+        
+        meshes.emplace_back(verts, indices, textures);
     }
 
-    // meshes vector is flattened
     for (int i = 0; i < ai_node->mNumChildren; ++i) {
-        process_assimp_node(ai_node->mChildren[i], ai_scene, meshes);
+        process_assimp_node(ai_node->mChildren[i], ai_scene, meshes, root_path);
     }
 }
 

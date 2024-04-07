@@ -22,25 +22,25 @@ struct Handle {
     rses general(std::string&& errmsg);
     template <typename... Args>
     rses general(std::string&& fmt, Args&&... args) {
-        return general(std::format(std::move(fmt), std::forward(args)));
+        return general(std::vformat(std::move(fmt), std::make_format_args(args...)));
     }
 
     rses core(std::string&& errmsg);
     template <typename... Args>
     rses core(std::string&& fmt, Args&&... args) {
-        return core(std::format(std::move(fmt), std::forward(args)));
+        return core(std::vformat(std::move(fmt), std::make_format_args(args...)));
     }
 
     rses io(std::string&& errmsg);
     template <typename... Args>
     rses io(std::string&& fmt, Args&&... args) {
-        return io(std::format(std::move(fmt), std::forward(args)));
+        return io(std::vformat(std::move(fmt), std::make_format_args(args...)));
     }
 
     rses gl(std::string&& errmsg);
     template <typename... Args>
     rses gl(std::string&& fmt, Args&&... args) {
-        return gl(std::format(std::move(fmt), std::forward(args)));
+        return gl(std::vformat(std::move(fmt), std::make_format_args(args...)));
     }
 
     rses error_code(const std::error_code& ec);

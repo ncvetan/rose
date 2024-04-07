@@ -5,17 +5,16 @@
 #include <stb_image.h>
 
 #include <format>
+#include <filesystem>
 
 namespace rose {
 
-std::optional<unsigned int> load_texture(const std::string& path) {
+std::optional<unsigned int> load_texture(const std::filesystem::path& path) {
 
     unsigned int texture;
-
     glGenTextures(1, &texture);
-
     int width, height, n_channels;
-    unsigned char* texture_data = stbi_load(path.c_str(), &width, &height, &n_channels, 0);
+    unsigned char* texture_data = stbi_load(path.generic_string().c_str(), &width, &height, &n_channels, 0);
 
     if (texture_data) {
         GLenum fmt;

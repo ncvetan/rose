@@ -1,6 +1,7 @@
 .vs/
 .git/
 out/
+assets/
 build/
 textures/
 CMakeSettings.json

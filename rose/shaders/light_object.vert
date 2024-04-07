@@ -17,6 +17,5 @@ void main() {
 	// Keeping the normals perpedicular to the transformed surface
 	normal = mat3(transpose(inverse(model))) * a_normal;
 	tex_coords = a_tex_coords;
-	
 	gl_Position = projection * view * vec4(frag_pos, 1.0);
 };

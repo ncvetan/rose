@@ -7,8 +7,9 @@
 #include <GLFW/glfw3.h>
 
 #include <camera.hpp>
-#include <shader.hpp>
 #include <err.hpp>
+#include <mesh.hpp>
+#include <shader.hpp>
 
 namespace rose {
 
@@ -25,9 +26,8 @@ class WindowGLFW {
     ShaderGL light_object_shader{};
     ShaderGL light_source_shader{};
     CameraGL camera{};
-    unsigned int diffuse_map;
-    unsigned int specular_map;
-    unsigned int emission_map;
+
+    std::vector<std::pair<Model, glm::vec3>> models;
 
     uint16_t width = 1280;
     uint16_t height = 720;
