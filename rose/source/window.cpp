@@ -16,8 +16,7 @@ namespace rose {
 float delta_time = 0.0f;
 float last_frame_time = 0.0f;
 
-static unsigned int VBO{};
-static unsigned int object_VAO{};
+static unsigned int light_VBO{};
 static unsigned int light_VAO{};
 
 std::optional<rses> WindowGLFW::init() {
@@ -62,26 +61,33 @@ std::optional<rses> WindowGLFW::init() {
     glViewport(0, 0, width, height);
     glEnable(GL_DEPTH_TEST);
 
-    glGenVertexArrays(1, &object_VAO);
-    glGenBuffers(1, &VBO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-
-    glBindVertexArray(object_VAO);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
-    glEnableVertexAttribArray(2);
-
     glGenVertexArrays(1, &light_VAO);
     glBindVertexArray(light_VAO);
 
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    const std::vector<float> verts = {
+    -0.5f, -0.5f, -0.5f, 0.0f,  0.0f,  -1.0f, 0.0f, 0.0f, 0.5f,  -0.5f, -0.5f, 0.0f,  0.0f,  -1.0f, 1.0f, 0.0f,
+    0.5f,  0.5f,  -0.5f, 0.0f,  0.0f,  -1.0f, 1.0f, 1.0f, 0.5f,  0.5f,  -0.5f, 0.0f,  0.0f,  -1.0f, 1.0f, 1.0f,
+    -0.5f, 0.5f,  -0.5f, 0.0f,  0.0f,  -1.0f, 0.0f, 1.0f, -0.5f, -0.5f, -0.5f, 0.0f,  0.0f,  -1.0f, 0.0f, 0.0f,
+    -0.5f, -0.5f, 0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f, 0.5f,  -0.5f, 0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 0.0f,
+    0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 1.0f, 0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 1.0f,
+    -0.5f, 0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 1.0f, -0.5f, -0.5f, 0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
+    -0.5f, 0.5f,  0.5f,  -1.0f, 0.0f,  0.0f,  1.0f, 0.0f, -0.5f, 0.5f,  -0.5f, -1.0f, 0.0f,  0.0f,  1.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f, -1.0f, 0.0f,  0.0f,  0.0f, 1.0f, -0.5f, -0.5f, -0.5f, -1.0f, 0.0f,  0.0f,  0.0f, 1.0f,
+    -0.5f, -0.5f, 0.5f,  -1.0f, 0.0f,  0.0f,  0.0f, 0.0f, -0.5f, 0.5f,  0.5f,  -1.0f, 0.0f,  0.0f,  1.0f, 0.0f,
+    0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f, 0.5f,  0.5f,  -0.5f, 1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
+    0.5f,  -0.5f, -0.5f, 1.0f,  0.0f,  0.0f,  0.0f, 1.0f, 0.5f,  -0.5f, -0.5f, 1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+    0.5f,  -0.5f, 0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 0.0f, 0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+    -0.5f, -0.5f, -0.5f, 0.0f,  -1.0f, 0.0f,  0.0f, 1.0f, 0.5f,  -0.5f, -0.5f, 0.0f,  -1.0f, 0.0f,  1.0f, 1.0f,
+    0.5f,  -0.5f, 0.5f,  0.0f,  -1.0f, 0.0f,  1.0f, 0.0f, 0.5f,  -0.5f, 0.5f,  0.0f,  -1.0f, 0.0f,  1.0f, 0.0f,
+    -0.5f, -0.5f, 0.5f,  0.0f,  -1.0f, 0.0f,  0.0f, 0.0f, -0.5f, -0.5f, -0.5f, 0.0f,  -1.0f, 0.0f,  0.0f, 1.0f,
+    -0.5f, 0.5f,  -0.5f, 0.0f,  1.0f,  0.0f,  0.0f, 1.0f, 0.5f,  0.5f,  -0.5f, 0.0f,  1.0f,  0.0f,  1.0f, 1.0f,
+    0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f, 0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
+    -0.5f, 0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 0.0f, -0.5f, 0.5f,  -0.5f, 0.0f,  1.0f,  0.0f,  0.0f, 1.0f
+    };
+
+    glGenBuffers(1, &light_VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, light_VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * verts.size(), verts.data(), GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
@@ -97,6 +103,7 @@ std::optional<rses> WindowGLFW::init() {
     }
 
     stbi_set_flip_vertically_on_load(true);
+    
     Model model;
     std::optional<rses> err = model.load(std::format("{}/assets/model1/model1.obj", SOURCE_DIR));
     if (err) {
@@ -108,8 +115,7 @@ std::optional<rses> WindowGLFW::init() {
 
 void WindowGLFW::update() {
 
-    glm::vec3 point_light_positions[] = { glm::vec3(0.7f, 0.2f, 2.0f), glm::vec3(2.3f, -3.3f, -4.0f),
-                                          glm::vec3(-4.0f, 2.0f, -12.0f), glm::vec3(0.0f, 0.0f, -3.0f) };
+    std::vector<glm::vec3> point_light_positions = { glm::vec3(2.0f, 3.0f, 3.0f), glm::vec3(3.0f, 1.0f, 5.0f) };
 
     while (!glfwWindowShouldClose(window)) {
 
@@ -123,6 +129,7 @@ void WindowGLFW::update() {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         light_object_shader.use();
+
         glm::mat4 projection = camera.projection_matrix(static_cast<float>(width) / static_cast<float>(height));
         light_object_shader.set_mat4("projection", projection);
         glm::mat4 view = camera.view_matrix();
@@ -134,7 +141,7 @@ void WindowGLFW::update() {
         light_object_shader.set_vec3("dir_light.diffuse", glm::vec3(0.4f, 0.4f, 0.4f));
         light_object_shader.set_vec3("dir_light.specular", glm::vec3(0.5f, 0.5f, 0.5f));
 
-        for (int i = 0; i < sizeof(point_light_positions) / sizeof(point_light_positions[i]); ++i) {
+        for (int i = 0; i < point_light_positions.size(); ++i) {
             light_object_shader.set_vec3(std::format("point_lights[{}].position", i), point_light_positions[i]);
             light_object_shader.set_vec3(std::format("point_lights[{}].ambient", i), glm::vec3(0.05f, 0.05f, 0.05f));
             light_object_shader.set_vec3(std::format("point_lights[{}].diffuse", i), glm::vec3(0.8f, 0.8f, 0.8f));
@@ -144,22 +151,8 @@ void WindowGLFW::update() {
             light_object_shader.set_float(std::format("point_lights[{}].attn_quads", i), 0.032f);
         }
 
-        // light properties
-        light_object_shader.set_vec3("spot_light.direction", camera.front);   // Spotlight
-        light_object_shader.set_vec3("spot_light.position", camera.position); // Spotlight
-        light_object_shader.set_float("spot_light.inner_cutoff", glm::cos(glm::radians(12.5f)));
-        light_object_shader.set_float("spot_light.outer_cutoff", glm::cos(glm::radians(17.5f)));
-        light_object_shader.set_vec3("spot_light.ambient", glm::vec3(0.0f, 0.0f, 0.0f));
-        light_object_shader.set_vec3("spot_light.diffuse", glm::vec3(1.0f, 1.0f, 1.0f));
-        light_object_shader.set_vec3("spot_light.specular", glm::vec3(1.0f, 1.0f, 1.0f));
-        light_object_shader.set_float("spot_light.attn_const", 1.0f);
-        light_object_shader.set_float("spot_light.attn_lin", 0.09f);
-        light_object_shader.set_float("spot_light.attn_quad", 0.032f);
-
-        // material properties
-        // light_object_shader.set_int("material.diffuse_map", 0);
-        // light_object_shader.set_int("material.specular_map", 1);
-        light_object_shader.set_float("material.shine_factor", 32.0f);
+        // todo: remove
+        light_object_shader.set_float("materials[0].shine_factor", 32.0f);
 
         for (const auto& model : models) {
             glm::mat4 model_mat = glm::mat4(1.0f);
@@ -174,7 +167,7 @@ void WindowGLFW::update() {
 
         glBindVertexArray(light_VAO);
 
-        for (int i = 0; i < 4; ++i) {
+        for (int i = 0; i < point_light_positions.size(); ++i) {
             glm::mat4 model = glm::mat4(1.0f);
             model = glm::translate(model, point_light_positions[i]);
             model = glm::scale(model, glm::vec3(0.2f));
@@ -191,8 +184,7 @@ void WindowGLFW::destroy() {
     glfwDestroyWindow(window);
     glfwTerminate();
     window = nullptr;
-    glDeleteVertexArrays(1, &object_VAO);
-    glDeleteBuffers(1, &VBO);
+    glDeleteBuffers(1, &light_VBO);
 };
 
 void WindowGLFW::enable_vsync(bool enable) { (enable) ? glfwSwapInterval(1) : glfwSwapInterval(0); };
@@ -210,7 +202,6 @@ void mouse_callback(GLFWwindow* window, double xpos_in, double ypos_in) {
 
     window_state->last_xy.x = xpos;
     window_state->last_xy.y = ypos;
-
     window_state->camera.process_mouse_movement(xoffset, yoffset);
 }
 

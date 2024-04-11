@@ -13,7 +13,7 @@ struct Texture {
     std::filesystem::path path;
 };
 
-std::optional<unsigned int> load_texture(const std::filesystem::path& path);
+std::optional<uint32_t> load_texture(const std::filesystem::path& path);
 
 } // namespace rose
 

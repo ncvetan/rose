@@ -1,4 +1,5 @@
 #include <err.hpp>
+#include <logger.hpp>
 #include <mesh.hpp>
 
 #include <GL/glew.h>
@@ -7,7 +8,7 @@
 #include <assimp/scene.h>
 
 #include <format>
-#include <logger.hpp>
+#include <unordered_map>
 
 namespace fs = std::filesystem;
 
@@ -15,11 +16,13 @@ namespace rose {
 
 // Used for avoiding loading the same texture from disk multiple times
 namespace globals {
-    static std::vector<Texture> loaded_textures = {};
-}
+static std::unordered_map<std::string, Texture> loaded_textures;
+} // namespace globals
 
 Mesh::Mesh(std::vector<Vertex> verts, std::vector<uint32_t> indices, std::vector<Texture> textures)
-    : verts(verts), indices(indices), textures(textures) {}
+    : verts(verts), indices(indices), textures(textures) {
+    init();
+}
 
 void Mesh::init() {
     glGenVertexArrays(1, &VAO);
@@ -28,7 +31,6 @@ void Mesh::init() {
 
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-
     glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(Vertex), verts.data(), GL_STATIC_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
@@ -36,7 +38,9 @@ void Mesh::init() {
 
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, pos));
+    glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, norm));
+    glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, tex));
 
     glBindVertexArray(0);
@@ -44,20 +48,19 @@ void Mesh::init() {
 
 void Mesh::draw(ShaderGL& shader) const {
 
-    uint32_t diff_n = 1;
-    uint32_t spec_n = 1;
+    shader.use();
+    uint32_t diff_n = 0;
+    uint32_t spec_n = 0;
 
     for (uint32_t i = 0; i < textures.size(); ++i) {
-
         glActiveTexture(GL_TEXTURE0 + i);
-
         switch (textures[i].type) {
         case Texture::Type::DIFFUSE:
-            shader.set_float(std::format("material.texture_diffuse{}", diff_n), i);
+            shader.set_int(std::format("materials[{}].diffuse_map", diff_n), i);
             diff_n++;
             break;
         case Texture::Type::SPECULAR:
-            shader.set_float(std::format("material.texture_specular{}", spec_n), i);
+            shader.set_int(std::format("materials[{}].specular_map", spec_n), i);
             spec_n++;
             break;
         default:
@@ -67,10 +70,10 @@ void Mesh::draw(ShaderGL& shader) const {
         glBindTexture(GL_TEXTURE_2D, textures[i].id);
     }
 
-    glActiveTexture(GL_TEXTURE0);
     glBindVertexArray(VAO);
     glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
+    glActiveTexture(GL_TEXTURE0);
 }
 
 void Model::draw(ShaderGL& shader) const {
@@ -79,7 +82,8 @@ void Model::draw(ShaderGL& shader) const {
     }
 }
 
-static void process_assimp_node(aiNode* ai_node, const aiScene* ai_scene, std::vector<Mesh>& meshes, const fs::path& root_path);
+static void process_assimp_node(aiNode* ai_node, const aiScene* ai_scene, std::vector<Mesh>& meshes,
+                                const fs::path& root_path);
 
 std::optional<rses> Model::load(const fs::path& path) {
     Assimp::Importer import;
@@ -96,10 +100,6 @@ std::optional<rses> Model::load(const fs::path& path) {
 
     process_assimp_node(scene->mRootNode, scene, meshes, root_path);
 
-    for (auto& mesh : meshes) {
-        mesh.init();
-    }
-
     return std::nullopt;
 }
 
@@ -111,20 +111,20 @@ static std::vector<Texture> load_mat_textures(aiMaterial* mat, aiTextureType ty,
     for (int i = 0; i < mat->GetTextureCount(ty); ++i) {
         aiString ai_str;
         mat->GetTexture(ty, i, &ai_str);
-        bool loaded = false;
         fs::path texture_path = root_path / std::string(ai_str.C_Str());
 
         // check to see if the texture has been loaded previously before loading from disk
-        for (int j = 0; j < globals::loaded_textures.size(); ++j) {
-            if (globals::loaded_textures[j].path == texture_path) {
-                textures.push_back(globals::loaded_textures[j]);
-                loaded = true;
-                break;
-            }
+        if (globals::loaded_textures.contains(texture_path.generic_string())) {
+            textures.push_back(globals::loaded_textures[texture_path.generic_string()]);
         }
-        if (!loaded) {
-            // todo: add error handling for load_texture fn
-            Texture texture = { .id = *load_texture(texture_path), .type = Texture::Type::NONE , .path = texture_path };
+        else {
+            std::optional<uint32_t> text_id = load_texture(texture_path);
+            if (!text_id.has_value()) {
+                LOG_ERROR("Unable to load texture at path: {}", texture_path.generic_string());
+                continue;
+            }
+
+            Texture texture = { .id = text_id.value(), .type = Texture::Type::NONE, .path = texture_path };
             switch (ty) {
             case aiTextureType_DIFFUSE:
                 texture.type = Texture::Type::DIFFUSE;
@@ -134,13 +134,14 @@ static std::vector<Texture> load_mat_textures(aiMaterial* mat, aiTextureType ty,
                 break;
             }
             textures.push_back(texture);
-            globals::loaded_textures.push_back(texture);
+            globals::loaded_textures[texture_path.generic_string()] = texture;
         }
     }
     return textures;
 }
 
-static void process_assimp_node(aiNode* ai_node, const aiScene* ai_scene, std::vector<Mesh>& meshes, const fs::path& root_path) {
+static void process_assimp_node(aiNode* ai_node, const aiScene* ai_scene, std::vector<Mesh>& meshes,
+                                const fs::path& root_path) {
     for (int i = 0; i < ai_node->mNumMeshes; ++i) {
         aiMesh* ai_mesh = ai_scene->mMeshes[ai_node->mMeshes[i]];
         std::vector<Vertex> verts;
@@ -151,8 +152,10 @@ static void process_assimp_node(aiNode* ai_node, const aiScene* ai_scene, std::v
             Vertex vertex;
             vertex.pos = { ai_mesh->mVertices[i].x, ai_mesh->mVertices[i].y, ai_mesh->mVertices[i].z };
             vertex.norm = { ai_mesh->mNormals[i].x, ai_mesh->mNormals[i].y, ai_mesh->mNormals[i].z };
-            if (ai_mesh->mTextureCoords) vertex.tex = { ai_mesh->mTextureCoords[0][i].x, ai_mesh->mTextureCoords[0][i].y };
-            else vertex.tex = { 0.0f, 0.0f };
+            if (ai_mesh->mTextureCoords)
+                vertex.tex = { ai_mesh->mTextureCoords[0][i].x, ai_mesh->mTextureCoords[0][i].y };
+            else
+                vertex.tex = { 0.0f, 0.0f };
             verts.push_back(std::move(vertex));
         }
 
@@ -168,9 +171,16 @@ static void process_assimp_node(aiNode* ai_node, const aiScene* ai_scene, std::v
             aiMaterial* material = ai_scene->mMaterials[ai_mesh->mMaterialIndex];
             std::vector<Texture> diff_maps = load_mat_textures(material, aiTextureType_DIFFUSE, root_path);
             std::vector<Texture> spec_maps = load_mat_textures(material, aiTextureType_SPECULAR, root_path);
+            textures.reserve(diff_maps.size() + spec_maps.size());
+
+            textures.insert(textures.end(), std::make_move_iterator(diff_maps.begin()),
+                            std::make_move_iterator(diff_maps.end()));
+            textures.insert(textures.end(), std::make_move_iterator(spec_maps.begin()),
+                            std::make_move_iterator(spec_maps.end()));
         }
-        
-        meshes.emplace_back(verts, indices, textures);
+
+        Mesh mesh{ verts, indices, textures };
+        meshes.emplace_back(std::move(verts), std::move(indices), std::move(textures));
     }
 
     for (int i = 0; i < ai_node->mNumChildren; ++i) {

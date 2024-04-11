@@ -19,7 +19,7 @@ struct Vertex {
 
 class Mesh {
   public:
-    Mesh() = default;
+    Mesh() = delete;
     Mesh(std::vector<Vertex> verts, std::vector<uint32_t> indices, std::vector<Texture> textures);
 
     void init();

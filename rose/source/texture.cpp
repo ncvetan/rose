@@ -9,9 +9,8 @@
 
 namespace rose {
 
-std::optional<unsigned int> load_texture(const std::filesystem::path& path) {
-
-    unsigned int texture;
+std::optional<uint32_t> load_texture(const std::filesystem::path& path) {
+    unsigned int texture = 0;
     glGenTextures(1, &texture);
     int width, height, n_channels;
     unsigned char* texture_data = stbi_load(path.generic_string().c_str(), &width, &height, &n_channels, 0);
