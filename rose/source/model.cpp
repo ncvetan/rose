@@ -1,6 +1,6 @@
 #include <err.hpp>
 #include <logger.hpp>
-#include <mesh.hpp>
+#include <model.hpp>
 
 #include <GL/glew.h>
 #include <assimp/Importer.hpp>
@@ -22,6 +22,25 @@ static std::unordered_map<std::string, Texture> loaded_textures;
 Mesh::Mesh(std::vector<Vertex> verts, std::vector<uint32_t> indices, std::vector<Texture> textures)
     : verts(verts), indices(indices), textures(textures) {
     init();
+}
+
+Mesh::Mesh(Mesh&& other) noexcept {
+    VAO = other.VAO;
+    other.VAO = 0;
+    VBO = other.VBO;
+    other.VBO = 0;
+    EBO = other.EBO;
+    other.EBO = 0;
+    verts = std::move(other.verts);
+    indices = std::move(other.indices);
+    textures = std::move(other.textures);
+}
+
+Mesh& Mesh::operator=(Mesh&& other) noexcept {
+    if (this == &other) return *this;
+    this->~Mesh();
+    new (this) Mesh(std::move(other));
+    return *this;
 }
 
 void Mesh::init() {
@@ -76,6 +95,12 @@ void Mesh::draw(ShaderGL& shader) const {
     glActiveTexture(GL_TEXTURE0);
 }
 
+Mesh::~Mesh() {
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
+    glDeleteBuffers(1, &EBO);
+}
+
 void Model::draw(ShaderGL& shader) const {
     for (auto& mesh : meshes) {
         mesh.draw(shader);
@@ -116,8 +141,7 @@ static std::vector<Texture> load_mat_textures(aiMaterial* mat, aiTextureType ty,
         // check to see if the texture has been loaded previously before loading from disk
         if (globals::loaded_textures.contains(texture_path.generic_string())) {
             textures.push_back(globals::loaded_textures[texture_path.generic_string()]);
-        }
-        else {
+        } else {
             std::optional<uint32_t> text_id = load_texture(texture_path);
             if (!text_id.has_value()) {
                 LOG_ERROR("Unable to load texture at path: {}", texture_path.generic_string());
@@ -144,12 +168,12 @@ static void process_assimp_node(aiNode* ai_node, const aiScene* ai_scene, std::v
                                 const fs::path& root_path) {
     for (int i = 0; i < ai_node->mNumMeshes; ++i) {
         aiMesh* ai_mesh = ai_scene->mMeshes[ai_node->mMeshes[i]];
-        std::vector<Vertex> verts;
+        std::vector<Mesh::Vertex> verts;
         std::vector<uint32_t> indices;
         std::vector<Texture> textures;
 
         for (int i = 0; i < ai_mesh->mNumVertices; ++i) {
-            Vertex vertex;
+            Mesh::Vertex vertex;
             vertex.pos = { ai_mesh->mVertices[i].x, ai_mesh->mVertices[i].y, ai_mesh->mVertices[i].z };
             vertex.norm = { ai_mesh->mNormals[i].x, ai_mesh->mNormals[i].y, ai_mesh->mNormals[i].z };
             if (ai_mesh->mTextureCoords)
@@ -180,12 +204,57 @@ static void process_assimp_node(aiNode* ai_node, const aiScene* ai_scene, std::v
         }
 
         Mesh mesh{ verts, indices, textures };
-        meshes.emplace_back(std::move(verts), std::move(indices), std::move(textures));
+        meshes.push_back(std::move(mesh));
     }
 
     for (int i = 0; i < ai_node->mNumChildren; ++i) {
         process_assimp_node(ai_node->mChildren[i], ai_scene, meshes, root_path);
     }
 }
+
+Cube::Cube() { init(); }
+
+Cube::Cube(Cube&& other) noexcept {
+    VAO = other.VAO;
+    other.VAO = 0;
+    VBO = other.VBO;
+    other.VBO = 0;
+    verts = std::move(other.verts);
+}
+
+Cube& Cube::operator=(Cube&& other) noexcept {
+    if (this == &other) return *this;
+    this->~Cube();
+    new (this) Cube(std::move(other));
+    return *this;
+}
+
+void Cube::init() {
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(Vertex), verts.data(), GL_STATIC_DRAW);
+
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, pos));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, norm));
+
+    glBindVertexArray(0);
+}
+
+void Cube::draw(ShaderGL& shader) const {
+    shader.use();
+    glBindVertexArray(VAO);
+    glDrawArrays(GL_TRIANGLES, 0, verts.size());
+    glBindVertexArray(0);
+}
+
+ Cube::~Cube() {
+     glDeleteVertexArrays(1, &VAO);
+     glDeleteBuffers(1, &VBO);
+ }
 
 } // namespace rose

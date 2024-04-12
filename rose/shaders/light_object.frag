@@ -36,9 +36,8 @@ uniform Material materials[N_MATS];
 
 uniform DirLight dir_light;
 
-#define N_POINT_LIGHTS 1
+#define N_POINT_LIGHTS 2
 uniform PointLight point_lights[N_POINT_LIGHTS];
-uniform SpotLight spot_light;
 
 out vec4 frag_color;
 

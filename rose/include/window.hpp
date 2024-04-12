@@ -8,10 +8,15 @@
 
 #include <camera.hpp>
 #include <err.hpp>
-#include <mesh.hpp>
+#include <model.hpp>
 #include <shader.hpp>
 
 namespace rose {
+
+template <typename T>
+concept drawable = requires(T d, ShaderGL& shader) {
+    { d.draw(shader) } -> std::same_as<void>;
+};
 
 class WindowGLFW {
   public:
@@ -26,8 +31,9 @@ class WindowGLFW {
     ShaderGL light_object_shader{};
     ShaderGL light_source_shader{};
     CameraGL camera{};
-
-    std::vector<std::pair<Model, glm::vec3>> models;
+    
+    std::vector<std::pair<Model, glm::vec3>> objects;
+    std::vector<std::pair<Cube, glm::vec3>> cubes;
 
     uint16_t width = 1280;
     uint16_t height = 720;

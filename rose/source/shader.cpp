@@ -79,25 +79,25 @@ bool ShaderGL::init(const std::string& vertex_path, const std::string& fragment_
 void ShaderGL::use() { glUseProgram(id); }
 
 void ShaderGL::set_bool(const std::string& name, bool value) const {
-    glUniform1i(glGetUniformLocation(id, name.c_str()), (int)value);
+    glProgramUniform1i(id, glGetUniformLocation(id, name.c_str()), (int)value);
 }
 void ShaderGL::set_int(const std::string& name, int value) const {
-    glUniform1i(glGetUniformLocation(id, name.c_str()), value);
+    glProgramUniform1i(id, glGetUniformLocation(id, name.c_str()), value);
 }
 void ShaderGL::set_float(const std::string& name, float value) const {
-    glUniform1f(glGetUniformLocation(id, name.c_str()), value);
+    glProgramUniform1f(id, glGetUniformLocation(id, name.c_str()), value);
 }
 
 void ShaderGL::set_mat4(const std::string& name, const glm::mat4& value) const {
-    glUniformMatrix4fv(glGetUniformLocation(id, name.c_str()), 1, GL_FALSE, &value[0][0]);
+    glProgramUniformMatrix4fv(id, glGetUniformLocation(id, name.c_str()), 1, GL_FALSE, &value[0][0]);
 }
 
 void ShaderGL::set_vec3(const std::string& name, const glm::vec3& value) const {
-    glUniform3f(glGetUniformLocation(id, name.c_str()), value.x, value.y, value.z);
+    glProgramUniform3f(id, glGetUniformLocation(id, name.c_str()), value.x, value.y, value.z);
 }
 
 void ShaderGL::set_vec4(const std::string& name, const glm::vec4& value) const {
-    glUniform4f(glGetUniformLocation(id, name.c_str()), value.w, value.x, value.y, value.z);
+    glProgramUniform4f(id, glGetUniformLocation(id, name.c_str()), value.w, value.x, value.y, value.z);
 }
 
 } // namespace rose

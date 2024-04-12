@@ -3,9 +3,7 @@
 
 #include <err.hpp>
 #include <logger.hpp>
-#include <mesh.hpp>
-#include <shader.hpp>
-#include <texture.hpp>
+#include <model.hpp>
 #include <window.hpp>
 
 #include <format>
@@ -15,9 +13,6 @@ namespace rose {
 
 float delta_time = 0.0f;
 float last_frame_time = 0.0f;
-
-static unsigned int light_VBO{};
-static unsigned int light_VAO{};
 
 std::optional<rses> WindowGLFW::init() {
 
@@ -61,37 +56,6 @@ std::optional<rses> WindowGLFW::init() {
     glViewport(0, 0, width, height);
     glEnable(GL_DEPTH_TEST);
 
-    glGenVertexArrays(1, &light_VAO);
-    glBindVertexArray(light_VAO);
-
-    const std::vector<float> verts = {
-    -0.5f, -0.5f, -0.5f, 0.0f,  0.0f,  -1.0f, 0.0f, 0.0f, 0.5f,  -0.5f, -0.5f, 0.0f,  0.0f,  -1.0f, 1.0f, 0.0f,
-    0.5f,  0.5f,  -0.5f, 0.0f,  0.0f,  -1.0f, 1.0f, 1.0f, 0.5f,  0.5f,  -0.5f, 0.0f,  0.0f,  -1.0f, 1.0f, 1.0f,
-    -0.5f, 0.5f,  -0.5f, 0.0f,  0.0f,  -1.0f, 0.0f, 1.0f, -0.5f, -0.5f, -0.5f, 0.0f,  0.0f,  -1.0f, 0.0f, 0.0f,
-    -0.5f, -0.5f, 0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f, 0.5f,  -0.5f, 0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 0.0f,
-    0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 1.0f, 0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 1.0f,
-    -0.5f, 0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 1.0f, -0.5f, -0.5f, 0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
-    -0.5f, 0.5f,  0.5f,  -1.0f, 0.0f,  0.0f,  1.0f, 0.0f, -0.5f, 0.5f,  -0.5f, -1.0f, 0.0f,  0.0f,  1.0f, 1.0f,
-    -0.5f, -0.5f, -0.5f, -1.0f, 0.0f,  0.0f,  0.0f, 1.0f, -0.5f, -0.5f, -0.5f, -1.0f, 0.0f,  0.0f,  0.0f, 1.0f,
-    -0.5f, -0.5f, 0.5f,  -1.0f, 0.0f,  0.0f,  0.0f, 0.0f, -0.5f, 0.5f,  0.5f,  -1.0f, 0.0f,  0.0f,  1.0f, 0.0f,
-    0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f, 0.5f,  0.5f,  -0.5f, 1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
-    0.5f,  -0.5f, -0.5f, 1.0f,  0.0f,  0.0f,  0.0f, 1.0f, 0.5f,  -0.5f, -0.5f, 1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-    0.5f,  -0.5f, 0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 0.0f, 0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
-    -0.5f, -0.5f, -0.5f, 0.0f,  -1.0f, 0.0f,  0.0f, 1.0f, 0.5f,  -0.5f, -0.5f, 0.0f,  -1.0f, 0.0f,  1.0f, 1.0f,
-    0.5f,  -0.5f, 0.5f,  0.0f,  -1.0f, 0.0f,  1.0f, 0.0f, 0.5f,  -0.5f, 0.5f,  0.0f,  -1.0f, 0.0f,  1.0f, 0.0f,
-    -0.5f, -0.5f, 0.5f,  0.0f,  -1.0f, 0.0f,  0.0f, 0.0f, -0.5f, -0.5f, -0.5f, 0.0f,  -1.0f, 0.0f,  0.0f, 1.0f,
-    -0.5f, 0.5f,  -0.5f, 0.0f,  1.0f,  0.0f,  0.0f, 1.0f, 0.5f,  0.5f,  -0.5f, 0.0f,  1.0f,  0.0f,  1.0f, 1.0f,
-    0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f, 0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
-    -0.5f, 0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 0.0f, -0.5f, 0.5f,  -0.5f, 0.0f,  1.0f,  0.0f,  0.0f, 1.0f
-    };
-
-    glGenBuffers(1, &light_VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, light_VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * verts.size(), verts.data(), GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-
     if (!light_object_shader.init(std::format("{}/rose/shaders/light_object.vert", SOURCE_DIR),
                                   std::format("{}/rose/shaders/light_object.frag", SOURCE_DIR))) {
         LOG_WARN("Unable to load light object shader");
@@ -109,14 +73,15 @@ std::optional<rses> WindowGLFW::init() {
     if (err) {
         return err->general("Unable to load model");
     }
-    models.push_back({ model, glm::vec3(0.0f, 0.0f, 0.0f) });
+
+    objects.push_back({ std::move(model), glm::vec3(0.0f, 0.0f, 0.0f) });
+    cubes.push_back({Cube(), glm::vec3(2.0f, 3.0f, 3.0f) });
+    cubes.push_back({Cube(), glm::vec3(3.0f, 1.0f, 5.0f) });
+
     return std::nullopt;
 };
 
 void WindowGLFW::update() {
-
-    std::vector<glm::vec3> point_light_positions = { glm::vec3(2.0f, 3.0f, 3.0f), glm::vec3(3.0f, 1.0f, 5.0f) };
-
     while (!glfwWindowShouldClose(window)) {
 
         float current_frame_time = static_cast<float>(glfwGetTime());
@@ -127,8 +92,6 @@ void WindowGLFW::update() {
 
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        light_object_shader.use();
 
         glm::mat4 projection = camera.projection_matrix(static_cast<float>(width) / static_cast<float>(height));
         light_object_shader.set_mat4("projection", projection);
@@ -141,8 +104,8 @@ void WindowGLFW::update() {
         light_object_shader.set_vec3("dir_light.diffuse", glm::vec3(0.4f, 0.4f, 0.4f));
         light_object_shader.set_vec3("dir_light.specular", glm::vec3(0.5f, 0.5f, 0.5f));
 
-        for (int i = 0; i < point_light_positions.size(); ++i) {
-            light_object_shader.set_vec3(std::format("point_lights[{}].position", i), point_light_positions[i]);
+        for (int i = 0; i < cubes.size(); ++i) {
+            light_object_shader.set_vec3(std::format("point_lights[{}].position", i), cubes[i].second);
             light_object_shader.set_vec3(std::format("point_lights[{}].ambient", i), glm::vec3(0.05f, 0.05f, 0.05f));
             light_object_shader.set_vec3(std::format("point_lights[{}].diffuse", i), glm::vec3(0.8f, 0.8f, 0.8f));
             light_object_shader.set_vec3(std::format("point_lights[{}].specular", i), glm::vec3(1.0f, 1.0f, 1.0f));
@@ -154,25 +117,21 @@ void WindowGLFW::update() {
         // todo: remove
         light_object_shader.set_float("materials[0].shine_factor", 32.0f);
 
-        for (const auto& model : models) {
+        for (const auto& model : objects) {
             glm::mat4 model_mat = glm::mat4(1.0f);
             model_mat = glm::translate(model_mat, model.second);
             light_object_shader.set_mat4("model", model_mat);
             model.first.draw(light_object_shader);
         }
 
-        light_source_shader.use();
         light_source_shader.set_mat4("projection", projection);
         light_source_shader.set_mat4("view", view);
 
-        glBindVertexArray(light_VAO);
-
-        for (int i = 0; i < point_light_positions.size(); ++i) {
+        for (int i = 0; i < cubes.size(); ++i) {
             glm::mat4 model = glm::mat4(1.0f);
-            model = glm::translate(model, point_light_positions[i]);
-            model = glm::scale(model, glm::vec3(0.2f));
+            model = glm::translate(model, cubes[i].second);
             light_source_shader.set_mat4("model", model);
-            glDrawArrays(GL_TRIANGLES, 0, 36);
+            cubes[i].first.draw(light_source_shader);
         }
 
         glfwSwapBuffers(window);
@@ -184,7 +143,6 @@ void WindowGLFW::destroy() {
     glfwDestroyWindow(window);
     glfwTerminate();
     window = nullptr;
-    glDeleteBuffers(1, &light_VBO);
 };
 
 void WindowGLFW::enable_vsync(bool enable) { (enable) ? glfwSwapInterval(1) : glfwSwapInterval(0); };
