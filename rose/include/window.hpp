@@ -34,6 +34,7 @@ class WindowGLFW {
     
     std::vector<std::pair<Model, glm::vec3>> objects;
     std::vector<std::pair<Cube, glm::vec3>> cubes;
+    std::vector<std::pair<Cube, glm::vec3>> pnt_lights;
 
     uint16_t width = 1280;
     uint16_t height = 720;

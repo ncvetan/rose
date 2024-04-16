@@ -102,6 +102,8 @@ Mesh::~Mesh() {
 }
 
 void Model::draw(ShaderGL& shader) const {
+    shader.use();
+    shader.set_mat4("model", model);
     for (auto& mesh : meshes) {
         mesh.draw(shader);
     }
@@ -247,14 +249,15 @@ void Cube::init() {
 
 void Cube::draw(ShaderGL& shader) const {
     shader.use();
+    shader.set_mat4("model", model);
     glBindVertexArray(VAO);
     glDrawArrays(GL_TRIANGLES, 0, verts.size());
     glBindVertexArray(0);
 }
 
- Cube::~Cube() {
-     glDeleteVertexArrays(1, &VAO);
-     glDeleteBuffers(1, &VBO);
- }
+Cube::~Cube() {
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
+}
 
 } // namespace rose

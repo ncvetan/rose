@@ -16,6 +16,7 @@ float last_frame_time = 0.0f;
 
 std::optional<rses> WindowGLFW::init() {
 
+    // GLFW initialization
     if (glfwInit() == GLFW_FALSE) {
         return rses().gl("GLFW failed to initialize");
     }
@@ -67,7 +68,7 @@ std::optional<rses> WindowGLFW::init() {
     }
 
     stbi_set_flip_vertically_on_load(true);
-    
+
     Model model;
     std::optional<rses> err = model.load(std::format("{}/assets/model1/model1.obj", SOURCE_DIR));
     if (err) {
@@ -75,13 +76,29 @@ std::optional<rses> WindowGLFW::init() {
     }
 
     objects.push_back({ std::move(model), glm::vec3(0.0f, 0.0f, 0.0f) });
-    cubes.push_back({Cube(), glm::vec3(2.0f, 3.0f, 3.0f) });
-    cubes.push_back({Cube(), glm::vec3(3.0f, 1.0f, 5.0f) });
-
+    cubes.push_back({ Cube(), glm::vec3(-2.0f, -3.0f, -3.0f) });
+    cubes.push_back({ Cube(), glm::vec3(-2.0f, -3.0f, -5.0f) });
+    pnt_lights.push_back({ Cube(), glm::vec3(3.0f, 3.0f, 3.0f) });
+    pnt_lights.push_back({ Cube(), glm::vec3(3.0f, 3.0f, 5.0f) });
     return std::nullopt;
 };
 
 void WindowGLFW::update() {
+    
+    for (auto& model : objects) {
+        translate(model.first, model.second);
+    }
+
+    for (auto& cube : cubes) {
+        translate(cube.first, cube.second);
+        scale(cube.first, 0.75f);
+    }
+
+    for (auto& light : pnt_lights) {
+        translate(light.first, light.second);
+        scale(light.first, 0.33f);
+    }
+    
     while (!glfwWindowShouldClose(window)) {
 
         float current_frame_time = static_cast<float>(glfwGetTime());
@@ -89,14 +106,15 @@ void WindowGLFW::update() {
         last_frame_time = current_frame_time;
 
         process_input(window, delta_time);
-
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glm::mat4 projection = camera.projection_matrix(static_cast<float>(width) / static_cast<float>(height));
-        light_object_shader.set_mat4("projection", projection);
         glm::mat4 view = camera.view_matrix();
+        light_object_shader.set_mat4("projection", projection);
+        light_source_shader.set_mat4("projection", projection);
         light_object_shader.set_mat4("view", view);
+        light_source_shader.set_mat4("view", view);
         light_object_shader.set_vec3("view_pos", camera.position);
 
         light_object_shader.set_vec3("dir_light.direction", glm::vec3(-0.2f, -1.0f, -0.3f));
@@ -104,8 +122,8 @@ void WindowGLFW::update() {
         light_object_shader.set_vec3("dir_light.diffuse", glm::vec3(0.4f, 0.4f, 0.4f));
         light_object_shader.set_vec3("dir_light.specular", glm::vec3(0.5f, 0.5f, 0.5f));
 
-        for (int i = 0; i < cubes.size(); ++i) {
-            light_object_shader.set_vec3(std::format("point_lights[{}].position", i), cubes[i].second);
+        for (int i = 0; i < pnt_lights.size(); ++i) {
+            light_object_shader.set_vec3(std::format("point_lights[{}].position", i), pnt_lights[i].second);
             light_object_shader.set_vec3(std::format("point_lights[{}].ambient", i), glm::vec3(0.05f, 0.05f, 0.05f));
             light_object_shader.set_vec3(std::format("point_lights[{}].diffuse", i), glm::vec3(0.8f, 0.8f, 0.8f));
             light_object_shader.set_vec3(std::format("point_lights[{}].specular", i), glm::vec3(1.0f, 1.0f, 1.0f));
@@ -117,21 +135,16 @@ void WindowGLFW::update() {
         // todo: remove
         light_object_shader.set_float("materials[0].shine_factor", 32.0f);
 
-        for (const auto& model : objects) {
-            glm::mat4 model_mat = glm::mat4(1.0f);
-            model_mat = glm::translate(model_mat, model.second);
-            light_object_shader.set_mat4("model", model_mat);
+        for (auto& model : objects) {
             model.first.draw(light_object_shader);
         }
 
-        light_source_shader.set_mat4("projection", projection);
-        light_source_shader.set_mat4("view", view);
+        for (auto& cube : cubes) {
+            cube.first.draw(light_object_shader);
+        }
 
-        for (int i = 0; i < cubes.size(); ++i) {
-            glm::mat4 model = glm::mat4(1.0f);
-            model = glm::translate(model, cubes[i].second);
-            light_source_shader.set_mat4("model", model);
-            cubes[i].first.draw(light_source_shader);
+        for (auto& light : pnt_lights) {
+            light.first.draw(light_source_shader);
         }
 
         glfwSwapBuffers(window);
