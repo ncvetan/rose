@@ -17,7 +17,15 @@ namespace rose {
 // Used for avoiding loading the same texture from disk multiple times
 namespace globals {
 static std::unordered_map<std::string, Texture> loaded_textures;
+uint32_t id_counter = 0;
 } // namespace globals
+
+// todo: probably not a great id system, will want something better
+static uint32_t new_id() {
+    uint32_t tmp = globals::id_counter;
+    globals::id_counter++;
+    return tmp;
+} 
 
 Mesh::Mesh(std::vector<Vertex> verts, std::vector<uint32_t> indices, std::vector<Texture> textures)
     : verts(verts), indices(indices), textures(textures) {
@@ -47,21 +55,17 @@ void Mesh::init() {
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
     glGenBuffers(1, &EBO);
-
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(Vertex), verts.data(), GL_STATIC_DRAW);
-
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(uint32_t), indices.data(), GL_STATIC_DRAW);
-
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, pos));
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, norm));
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, tex));
-
     glBindVertexArray(0);
 }
 
@@ -103,7 +107,7 @@ Mesh::~Mesh() {
 
 void Model::draw(ShaderGL& shader) const {
     shader.use();
-    shader.set_mat4("model", model);
+    shader.set_mat4("model", model_mat);
     for (auto& mesh : meshes) {
         mesh.draw(shader);
     }
@@ -222,6 +226,7 @@ Cube::Cube(Cube&& other) noexcept {
     VBO = other.VBO;
     other.VBO = 0;
     verts = std::move(other.verts);
+    model_mat = std::move(other.model_mat);
 }
 
 Cube& Cube::operator=(Cube&& other) noexcept {
@@ -234,28 +239,153 @@ Cube& Cube::operator=(Cube&& other) noexcept {
 void Cube::init() {
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
-
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(Vertex), verts.data(), GL_STATIC_DRAW);
-
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, pos));
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, norm));
-
     glBindVertexArray(0);
 }
 
 void Cube::draw(ShaderGL& shader) const {
     shader.use();
-    shader.set_mat4("model", model);
+    shader.set_mat4("model", model_mat);
     glBindVertexArray(VAO);
     glDrawArrays(GL_TRIANGLES, 0, verts.size());
     glBindVertexArray(0);
 }
 
 Cube::~Cube() {
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
+}
+
+TextureCube::TextureCube() { init(); }
+
+TextureCube::TextureCube(TextureCube&& other) noexcept {
+    VAO = other.VAO;
+    other.VAO = 0;
+    VBO = other.VBO;
+    other.VBO = 0;
+    texture = std::move(other.texture);
+    verts = std::move(other.verts);
+    model_mat = std::move(other.model_mat);
+    id = other.id;
+}
+
+TextureCube& TextureCube::operator=(TextureCube&& other) noexcept {
+    if (this == &other) return *this;
+    this->~TextureCube();
+    new (this) TextureCube(std::move(other));
+    return *this;
+}
+
+void TextureCube::init() {
+    glGenVertexArrays(1, &VAO);
+    glBindVertexArray(VAO);
+    glGenBuffers(1, &VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(Vertex), verts.data(), GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, pos));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, norm));
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, tex));
+    glBindVertexArray(0);
+    id = new_id();
+}
+
+std::optional<rses> TextureCube::load(const fs::path& path) {
+    std::optional<uint32_t> t = load_texture(path);
+    if (!t) {
+        return rses().io("unable to load texture: {}", path.generic_string());
+    }
+    texture.id = t.value();
+    texture.path = path;
+    texture.type = Texture::Type::DIFFUSE;
+    return std::nullopt;
+}
+
+void TextureCube::draw(ShaderGL& shader) const {
+    shader.use();
+    shader.set_mat4("model", model_mat);
+    glBindVertexArray(VAO);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture.id);
+    shader.set_int("diff", 0);
+    glDrawArrays(GL_TRIANGLES, 0, verts.size());
+    glBindVertexArray(0);
+    glActiveTexture(GL_TEXTURE0);
+}
+
+TextureCube::~TextureCube() {
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
+}
+
+TextureQuad::TextureQuad() { init(); }
+
+TextureQuad::TextureQuad(TextureQuad&& other) noexcept {
+    VAO = other.VAO;
+    other.VAO = 0;
+    VBO = other.VBO;
+    other.VBO = 0;
+    texture = std::move(other.texture);
+    verts = std::move(other.verts);
+    model_mat = std::move(other.model_mat);
+    id = other.id;
+}
+
+TextureQuad& TextureQuad::operator=(TextureQuad&& other) noexcept {
+    if (this == &other) return *this;
+    this->~TextureQuad();
+    new (this) TextureQuad(std::move(other));
+    return *this;
+}
+
+void TextureQuad::init() {
+    glGenVertexArrays(1, &VAO);
+    glBindVertexArray(VAO);
+    glGenBuffers(1, &VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(Vertex), verts.data(), GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, pos));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, norm));
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, tex));
+    glBindVertexArray(0);
+    id = new_id();
+}
+
+std::optional<rses> TextureQuad::load(const fs::path& path) {
+    std::optional<uint32_t> t = load_texture(path);
+    if (!t) {
+        return rses().io("unable to load texture: {}", path.generic_string());
+    }
+    texture.id = t.value();
+    texture.path = path;
+    texture.type = Texture::Type::DIFFUSE;
+    return std::nullopt;
+}
+
+void TextureQuad::draw(ShaderGL& shader) const {
+    shader.use();
+    shader.set_mat4("model", model_mat);
+    glBindVertexArray(VAO);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture.id);
+    shader.set_int("diff", 0);
+    glDrawArrays(GL_TRIANGLES, 0, verts.size());
+    glBindVertexArray(0);
+    glActiveTexture(GL_TEXTURE0);
+}
+
+TextureQuad::~TextureQuad() {
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
 }

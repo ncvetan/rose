@@ -1,0 +1,15 @@
+#version 460 core
+
+in vec3 frag_pos;
+in vec2 tex_coords;
+
+uniform sampler2D diff;
+out vec4 frag_color;
+
+void main() {
+	vec4 col = texture(diff, tex_coords);
+	if (col.a < 0.1) {
+		discard;
+	}
+	frag_color = col;
+}

@@ -28,13 +28,17 @@ class WindowGLFW {
     void destroy();
 
     GLFWwindow* window = nullptr;
-    ShaderGL light_object_shader{};
-    ShaderGL light_source_shader{};
-    CameraGL camera{};
+    CameraGL camera;
+    ShaderGL object_shader;
+    ShaderGL light_shader;
+    ShaderGL texture_shader;
+    ShaderGL single_col_shader;
     
     std::vector<std::pair<Model, glm::vec3>> objects;
     std::vector<std::pair<Cube, glm::vec3>> cubes;
+    std::vector<std::pair<TextureCube, glm::vec3>> tex_cubes;
     std::vector<std::pair<Cube, glm::vec3>> pnt_lights;
+    std::vector<std::pair<TextureQuad, glm::vec3>> quads;
 
     uint16_t width = 1280;
     uint16_t height = 720;

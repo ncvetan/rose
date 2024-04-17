@@ -21,20 +21,24 @@ std::optional<uint32_t> load_texture(const std::filesystem::path& path) {
         case 1:
             fmt = GL_RED;
             break;
+        case 2:
+            fmt = GL_RG;
+            break;
         case 3:
             fmt = GL_RGB;
             break;
         case 4:
-            [[fallthrough]];
-        default:
             fmt = GL_RGBA;
+            break;
+        default:
+            assert(false);
+            break;
         }
 
         glBindTexture(GL_TEXTURE_2D, texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, fmt, GL_UNSIGNED_BYTE, texture_data);
-
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, fmt, GL_UNSIGNED_BYTE, texture_data);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glGenerateMipmap(GL_TEXTURE_2D);
@@ -44,7 +48,6 @@ std::optional<uint32_t> load_texture(const std::filesystem::path& path) {
         stbi_image_free(texture_data);
         return std::nullopt;
     }
-
     return texture;
 }
 } // namespace rose
