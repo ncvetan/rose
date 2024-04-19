@@ -14,22 +14,34 @@ namespace fs = std::filesystem;
 
 namespace rose {
 
-// Used for avoiding loading the same texture from disk multiple times
+// todo: probably not a great id system, will want something better
 namespace globals {
-static std::unordered_map<std::string, Texture> loaded_textures;
-uint32_t id_counter = 0;
+u32 id_counter = 0;
 } // namespace globals
 
-// todo: probably not a great id system, will want something better
-static uint32_t new_id() {
-    uint32_t tmp = globals::id_counter;
+static u32 new_id() {
+    u32 tmp = globals::id_counter;
     globals::id_counter++;
     return tmp;
 } 
 
-Mesh::Mesh(std::vector<Vertex> verts, std::vector<uint32_t> indices, std::vector<Texture> textures)
+Mesh::Mesh(std::vector<Vertex> verts, std::vector<u32> indices, std::vector<TextureGL> textures)
     : verts(verts), indices(indices), textures(textures) {
-    init();
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(Vertex), verts.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(u32), indices.data(), GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, pos));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, norm));
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, tex));
+    glBindVertexArray(0);
 }
 
 Mesh::Mesh(Mesh&& other) noexcept {
@@ -51,38 +63,20 @@ Mesh& Mesh::operator=(Mesh&& other) noexcept {
     return *this;
 }
 
-void Mesh::init() {
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    glGenBuffers(1, &EBO);
-    glBindVertexArray(VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(Vertex), verts.data(), GL_STATIC_DRAW);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(uint32_t), indices.data(), GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, pos));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, norm));
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, tex));
-    glBindVertexArray(0);
-}
-
 void Mesh::draw(ShaderGL& shader) const {
 
     shader.use();
-    uint32_t diff_n = 0;
-    uint32_t spec_n = 0;
+    u32 diff_n = 0;
+    u32 spec_n = 0;
 
-    for (uint32_t i = 0; i < textures.size(); ++i) {
+    for (u32 i = 0; i < textures.size(); ++i) {
         glActiveTexture(GL_TEXTURE0 + i);
         switch (textures[i].type) {
-        case Texture::Type::DIFFUSE:
+        case TextureGL::Type::DIFFUSE:
             shader.set_int(std::format("materials[{}].diffuse_map", diff_n), i);
             diff_n++;
             break;
-        case Texture::Type::SPECULAR:
+        case TextureGL::Type::SPECULAR:
             shader.set_int(std::format("materials[{}].specular_map", spec_n), i);
             spec_n++;
             break;
@@ -134,9 +128,9 @@ std::optional<rses> Model::load(const fs::path& path) {
     return std::nullopt;
 }
 
-static std::vector<Texture> load_mat_textures(aiMaterial* mat, aiTextureType ty, const fs::path& root_path) {
+static std::vector<TextureGL> load_mat_textures(aiMaterial* mat, aiTextureType ty, const fs::path& root_path) {
 
-    std::vector<Texture> textures;
+    std::vector<TextureGL> textures;
     textures.reserve(mat->GetTextureCount(ty));
 
     for (int i = 0; i < mat->GetTextureCount(ty); ++i) {
@@ -148,23 +142,21 @@ static std::vector<Texture> load_mat_textures(aiMaterial* mat, aiTextureType ty,
         if (globals::loaded_textures.contains(texture_path.generic_string())) {
             textures.push_back(globals::loaded_textures[texture_path.generic_string()]);
         } else {
-            std::optional<uint32_t> text_id = load_texture(texture_path);
-            if (!text_id.has_value()) {
+            std::optional<TextureGL> texture = load_texture(texture_path);
+            if (!texture.has_value()) {
                 LOG_ERROR("Unable to load texture at path: {}", texture_path.generic_string());
                 continue;
             }
-
-            Texture texture = { .id = text_id.value(), .type = Texture::Type::NONE, .path = texture_path };
             switch (ty) {
             case aiTextureType_DIFFUSE:
-                texture.type = Texture::Type::DIFFUSE;
+                texture->type = TextureGL::Type::DIFFUSE;
                 break;
             case aiTextureType_SPECULAR:
-                texture.type = Texture::Type::SPECULAR;
+                texture->type = TextureGL::Type::SPECULAR;
                 break;
             }
-            textures.push_back(texture);
-            globals::loaded_textures[texture_path.generic_string()] = texture;
+            textures.push_back(std::move(*texture));
+            globals::loaded_textures[texture_path.generic_string()] = *texture;
         }
     }
     return textures;
@@ -175,8 +167,8 @@ static void process_assimp_node(aiNode* ai_node, const aiScene* ai_scene, std::v
     for (int i = 0; i < ai_node->mNumMeshes; ++i) {
         aiMesh* ai_mesh = ai_scene->mMeshes[ai_node->mMeshes[i]];
         std::vector<Mesh::Vertex> verts;
-        std::vector<uint32_t> indices;
-        std::vector<Texture> textures;
+        std::vector<u32> indices;
+        std::vector<TextureGL> textures;
 
         for (int i = 0; i < ai_mesh->mNumVertices; ++i) {
             Mesh::Vertex vertex;
@@ -199,8 +191,8 @@ static void process_assimp_node(aiNode* ai_node, const aiScene* ai_scene, std::v
         // Loading material textures
         if (ai_mesh->mMaterialIndex >= 0) {
             aiMaterial* material = ai_scene->mMaterials[ai_mesh->mMaterialIndex];
-            std::vector<Texture> diff_maps = load_mat_textures(material, aiTextureType_DIFFUSE, root_path);
-            std::vector<Texture> spec_maps = load_mat_textures(material, aiTextureType_SPECULAR, root_path);
+            std::vector<TextureGL> diff_maps = load_mat_textures(material, aiTextureType_DIFFUSE, root_path);
+            std::vector<TextureGL> spec_maps = load_mat_textures(material, aiTextureType_SPECULAR, root_path);
             textures.reserve(diff_maps.size() + spec_maps.size());
 
             textures.insert(textures.end(), std::make_move_iterator(diff_maps.begin()),
@@ -218,7 +210,18 @@ static void process_assimp_node(aiNode* ai_node, const aiScene* ai_scene, std::v
     }
 }
 
-Cube::Cube() { init(); }
+Cube::Cube() { 
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(Vertex), verts.data(), GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, pos));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, norm));
+    glBindVertexArray(0);
+}
 
 Cube::Cube(Cube&& other) noexcept {
     VAO = other.VAO;
@@ -236,19 +239,6 @@ Cube& Cube::operator=(Cube&& other) noexcept {
     return *this;
 }
 
-void Cube::init() {
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    glBindVertexArray(VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(Vertex), verts.data(), GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, pos));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, norm));
-    glBindVertexArray(0);
-}
-
 void Cube::draw(ShaderGL& shader) const {
     shader.use();
     shader.set_mat4("model", model_mat);
@@ -262,9 +252,21 @@ Cube::~Cube() {
     glDeleteBuffers(1, &VBO);
 }
 
-TextureCube::TextureCube() { init(); }
+TexturedCube::TexturedCube() { 
+    glGenVertexArrays(1, &VAO);
+    glBindVertexArray(VAO);
+    glGenBuffers(1, &VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(Vertex), verts.data(), GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, pos));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, tex));
+    glBindVertexArray(0);
+    id = new_id();
+}
 
-TextureCube::TextureCube(TextureCube&& other) noexcept {
+TexturedCube::TexturedCube(TexturedCube&& other) noexcept {
     VAO = other.VAO;
     other.VAO = 0;
     VBO = other.VBO;
@@ -275,41 +277,24 @@ TextureCube::TextureCube(TextureCube&& other) noexcept {
     id = other.id;
 }
 
-TextureCube& TextureCube::operator=(TextureCube&& other) noexcept {
+TexturedCube& TexturedCube::operator=(TexturedCube&& other) noexcept {
     if (this == &other) return *this;
-    this->~TextureCube();
-    new (this) TextureCube(std::move(other));
+    this->~TexturedCube();
+    new (this) TexturedCube(std::move(other));
     return *this;
 }
 
-void TextureCube::init() {
-    glGenVertexArrays(1, &VAO);
-    glBindVertexArray(VAO);
-    glGenBuffers(1, &VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(Vertex), verts.data(), GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, pos));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, norm));
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, tex));
-    glBindVertexArray(0);
-    id = new_id();
-}
-
-std::optional<rses> TextureCube::load(const fs::path& path) {
-    std::optional<uint32_t> t = load_texture(path);
+std::optional<rses> TexturedCube::load(const fs::path& path) {
+    std::optional<TextureGL> t = load_texture(path);
     if (!t) {
         return rses().io("unable to load texture: {}", path.generic_string());
     }
-    texture.id = t.value();
-    texture.path = path;
-    texture.type = Texture::Type::DIFFUSE;
+    texture = t.value();
+    texture.type = TextureGL::Type::DIFFUSE;
     return std::nullopt;
 }
 
-void TextureCube::draw(ShaderGL& shader) const {
+void TexturedCube::draw(ShaderGL& shader) const {
     shader.use();
     shader.set_mat4("model", model_mat);
     glBindVertexArray(VAO);
@@ -321,14 +306,26 @@ void TextureCube::draw(ShaderGL& shader) const {
     glActiveTexture(GL_TEXTURE0);
 }
 
-TextureCube::~TextureCube() {
+TexturedCube::~TexturedCube() {
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
 }
 
-TextureQuad::TextureQuad() { init(); }
+TexturedQuad::TexturedQuad() { 
+    glGenVertexArrays(1, &VAO);
+    glBindVertexArray(VAO);
+    glGenBuffers(1, &VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(Vertex), verts.data(), GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, pos));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, tex));
+    glBindVertexArray(0);
+    id = new_id();
+}
 
-TextureQuad::TextureQuad(TextureQuad&& other) noexcept {
+TexturedQuad::TexturedQuad(TexturedQuad&& other) noexcept {
     VAO = other.VAO;
     other.VAO = 0;
     VBO = other.VBO;
@@ -339,41 +336,24 @@ TextureQuad::TextureQuad(TextureQuad&& other) noexcept {
     id = other.id;
 }
 
-TextureQuad& TextureQuad::operator=(TextureQuad&& other) noexcept {
+TexturedQuad& TexturedQuad::operator=(TexturedQuad&& other) noexcept {
     if (this == &other) return *this;
-    this->~TextureQuad();
-    new (this) TextureQuad(std::move(other));
+    this->~TexturedQuad();
+    new (this) TexturedQuad(std::move(other));
     return *this;
 }
 
-void TextureQuad::init() {
-    glGenVertexArrays(1, &VAO);
-    glBindVertexArray(VAO);
-    glGenBuffers(1, &VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(Vertex), verts.data(), GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, pos));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, norm));
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, tex));
-    glBindVertexArray(0);
-    id = new_id();
-}
-
-std::optional<rses> TextureQuad::load(const fs::path& path) {
-    std::optional<uint32_t> t = load_texture(path);
+std::optional<rses> TexturedQuad::load(const fs::path& path) {
+    std::optional<TextureGL> t = load_texture(path);
     if (!t) {
         return rses().io("unable to load texture: {}", path.generic_string());
     }
-    texture.id = t.value();
-    texture.path = path;
-    texture.type = Texture::Type::DIFFUSE;
+    texture = t.value();
+    texture.type = TextureGL::Type::DIFFUSE;
     return std::nullopt;
 }
 
-void TextureQuad::draw(ShaderGL& shader) const {
+void TexturedQuad::draw(ShaderGL& shader) const {
     shader.use();
     shader.set_mat4("model", model_mat);
     glBindVertexArray(VAO);
@@ -385,7 +365,7 @@ void TextureQuad::draw(ShaderGL& shader) const {
     glActiveTexture(GL_TEXTURE0);
 }
 
-TextureQuad::~TextureQuad() {
+TexturedQuad::~TexturedQuad() {
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
 }

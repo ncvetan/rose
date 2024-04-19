@@ -8,8 +8,5 @@ out vec4 frag_color;
 
 void main() {
 	vec4 col = texture(diff, tex_coords);
-	if (col.a < 0.1) {
-		discard;
-	}
 	frag_color = col;
 }

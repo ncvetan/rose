@@ -29,6 +29,10 @@ class WindowGLFW {
 
     GLFWwindow* window = nullptr;
     CameraGL camera;
+    
+    std::vector<ShaderGL> shaders;
+    std::unordered_map<std::string, int> shader_index;
+
     ShaderGL object_shader;
     ShaderGL light_shader;
     ShaderGL texture_shader;
@@ -36,12 +40,15 @@ class WindowGLFW {
     
     std::vector<std::pair<Model, glm::vec3>> objects;
     std::vector<std::pair<Cube, glm::vec3>> cubes;
-    std::vector<std::pair<TextureCube, glm::vec3>> tex_cubes;
+    std::vector<std::pair<TexturedCube, glm::vec3>> tex_cubes;
     std::vector<std::pair<Cube, glm::vec3>> pnt_lights;
-    std::vector<std::pair<TextureQuad, glm::vec3>> quads;
+    std::vector<std::pair<TexturedQuad, glm::vec3>> quads;
 
-    uint16_t width = 1280;
-    uint16_t height = 720;
+    u32 fbo = 0;
+    u32 rbo = 0;
+
+    u16 width = 1280;
+    u16 height = 720;
     std::string name = "Rose";
     glm::vec2 last_xy = { 0.0f, 0.0f };
 };

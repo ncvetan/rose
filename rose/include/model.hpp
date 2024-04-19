@@ -47,7 +47,7 @@ class Mesh {
     };
 
     Mesh() = delete;
-    Mesh(std::vector<Vertex> verts, std::vector<uint32_t> indices, std::vector<Texture> textures);
+    Mesh(std::vector<Vertex> verts, std::vector<u32> indices, std::vector<TextureGL> textures);
     Mesh(const Mesh& other) = delete;
     Mesh(Mesh&& other) noexcept;
     ~Mesh();
@@ -55,16 +55,15 @@ class Mesh {
     Mesh& operator=(const Mesh& other) = delete;
     Mesh& operator=(Mesh&& other) noexcept;
 
-    void init();
     void draw(ShaderGL& shader) const;
 
     std::vector<Vertex> verts;
-    std::vector<uint32_t> indices;
-    std::vector<Texture> textures;
+    std::vector<u32> indices;
+    std::vector<TextureGL> textures;
 
-    uint32_t VAO = 0;
-    uint32_t VBO = 0;
-    uint32_t EBO = 0;
+    u32 VAO = 0;
+    u32 VBO = 0;
+    u32 EBO = 0;
 };
 
 class Model {
@@ -91,12 +90,11 @@ class Cube {
     Cube& operator=(const Cube& other) = delete;
     Cube& operator=(Cube&& other) noexcept;
 
-    void init();
     void draw(ShaderGL& shader) const;
 
     glm::mat4 model_mat = glm::mat4(1.0f);
-    uint32_t VAO = 0;
-    uint32_t VBO = 0;
+    u32 VAO = 0;
+    u32 VBO = 0;
 
     std::vector<Vertex> verts = {
         { { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, -1.0 } },  { { 0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, -1.0 } },
@@ -120,106 +118,84 @@ class Cube {
     };
 };
 
-class TextureCube {
+class TexturedCube {
   public:
     struct Vertex {
         glm::vec3 pos;
-        glm::vec3 norm;
         glm::vec2 tex;
     };
 
-    TextureCube();
-    TextureCube(const TextureCube& other) = delete;
-    TextureCube(TextureCube&& other) noexcept;
-    ~TextureCube();
+    TexturedCube();
+    TexturedCube(const TexturedCube& other) = delete;
+    TexturedCube(TexturedCube&& other) noexcept;
+    ~TexturedCube();
 
-    TextureCube& operator=(const TextureCube& other) = delete;
-    TextureCube& operator=(TextureCube&& other) noexcept;
+    TexturedCube& operator=(const TexturedCube& other) = delete;
+    TexturedCube& operator=(TexturedCube&& other) noexcept;
 
-    void init();
     std::optional<rses> load(const fs::path& path);
     void draw(ShaderGL& shader) const;
     inline void reset() { model_mat = glm::mat4(1.0f); }
 
-    uint32_t id = 0;
-    Texture texture;
+    u32 id = 0;
+    TextureGL texture;
     glm::mat4 model_mat = glm::mat4(1.0f);
-    uint32_t VAO = 0;
-    uint32_t VBO = 0;
-
-    std::vector<Vertex> verts = { { { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 0.0f, 0.0f } },
-                                  { { 0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 1.0f, 0.0f } },
-                                  { { 0.5f, 0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 1.0f, 1.0f } },
-                                  { { 0.5f, 0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 1.0f, 1.0f } },
-                                  { { -0.5f, 0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 0.0f, 1.0f } },
-                                  { { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 0.0f, 0.0f } },
-                                  { { -0.5f, -0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } },
-                                  { { 0.5f, -0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } },
-                                  { { 0.5f, 0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
-                                  { { 0.5f, 0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
-                                  { { -0.5f, 0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
-                                  { { -0.5f, -0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } },
-                                  { { -0.5f, 0.5f, 0.5f }, { -1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
-                                  { { -0.5f, 0.5f, -0.5f }, { -1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } },
-                                  { { -0.5f, -0.5f, -0.5f }, { -1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } },
-                                  { { -0.5f, -0.5f, -0.5f }, { -1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } },
-                                  { { -0.5f, -0.5f, 0.5f }, { -1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
-                                  { { -0.5f, 0.5f, 0.5f }, { -1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
-                                  { { 0.5f, 0.5f, 0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
-                                  { { 0.5f, 0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } },
-                                  { { 0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } },
-                                  { { 0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } },
-                                  { { 0.5f, -0.5f, 0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
-                                  { { 0.5f, 0.5f, 0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
-                                  { { -0.5f, -0.5f, -0.5f }, { 0.0f, -1.0f, 0.0f }, { 0.0f, 1.0f } },
-                                  { { 0.5f, -0.5f, -0.5f }, { 0.0f, -1.0f, 0.0f }, { 1.0f, 1.0f } },
-                                  { { 0.5f, -0.5f, 0.5f }, { 0.0f, -1.0f, 0.0f }, { 1.0f, 0.0f } },
-                                  { { 0.5f, -0.5f, 0.5f }, { 0.0f, -1.0f, 0.0f }, { 1.0f, 0.0f } },
-                                  { { -0.5f, -0.5f, 0.5f }, { 0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } },
-                                  { { -0.5f, -0.5f, -0.5f }, { 0.0f, -1.0f, 0.0f }, { 0.0f, 1.0f } },
-                                  { { -0.5f, 0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } },
-                                  { { 0.5f, 0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
-                                  { { 0.5f, 0.5f, 0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
-                                  { { 0.5f, 0.5f, 0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
-                                  { { -0.5f, 0.5f, 0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
-                                  { { -0.5f, 0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } } };
-};
-
-class TextureQuad {
-  public:
-    struct Vertex {
-        glm::vec3 pos;
-        glm::vec3 norm;
-        glm::vec2 tex;
-    };
-
-    TextureQuad();
-    TextureQuad(const TextureQuad& other) = delete;
-    TextureQuad(TextureQuad&& other) noexcept;
-    ~TextureQuad();
-
-    TextureQuad& operator=(const TextureQuad& other) = delete;
-    TextureQuad& operator=(TextureQuad&& other) noexcept;
-
-    void init();
-    std::optional<rses> load(const fs::path& path);
-    void draw(ShaderGL& shader) const;
-    inline void reset() { model_mat = glm::mat4(1.0f); }
-
-    uint32_t id = 0;
-    Texture texture;
-    glm::mat4 model_mat = glm::mat4(1.0f);
-    uint32_t VAO = 0;
-    uint32_t VBO = 0;
+    u32 VAO = 0;
+    u32 VBO = 0;
 
     std::vector<Vertex> verts = {
-        { {  1.0f,  1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
-        { { -1.0f,  1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
-        { { -1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } },
-        { {  1.0f,  1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
-        { { -1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } },
-        { {  1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } }
+        { { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f } }, { { 0.5f, 0.5f, -0.5f }, { 1.0f, 1.0f } },
+        { { 0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f } },  { { 0.5f, 0.5f, -0.5f }, { 1.0f, 1.0f } },
+        { { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f } }, { { -0.5f, 0.5f, -0.5f }, { 0.0f, 1.0f } },
+        { { -0.5f, -0.5f, 0.5f }, { 0.0f, 0.0f } },  { { 0.5f, -0.5f, 0.5f }, { 1.0f, 0.0f } },
+        { { 0.5f, 0.5f, 0.5f }, { 1.0f, 1.0f } },    { { 0.5f, 0.5f, 0.5f }, { 1.0f, 1.0f } },
+        { { -0.5f, 0.5f, 0.5f }, { 0.0f, 1.0f } },   { { -0.5f, -0.5f, 0.5f }, { 0.0f, 0.0f } },
+        { { -0.5f, 0.5f, 0.5f }, { 1.0f, 0.0f } },   { { -0.5f, 0.5f, -0.5f }, { 1.0f, 1.0f } },
+        { { -0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f } }, { { -0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f } },
+        { { -0.5f, -0.5f, 0.5f }, { 0.0f, 0.0f } },  { { -0.5f, 0.5f, 0.5f }, { 1.0f, 0.0f } },
+        { { 0.5f, 0.5f, 0.5f }, { 1.0f, 0.0f } },    { { 0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f } },
+        { { 0.5f, 0.5f, -0.5f }, { 1.0f, 1.0f } },   { { 0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f } },
+        { { 0.5f, 0.5f, 0.5f }, { 1.0f, 0.0f } },    { { 0.5f, -0.5f, 0.5f }, { 0.0f, 0.0f } },
+        { { -0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f } }, { { 0.5f, -0.5f, -0.5f }, { 1.0f, 1.0f } },
+        { { 0.5f, -0.5f, 0.5f }, { 1.0f, 0.0f } },   { { 0.5f, -0.5f, 0.5f }, { 1.0f, 0.0f } },
+        { { -0.5f, -0.5f, 0.5f }, { 0.0f, 0.0f } },  { { -0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f } },
+        { { -0.5f, 0.5f, -0.5f }, { 0.0f, 1.0f } },  { { 0.5f, 0.5f, 0.5f }, { 1.0f, 0.0f } },
+        { { 0.5f, 0.5f, -0.5f }, { 1.0f, 1.0f } },   { { 0.5f, 0.5f, 0.5f }, { 1.0f, 0.0f } },
+        { { -0.5f, 0.5f, -0.5f }, { 0.0f, 1.0f } },  { { -0.5f, 0.5f, 0.5f }, { 0.0f, 0.0f } }
     };
+};
+
+class TexturedQuad {
+  public:
+    struct Vertex {
+        glm::vec3 pos;
+        glm::vec2 tex;
+    };
+
+    TexturedQuad();
+    TexturedQuad(const TexturedQuad& other) = delete;
+    TexturedQuad(TexturedQuad&& other) noexcept;
+    ~TexturedQuad();
+
+    TexturedQuad& operator=(const TexturedQuad& other) = delete;
+    TexturedQuad& operator=(TexturedQuad&& other) noexcept;
+
+    std::optional<rses> load(const fs::path& path);
+    void draw(ShaderGL& shader) const;
+    inline void reset() { model_mat = glm::mat4(1.0f); }
+
+    u32 id = 0;
+    TextureGL texture;
+    glm::mat4 model_mat = glm::mat4(1.0f);
+    u32 VAO = 0;
+    u32 VBO = 0;
+
+    std::vector<Vertex> verts = { { { 1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
+                                  { { -1.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } },
+                                  { { -1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } },
+                                  { { 1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
+                                  { { -1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } },
+                                  { { 1.0f, -1.0f, 0.0f }, { 1.0f, 0.0f } } };
 };
 
 } // namespace rose

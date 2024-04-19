@@ -11,6 +11,7 @@ add_library(rose_lib STATIC
     "source/texture.cpp"
     "source/window.cpp"
 
+    "include/alias.hpp"
     "include/application.hpp"
     "include/camera.hpp"
     "include/err.hpp"

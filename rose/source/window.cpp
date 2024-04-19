@@ -8,6 +8,8 @@
 
 #include <format>
 #include <iostream>
+#include <set>
+#include <ranges>
 
 namespace rose {
 
@@ -57,6 +59,11 @@ std::optional<rses> WindowGLFW::init() {
     glViewport(0, 0, width, height);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_STENCIL_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_FRONT);
+    glFrontFace(GL_CW);
 
     if (!object_shader.init(std::format("{}/rose/shaders/object.vert", SOURCE_DIR),
                             std::format("{}/rose/shaders/object.frag", SOURCE_DIR))) {
@@ -80,38 +87,38 @@ std::optional<rses> WindowGLFW::init() {
 
     stbi_set_flip_vertically_on_load(true);
 
-    // Model model;
-    // std::optional<rses> err = model.load(std::format("{}/assets/model1/model1.obj", SOURCE_DIR));
-    // if (err) {
-    //     return err->general("Unable to load model");
-    // }
-
-    // objects.push_back({ std::move(model), glm::vec3(0.0f, 0.0f, 0.0f) });
-
     std::optional<rses> es;
     // floor
-    tex_cubes.push_back({ TextureCube(), glm::vec3(0.0f, -1.0f, 0.0f) });
+    tex_cubes.push_back({ TexturedCube(), glm::vec3(0.0f, -1.0f, 0.0f) });
     if (es = tex_cubes.back().first.load(std::format("{}/assets/texture1.png", SOURCE_DIR))) {
-        LOG_WARN("Unable to load texture");
+        err::print(*es);
     }
     // cubes
-    tex_cubes.push_back({ TextureCube(), glm::vec3(2.0f, 0.0f, 5.0f) });
+    tex_cubes.push_back({ TexturedCube(), glm::vec3(2.0f, 0.0f, 5.0f) });
     if (es = tex_cubes.back().first.load(std::format("{}/assets/texture2.jpg", SOURCE_DIR))) {
-        LOG_WARN("Unable to load texture");
+        err::print(*es);
     }
-    tex_cubes.push_back({ TextureCube(), glm::vec3(2.0f, 0.0f, 2.0f) });
+    tex_cubes.push_back({ TexturedCube(), glm::vec3(2.0f, 0.0f, 2.0f) });
     if (es = tex_cubes.back().first.load(std::format("{}/assets/texture2.jpg", SOURCE_DIR))) {
-        LOG_WARN("Unable to load texture");
+        err::print(*es);
     }
 
-    quads.push_back({ TextureQuad(), glm::vec3(2.0f, 0.25f, 2.0f) });
-    if (es = quads.back().first.load(std::format("{}/assets/grass.png", SOURCE_DIR))) {
-        LOG_WARN("Unable to load texture");
+    quads.push_back({ TexturedQuad(), glm::vec3(0.0f, 0.25f, 0.0f) });
+    if (es = quads.back().first.load(std::format("{}/assets/window.png", SOURCE_DIR))) {
+        err::print(*es);
     }
+
+    quads.push_back({ TexturedQuad(), glm::vec3(0.5f, 0.25f, 0.5f) });
+    if (es = quads.back().first.load(std::format("{}/assets/window.png", SOURCE_DIR))) {
+        err::print(*es);
+    }
+
     return std::nullopt;
 };
 
 void WindowGLFW::update() {
+
+    std::set<std::pair<float, int>> ordered_idxs;
 
     while (!glfwWindowShouldClose(window)) {
 
@@ -122,41 +129,12 @@ void WindowGLFW::update() {
         process_input(window, delta_time);
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+        glEnable(GL_CULL_FACE);
 
         glm::mat4 projection = camera.projection_matrix(static_cast<float>(width) / static_cast<float>(height));
         glm::mat4 view = camera.view_matrix();
-        object_shader.set_mat4("projection", projection);
-        light_shader.set_mat4("projection", projection);
         texture_shader.set_mat4("projection", projection);
-        single_col_shader.set_mat4("projection", projection);
-        object_shader.set_mat4("view", view);
-        light_shader.set_mat4("view", view);
         texture_shader.set_mat4("view", view);
-        single_col_shader.set_mat4("view", view);
-
-        object_shader.set_vec3("view_pos", camera.position);
-
-        object_shader.set_vec3("dir_light.direction", glm::vec3(-0.2f, -1.0f, -0.3f));
-        object_shader.set_vec3("dir_light.ambient", glm::vec3(0.05f, 0.05f, 0.05f));
-        object_shader.set_vec3("dir_light.diffuse", glm::vec3(0.4f, 0.4f, 0.4f));
-        object_shader.set_vec3("dir_light.specular", glm::vec3(0.5f, 0.5f, 0.5f));
-
-        for (int i = 0; i < pnt_lights.size(); ++i) {
-            object_shader.set_vec3(std::format("point_lights[{}].position", i), pnt_lights[i].second);
-            object_shader.set_vec3(std::format("point_lights[{}].ambient", i), glm::vec3(0.05f, 0.05f, 0.05f));
-            object_shader.set_vec3(std::format("point_lights[{}].diffuse", i), glm::vec3(0.8f, 0.8f, 0.8f));
-            object_shader.set_vec3(std::format("point_lights[{}].specular", i), glm::vec3(1.0f, 1.0f, 1.0f));
-            object_shader.set_float(std::format("point_lights[{}].attn_const", i), 1.0f);
-            object_shader.set_float(std::format("point_lights[{}].attn_lin", i), 0.09f);
-            object_shader.set_float(std::format("point_lights[{}].attn_quads", i), 0.032f);
-        }
-
-        // todo: remove
-        object_shader.set_float("materials[0].shine_factor", 32.0f);
-
-        for (auto& [model, pos] : objects) {
-            model.draw(object_shader);
-        }
 
         for (auto& [cube, pos] : tex_cubes) {
             translate(cube, pos);
@@ -166,17 +144,19 @@ void WindowGLFW::update() {
             cube.draw(texture_shader);
             cube.reset();
         }
-
-        for (auto& [cube, pos] : cubes) {
-            cube.draw(object_shader);
+        
+        glDisable(GL_CULL_FACE);  // don't face cull 2D objects since we can view both faces
+        for (int i = 0; const auto& [quad, pos] : quads) {
+            float distance = glm::distance(camera.position, pos);
+            ordered_idxs.insert({ distance, i });
+            i++;
         }
 
-        for (auto& [quad, pos] : quads) {
+        for (auto& [dist, i] : std::ranges::reverse_view(ordered_idxs)) {
+            auto& [quad, pos] = quads[i];
+            translate(quad, pos);
             quad.draw(texture_shader);
-        }
-
-        for (auto& [light, pos] : pnt_lights) {
-            light.draw(light_shader);
+            quad.reset();
         }
 
         glfwSwapBuffers(window);
