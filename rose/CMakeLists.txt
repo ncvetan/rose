@@ -1,24 +1,24 @@
 include_directories("./include")
 
 add_library(rose_lib STATIC
-    "source/application.cpp"
-    "source/camera.cpp"
-    "source/err.cpp"
-    "source/logger.cpp"
-    "source/model.cpp"
-    "source/shader.cpp"
-    "source/texture.cpp"
-    "source/window.cpp"
+    "source/rose/application.cpp"
+    "source/rose/camera.cpp"
+    "source/rose/err.cpp"
+    "source/rose/logger.cpp"
+    "source/rose/model.cpp"
+    "source/rose/shader.cpp"
+    "source/rose/texture.cpp"
+    "source/rose/window.cpp"
 
-    "include/alias.hpp"
-    "include/application.hpp"
-    "include/camera.hpp"
-    "include/err.hpp"
-    "include/logger.hpp"
-    "include/model.hpp"
-    "include/shader.hpp"
-    "include/texture.hpp"
-    "include/window.hpp"
+    "include/rose/alias.hpp"
+    "include/rose/application.hpp"
+    "include/rose/camera.hpp"
+    "include/rose/err.hpp"
+    "include/rose/logger.hpp"
+    "include/rose/model.hpp"
+    "include/rose/shader.hpp"
+    "include/rose/texture.hpp"
+    "include/rose/window.hpp"
 )
 
 target_include_directories(rose_lib PUBLIC ${DEPS_INCLUDE_DIRS})

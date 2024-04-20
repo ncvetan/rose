@@ -1,8 +1,8 @@
-#include <memory>
+#include <rose/logger.hpp>
 
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-#include <logger.hpp>
+#include <memory>
 
 namespace rose {
 

@@ -1,15 +1,15 @@
 #ifndef ROSE_INCLUDE_WINDOW
 #define ROSE_INCLUDE_WINDOW
 
-#include <optional>
+#include <rose/camera.hpp>
+#include <rose/err.hpp>
+#include <rose/model.hpp>
+#include <rose/shader.hpp>
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
-#include <camera.hpp>
-#include <err.hpp>
-#include <model.hpp>
-#include <shader.hpp>
+#include <optional>
 
 namespace rose {
 

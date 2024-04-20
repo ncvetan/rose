@@ -1,25 +1,26 @@
 #ifndef ROSE_INCLUDE_SHADER
 #define ROSE_INCLUDE_SHADER
 
-#include <alias.hpp>
+#include <rose/alias.hpp>
+#include <rose/err.hpp>
+
+#include <glm.hpp>
 
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
 
-#include <glm.hpp>
-
 namespace rose {
 
 class ShaderGL {
   public:
-    gluint id = 0;
+    gluint prg = 0;
 
     ShaderGL() = default;
-    ~ShaderGL() = default;
+    ~ShaderGL();
 
-    bool init(const std::string& vertex_path, const std::string& fragment_path);
+    std::optional<rses> init(const std::string& vertex_path, const std::string& fragment_path);
     void use();
 
     void set_bool(const std::string& name, bool value) const;

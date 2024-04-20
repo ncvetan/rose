@@ -1,15 +1,15 @@
 #ifndef ROSE_INCLUDE_MODEL
 #define ROSE_INCLUDE_MODEL
 
-#include <concepts>
-#include <filesystem>
-#include <vector>
+#include <rose/shader.hpp>
+#include <rose/texture.hpp>
 
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>
 
-#include <shader.hpp>
-#include <texture.hpp>
+#include <concepts>
+#include <filesystem>
+#include <vector>
 
 namespace rose {
 

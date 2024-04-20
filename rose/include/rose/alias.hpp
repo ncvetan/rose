@@ -3,6 +3,8 @@
 
 #include <GL/glew.h>
 
+#include <filesystem>
+
 namespace fs = std::filesystem;
 
 using glint = GLint;

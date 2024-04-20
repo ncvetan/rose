@@ -1,4 +1,4 @@
-#include <camera.hpp>
+#include <rose/camera.hpp>
 
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>

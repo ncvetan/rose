@@ -1,10 +1,10 @@
+#include <rose/err.hpp>
+#include <rose/logger.hpp>
+#include <rose/model.hpp>
+#include <rose/window.hpp>
+
 #include <glm.hpp>
 #include <stb_image.h>
-
-#include <err.hpp>
-#include <logger.hpp>
-#include <model.hpp>
-#include <window.hpp>
 
 #include <format>
 #include <iostream>
@@ -42,7 +42,6 @@ std::optional<rses> WindowGLFW::init() {
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
-
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     // GLEW initialization
@@ -56,29 +55,29 @@ std::optional<rses> WindowGLFW::init() {
     glEnable(GL_DEPTH_TEST | GL_STENCIL_TEST | GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    if (!object_shader.init(std::format("{}/rose/shaders/gl/object.vert", SOURCE_DIR),
-                            std::format("{}/rose/shaders/gl/object.frag", SOURCE_DIR))) {
-        LOG_WARN("Unable to load object shader");
+    if (auto es = light_shader.init(std::format("{}/rose/shaders/gl/light.vert", SOURCE_DIR),
+                                    std::format("{}/rose/shaders/gl/light.frag", SOURCE_DIR))) {
+        err::print(*es);
     }
 
-    if (!light_shader.init(std::format("{}/rose/shaders/gl/light.vert", SOURCE_DIR),
-                           std::format("{}/rose/shaders/gl/light.frag", SOURCE_DIR))) {
-        LOG_WARN("Unable to load light shader");
+    if (auto es = object_shader.init(std::format("{}/rose/shaders/gl/object.vert", SOURCE_DIR),
+                                     std::format("{}/rose/shaders/gl/object.frag", SOURCE_DIR))) {
+        err::print(*es);
     }
 
-    if (!single_col_shader.init(std::format("{}/rose/shaders/gl/single_col.vert", SOURCE_DIR),
-                                std::format("{}/rose/shaders/gl/single_col.frag", SOURCE_DIR))) {
-        LOG_WARN("Unable to single color shader");
+    if (auto es = quad_shader.init(std::format("{}/rose/shaders/gl/quad.vert", SOURCE_DIR),
+                                   std::format("{}/rose/shaders/gl/quad.frag", SOURCE_DIR))) {
+        err::print(*es);
     }
 
-    if (!texture_shader.init(std::format("{}/rose/shaders/gl/texture.vert", SOURCE_DIR),
-                             std::format("{}/rose/shaders/gl/texture.frag", SOURCE_DIR))) {
-        LOG_WARN("Unable to load cube shader");
+    if (auto es = texture_shader.init(std::format("{}/rose/shaders/gl/texture.vert", SOURCE_DIR),
+                                      std::format("{}/rose/shaders/gl/texture.frag", SOURCE_DIR))) {
+        err::print(*es);
     }
 
-    if (!quad_shader.init(std::format("{}/rose/shaders/gl/quad.vert", SOURCE_DIR),
-                          std::format("{}/rose/shaders/gl/quad.frag", SOURCE_DIR))) {
-        LOG_WARN("Unable to load quad shader");
+    if (auto es = single_col_shader.init(std::format("{}/rose/shaders/gl/single_col.vert", SOURCE_DIR),
+                                         std::format("{}/rose/shaders/gl/single_col.frag", SOURCE_DIR))) {
+        err::print(*es);
     }
 
     stbi_set_flip_vertically_on_load(true);
@@ -106,7 +105,7 @@ std::optional<rses> WindowGLFW::init() {
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
     fbo_quad.init();
     fbo_quad.texture = *generate_texture(width, height);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo_quad.texture.id, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo_quad.texture.ref->id, 0);
     glGenRenderbuffers(1, &rbo);
     glBindRenderbuffer(GL_RENDERBUFFER, rbo);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);

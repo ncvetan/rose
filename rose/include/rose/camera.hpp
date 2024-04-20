@@ -1,12 +1,12 @@
 #ifndef ROSE_INCLUDE_CAMERA
 #define ROSE_INCLUDE_CAMERA
 
-#include <vector>
+#include <rose/logger.hpp>
 
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>
 
-#include <logger.hpp>
+#include <vector>
 
 namespace rose {
 

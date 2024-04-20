@@ -1,20 +1,18 @@
-#include <logger.hpp>
-#include <texture.hpp>
+#include <rose/logger.hpp>
+#include <rose/texture.hpp>
 
 #include <GL/glew.h>
 #include <stb_image.h>
 
 #include <filesystem>
-#include <format>
 
 namespace rose {
 
-TextureRef::TextureRef(u32 id, TextureGL* ref) : id(id), ref(ref) {}
+TextureRef::TextureRef(TextureGL* ref) : ref(ref) {}
 
 TextureRef::TextureRef(const TextureRef& other) {
-    id = other.id;
     ref = other.ref;
-    globals::loaded_textures[other.id].second++;
+    globals::loaded_textures[ref->id].refcnt++;
 }
 
 TextureRef& TextureRef::operator=(const TextureRef& other) {
@@ -25,8 +23,6 @@ TextureRef& TextureRef::operator=(const TextureRef& other) {
 }
 
 TextureRef::TextureRef(TextureRef&& other) noexcept {
-    id = other.id;
-    other.id = 0;
     ref = other.ref;
     other.ref = nullptr;
 }
@@ -39,12 +35,12 @@ TextureRef& TextureRef::operator=(TextureRef&& other) noexcept {
 }
 
 TextureRef::~TextureRef() {
-    if (globals::loaded_textures.contains(id)) {
-        auto& [texture, refcnt] = globals::loaded_textures[id];
+    if (ref && globals::loaded_textures.contains(ref->id)) {
+        auto& [texture, refcnt] = globals::loaded_textures[ref->id];
         refcnt -= 1;
         if (refcnt == 0) {
             texture.free();
-            globals::loaded_textures.erase(id);
+            globals::loaded_textures.erase(ref->id);
         }
         ref = nullptr;
     }
@@ -56,9 +52,8 @@ static std::optional<TextureRef> get_texture_ref(const fs::path& path) {
         u32 val = globals::textures_index[path];
         if (globals::loaded_textures.contains(val)) {
             TextureRef ref;
-            ref.id = val;
-            ref.ref = &globals::loaded_textures[val].first;
-            globals::loaded_textures[val].second++;
+            ref.ref = &globals::loaded_textures[val].texture;
+            globals::loaded_textures[val].refcnt++;
             return ref;
         } else {
             // Stale index
@@ -71,9 +66,8 @@ static std::optional<TextureRef> get_texture_ref(const fs::path& path) {
 static std::optional<TextureRef> get_texture_ref(u32 id) {
     if (globals::loaded_textures.contains(id)) {
         TextureRef ref;
-        ref.id = id;
-        ref.ref = &globals::loaded_textures[id].first;
-        globals::loaded_textures[id].second++;
+        ref.ref = &globals::loaded_textures[id].texture;
+        globals::loaded_textures[id].refcnt++;
         return ref;
     }
     return std::nullopt;
@@ -130,7 +124,7 @@ std::optional<TextureRef> load_texture(const fs::path& path, TextureType ty) {
 
     globals::loaded_textures[texture.id] = { texture, 1 };
     globals::textures_index[path] = texture.id;
-    return TextureRef(texture.id, &globals::loaded_textures[texture.id].first);
+    return TextureRef(&globals::loaded_textures[texture.id].texture);
 }
 
 std::optional<TextureRef> load_cubemap(const std::vector<fs::path>& paths) {
@@ -177,10 +171,7 @@ std::optional<TextureRef> load_cubemap(const std::vector<fs::path>& paths) {
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
     glBindTexture(GL_TEXTURE_2D, 0);
     globals::loaded_textures[texture.id] = { texture, 1 };
-    TextureRef ref;
-    ref.id = texture.id;
-    ref.ref = &texture;
-    return ref;
+    return TextureRef(&globals::loaded_textures[texture.id].texture);
 }
 
 std::optional<TextureRef> generate_texture(int w, int h) {
@@ -192,7 +183,7 @@ std::optional<TextureRef> generate_texture(int w, int h) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glBindTexture(GL_TEXTURE_2D, 0);
     globals::loaded_textures[texture.id] = { texture, 1 };
-    return TextureRef(texture.id, &globals::loaded_textures[texture.id].first);
+    return TextureRef(&globals::loaded_textures[texture.id].texture);
 };
 
 } // namespace rose

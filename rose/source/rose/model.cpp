@@ -1,16 +1,14 @@
-#include <err.hpp>
-#include <logger.hpp>
-#include <model.hpp>
+#include <rose/err.hpp>
+#include <rose/logger.hpp>
+#include <rose/model.hpp>
 
-#include <GL/glew.h>
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
+#include <GL/glew.h>
 
 #include <format>
 #include <unordered_map>
-
-namespace fs = std::filesystem;
 
 namespace rose {
 
@@ -87,7 +85,7 @@ void Mesh::draw(ShaderGL& shader) const {
             assert(false);
             break;
         }
-        glBindTexture(GL_TEXTURE_2D, textures[i].id);
+        glBindTexture(GL_TEXTURE_2D, textures[i].ref->id);
     }
 
     glBindVertexArray(VAO);

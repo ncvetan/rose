@@ -1,10 +1,10 @@
-#include <err.hpp>
+#include <rose/err.hpp>
+
+#include <GL/glew.h>
 
 #include <cassert>
 #include <iostream>
 #include <sstream>
-
-#include <GL/glew.h>
 
 namespace err {
 

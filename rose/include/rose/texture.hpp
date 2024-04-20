@@ -1,11 +1,10 @@
 #ifndef ROSE_INCLUDE_TEXTURE
 #define ROSE_INCLUDE_TEXTURE
 
+#include <rose/alias.hpp>
+
 #include <filesystem>
 #include <optional>
-#include <string>
-
-#include <alias.hpp>
 
 namespace rose {
 
@@ -20,7 +19,7 @@ struct TextureGL {
 
 struct TextureRef {
     TextureRef() = default;
-    TextureRef(u32 id, TextureGL* ref);
+    TextureRef(TextureGL* ref);
     TextureRef(const TextureRef& other);
     TextureRef(TextureRef&& other) noexcept;
     ~TextureRef();
@@ -28,7 +27,6 @@ struct TextureRef {
     TextureRef& operator=(const TextureRef& other);
     TextureRef& operator=(TextureRef&& other) noexcept;
 
-    u32 id = 0;
     TextureGL* ref = nullptr;
 };
 
@@ -36,8 +34,13 @@ std::optional<TextureRef> load_texture(const fs::path& path, TextureType ty);
 std::optional<TextureRef> load_cubemap(const std::vector<fs::path>& paths);
 std::optional<TextureRef> generate_texture(int w, int h);
 
+struct TextureCtx {
+    TextureGL texture;
+    u64 refcnt = 0;
+};
+
 namespace globals {
-    inline std::unordered_map<u32, std::pair<TextureGL, u64>> loaded_textures;
+    inline std::unordered_map<u32, TextureCtx> loaded_textures;
     inline std::unordered_map<fs::path, u32> textures_index;
 }
 

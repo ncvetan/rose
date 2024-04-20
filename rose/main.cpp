@@ -1,6 +1,6 @@
-#include <application.hpp>
-#include <logger.hpp>
-#include <err.hpp>
+#include <rose/application.hpp>
+#include <rose/logger.hpp>
+#include <rose/err.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>

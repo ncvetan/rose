@@ -2,7 +2,6 @@
 #define ROSE_INCLUDE_ERR
 
 #include <format>
-#include <source_location>
 #include <string>
 #include <vector>
 

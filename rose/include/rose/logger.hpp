@@ -1,9 +1,9 @@
 #ifndef ROSE_INCLUDE_LOGGER
 #define ROSE_INCLUDE_LOGGER
 
-#include <memory>
-
 #include <spdlog/spdlog.h>
+
+#include <memory>
 
 namespace rose {
 

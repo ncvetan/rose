@@ -1,25 +1,23 @@
-﻿#include <GL/glew.h>
-#include <glm.hpp>
+﻿#include <rose/logger.hpp>
+#include <rose/shader.hpp>
 
-#include <logger.hpp>
-#include <shader.hpp>
+#include <GL/glew.h>
+#include <glm.hpp>
 
 namespace rose {
 
-bool ShaderGL::init(const std::string& vertex_path, const std::string& fragment_path) {
-    std::string vertex_code{};
-    std::string fragment_code{};
+std::optional<rses> ShaderGL::init(const std::string& vertex_path, const std::string& fragment_path) {
+    std::string vertex_code;
+    std::string fragment_code;
     std::ifstream vertex_shader_file(vertex_path);
     std::ifstream fragment_shader_file(fragment_path);
 
     if (!vertex_shader_file) {
-        LOG_ERROR("Unable to open vertex shader at path: {}", vertex_path);
-        return false;
+        return rses().io("Unable to open vertex shader at path: {}", vertex_path);
     }
 
     if (!fragment_shader_file) {
-        LOG_ERROR("Unable to open fragment shader at path: {}", fragment_path);
-        return false;
+        return rses().io("Unable to open fragment shader at path: {}", fragment_path);
     }
 
     std::stringstream vertex_code_buffer;
@@ -44,8 +42,7 @@ bool ShaderGL::init(const std::string& vertex_path, const std::string& fragment_
     glGetShaderiv(vertex, GL_COMPILE_STATUS, &success);
     if (!success) {
         glGetShaderInfoLog(vertex, 512, NULL, info_log);
-        LOG_ERROR("Vertex shader compilation failed: {}", info_log);
-        return false;
+        return rses().gl("Vertex shader compilation failed: {}", info_log);
     };
 
     fragment = glCreateShader(GL_FRAGMENT_SHADER);
@@ -55,49 +52,53 @@ bool ShaderGL::init(const std::string& vertex_path, const std::string& fragment_
     glGetShaderiv(fragment, GL_COMPILE_STATUS, &success);
     if (!success) {
         glGetShaderInfoLog(fragment, 512, NULL, info_log);
-        LOG_ERROR("Fragment shader compilation failed: {}", info_log);
-        return false;
+        return rses().gl("Fragment shader compilation failed: {}", info_log);
     };
 
-    id = glCreateProgram();
-    glAttachShader(id, vertex);
-    glAttachShader(id, fragment);
-    glLinkProgram(id);
+    prg = glCreateProgram();
+    glAttachShader(prg, vertex);
+    glAttachShader(prg, fragment);
+    glLinkProgram(prg);
 
-    glGetProgramiv(id, GL_LINK_STATUS, &success);
+    glGetProgramiv(prg, GL_LINK_STATUS, &success);
     if (!success) {
-        glGetProgramInfoLog(id, 512, NULL, info_log);
-        LOG_ERROR("Shader linking failed: {}", info_log);
-        return false;
+        glGetProgramInfoLog(prg, 512, NULL, info_log);
+        return rses().gl("Shader linking failed: {}", info_log);
     }
 
     glDeleteShader(vertex);
     glDeleteShader(fragment);
-    return true;
+    return std::nullopt;
 }
 
-void ShaderGL::use() { glUseProgram(id); }
+ShaderGL::~ShaderGL() {
+    if (prg) {
+        glDeleteProgram(prg);
+    }
+}
+
+void ShaderGL::use() { glUseProgram(prg); }
 
 void ShaderGL::set_bool(const std::string& name, bool value) const {
-    glProgramUniform1i(id, glGetUniformLocation(id, name.c_str()), (int)value);
+    glProgramUniform1i(prg, glGetUniformLocation(prg, name.c_str()), (int)value);
 }
 void ShaderGL::set_int(const std::string& name, int value) const {
-    glProgramUniform1i(id, glGetUniformLocation(id, name.c_str()), value);
+    glProgramUniform1i(prg, glGetUniformLocation(prg, name.c_str()), value);
 }
 void ShaderGL::set_float(const std::string& name, float value) const {
-    glProgramUniform1f(id, glGetUniformLocation(id, name.c_str()), value);
+    glProgramUniform1f(prg, glGetUniformLocation(prg, name.c_str()), value);
 }
 
 void ShaderGL::set_mat4(const std::string& name, const glm::mat4& value) const {
-    glProgramUniformMatrix4fv(id, glGetUniformLocation(id, name.c_str()), 1, GL_FALSE, &value[0][0]);
+    glProgramUniformMatrix4fv(prg, glGetUniformLocation(prg, name.c_str()), 1, GL_FALSE, &value[0][0]);
 }
 
 void ShaderGL::set_vec3(const std::string& name, const glm::vec3& value) const {
-    glProgramUniform3f(id, glGetUniformLocation(id, name.c_str()), value.x, value.y, value.z);
+    glProgramUniform3f(prg, glGetUniformLocation(prg, name.c_str()), value.x, value.y, value.z);
 }
 
 void ShaderGL::set_vec4(const std::string& name, const glm::vec4& value) const {
-    glProgramUniform4f(id, glGetUniformLocation(id, name.c_str()), value.w, value.x, value.y, value.z);
+    glProgramUniform4f(prg, glGetUniformLocation(prg, name.c_str()), value.w, value.x, value.y, value.z);
 }
 
 } // namespace rose
