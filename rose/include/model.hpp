@@ -47,7 +47,7 @@ class Mesh {
     };
 
     Mesh() = delete;
-    Mesh(std::vector<Vertex> verts, std::vector<u32> indices, std::vector<TextureGL> textures);
+    Mesh(std::vector<Vertex> verts, std::vector<u32> indices, std::vector<TextureRef> textures);
     Mesh(const Mesh& other) = delete;
     Mesh(Mesh&& other) noexcept;
     ~Mesh();
@@ -55,11 +55,13 @@ class Mesh {
     Mesh& operator=(const Mesh& other) = delete;
     Mesh& operator=(Mesh&& other) noexcept;
 
+    void init();
     void draw(ShaderGL& shader) const;
 
+    u32 id = 0;
     std::vector<Vertex> verts;
     std::vector<u32> indices;
-    std::vector<TextureGL> textures;
+    std::vector<TextureRef> textures;
 
     u32 VAO = 0;
     u32 VBO = 0;
@@ -82,7 +84,7 @@ class Cube {
         glm::vec3 norm;
     };
 
-    Cube();
+    Cube() = default;
     Cube(const Cube& other) = delete;
     Cube(Cube&& other) noexcept;
     ~Cube();
@@ -90,8 +92,10 @@ class Cube {
     Cube& operator=(const Cube& other) = delete;
     Cube& operator=(Cube&& other) noexcept;
 
+    void init();
     void draw(ShaderGL& shader) const;
 
+    u32 id = 0;
     glm::mat4 model_mat = glm::mat4(1.0f);
     u32 VAO = 0;
     u32 VBO = 0;
@@ -125,7 +129,7 @@ class TexturedCube {
         glm::vec2 tex;
     };
 
-    TexturedCube();
+    TexturedCube() = default;
     TexturedCube(const TexturedCube& other) = delete;
     TexturedCube(TexturedCube&& other) noexcept;
     ~TexturedCube();
@@ -133,12 +137,13 @@ class TexturedCube {
     TexturedCube& operator=(const TexturedCube& other) = delete;
     TexturedCube& operator=(TexturedCube&& other) noexcept;
 
+    void init();
     std::optional<rses> load(const fs::path& path);
     void draw(ShaderGL& shader) const;
     inline void reset() { model_mat = glm::mat4(1.0f); }
 
     u32 id = 0;
-    TextureGL texture;
+    TextureRef texture;
     glm::mat4 model_mat = glm::mat4(1.0f);
     u32 VAO = 0;
     u32 VBO = 0;
@@ -172,7 +177,7 @@ class TexturedQuad {
         glm::vec2 tex;
     };
 
-    TexturedQuad();
+    TexturedQuad() = default;
     TexturedQuad(const TexturedQuad& other) = delete;
     TexturedQuad(TexturedQuad&& other) noexcept;
     ~TexturedQuad();
@@ -180,12 +185,13 @@ class TexturedQuad {
     TexturedQuad& operator=(const TexturedQuad& other) = delete;
     TexturedQuad& operator=(TexturedQuad&& other) noexcept;
 
+    void init();
     std::optional<rses> load(const fs::path& path);
     void draw(ShaderGL& shader) const;
     inline void reset() { model_mat = glm::mat4(1.0f); }
 
     u32 id = 0;
-    TextureGL texture;
+    TextureRef texture;
     glm::mat4 model_mat = glm::mat4(1.0f);
     u32 VAO = 0;
     u32 VBO = 0;

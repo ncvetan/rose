@@ -9,18 +9,36 @@
 
 namespace rose {
 
+enum class TextureType { NONE, DIFFUSE, SPECULAR, CUBE_MAP, INTERNAL };
+
 struct TextureGL {
     u32 id = 0;
-    enum class Type { NONE, DIFFUSE, SPECULAR, INTERNAL } type = Type::NONE;
-    std::filesystem::path path;
+    TextureType ty = TextureType::NONE;
+
+    inline void free() { glDeleteTextures(1, &id); }
 };
 
-std::optional<TextureGL> load_texture(const std::filesystem::path& path);
-TextureGL generate_texture(int w, int h);
+struct TextureRef {
+    TextureRef() = default;
+    TextureRef(u32 id, TextureGL* ref);
+    TextureRef(const TextureRef& other);
+    TextureRef(TextureRef&& other) noexcept;
+    ~TextureRef();
+
+    TextureRef& operator=(const TextureRef& other);
+    TextureRef& operator=(TextureRef&& other) noexcept;
+
+    u32 id = 0;
+    TextureGL* ref = nullptr;
+};
+
+std::optional<TextureRef> load_texture(const fs::path& path, TextureType ty);
+std::optional<TextureRef> load_cubemap(const std::vector<fs::path>& paths);
+std::optional<TextureRef> generate_texture(int w, int h);
 
 namespace globals {
-    inline std::unordered_map<std::string, TextureGL> loaded_textures;
-    void clear_textures();
+    inline std::unordered_map<u32, std::pair<TextureGL, u64>> loaded_textures;
+    inline std::unordered_map<fs::path, u32> textures_index;
 }
 
 } // namespace rose

@@ -1,6 +1,8 @@
 #ifndef ROSE_INCLUDE_SHADER
 #define ROSE_INCLUDE_SHADER
 
+#include <alias.hpp>
+
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -12,7 +14,7 @@ namespace rose {
 
 class ShaderGL {
   public:
-    unsigned int id{};
+    gluint id = 0;
 
     ShaderGL() = default;
     ~ShaderGL() = default;

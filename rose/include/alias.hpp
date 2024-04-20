@@ -1,6 +1,15 @@
 #ifndef ROSE_INCLUDE_ALIAS
 #define ROSE_INCLUDE_ALIAS
 
+#include <GL/glew.h>
+
+namespace fs = std::filesystem;
+
+using glint = GLint;
+using gluint = GLuint;
+using glsizei = GLsizei;
+using glenum = GLenum;
+
 using u8  = uint8_t;
 using u16 = uint16_t;
 using u32 = uint32_t;

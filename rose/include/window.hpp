@@ -37,6 +37,7 @@ class WindowGLFW {
     ShaderGL light_shader;
     ShaderGL texture_shader;
     ShaderGL single_col_shader;
+    ShaderGL quad_shader;
     
     std::vector<std::pair<Model, glm::vec3>> objects;
     std::vector<std::pair<Cube, glm::vec3>> cubes;
@@ -46,6 +47,7 @@ class WindowGLFW {
 
     u32 fbo = 0;
     u32 rbo = 0;
+    TexturedQuad fbo_quad;
 
     u16 width = 1280;
     u16 height = 720;
@@ -62,6 +64,7 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 
 void process_input(GLFWwindow* window, float delta_time);
+
 } // namespace rose
 
 #endif
