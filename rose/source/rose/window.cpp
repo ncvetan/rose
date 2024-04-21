@@ -55,49 +55,46 @@ std::optional<rses> WindowGLFW::init() {
     glEnable(GL_DEPTH_TEST | GL_STENCIL_TEST | GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    if (auto es = light_shader.init(std::format("{}/rose/shaders/gl/light.vert", SOURCE_DIR),
-                                    std::format("{}/rose/shaders/gl/light.frag", SOURCE_DIR))) {
+    if (auto es = shaders["quad"].init(SOURCE_DIR"/rose/shaders/gl/quad.vert",
+                                       SOURCE_DIR"/rose/shaders/gl/quad.frag")) {
         err::print(*es);
     }
 
-    if (auto es = object_shader.init(std::format("{}/rose/shaders/gl/object.vert", SOURCE_DIR),
-                                     std::format("{}/rose/shaders/gl/object.frag", SOURCE_DIR))) {
+    if (auto es = shaders["texture"].init(SOURCE_DIR"/rose/shaders/gl/texture.vert",
+                                          SOURCE_DIR"/rose/shaders/gl/texture.frag")) {
         err::print(*es);
     }
 
-    if (auto es = quad_shader.init(std::format("{}/rose/shaders/gl/quad.vert", SOURCE_DIR),
-                                   std::format("{}/rose/shaders/gl/quad.frag", SOURCE_DIR))) {
+    if (auto es = shaders["skybox"].init(SOURCE_DIR"/rose/shaders/gl/skybox.vert",
+                                         SOURCE_DIR"/rose/shaders/gl/skybox.frag"); es.has_value()) {
         err::print(*es);
     }
-
-    if (auto es = texture_shader.init(std::format("{}/rose/shaders/gl/texture.vert", SOURCE_DIR),
-                                      std::format("{}/rose/shaders/gl/texture.frag", SOURCE_DIR))) {
-        err::print(*es);
-    }
-
-    if (auto es = single_col_shader.init(std::format("{}/rose/shaders/gl/single_col.vert", SOURCE_DIR),
-                                         std::format("{}/rose/shaders/gl/single_col.frag", SOURCE_DIR))) {
-        err::print(*es);
-    }
-
-    stbi_set_flip_vertically_on_load(true);
 
     std::optional<rses> es;
+    
+    // skybox
+    sky_box.init();
+    if (es = sky_box.load({ SOURCE_DIR"/assets/skybox/right.jpg", SOURCE_DIR"/assets/skybox/left.jpg", 
+                            SOURCE_DIR"/assets/skybox/top.jpg", SOURCE_DIR"/assets/skybox/bottom.jpg",
+                            SOURCE_DIR"/assets/skybox/front.jpg", SOURCE_DIR"/assets/skybox/back.jpg" })) {
+        err::print(*es);
+    }
+    
     // floor
-    tex_cubes.push_back({ TexturedCube(), glm::vec3(0.0f, -1.0f, 0.0f) });
-    tex_cubes.back().first.init();
-    if (es = tex_cubes.back().first.load(std::format("{}/assets/texture1.png", SOURCE_DIR))) {
+    tex_cubes.push_back(Object<TexturedCube>({ 0.0f, -1.0f, 0.0f }));
+    tex_cubes.back().object.init();
+    if (es = tex_cubes.back().object.load(SOURCE_DIR"/assets/texture1.png")) {
         err::print(*es);
     }
     // cubes
-    tex_cubes.push_back({ TexturedCube(), glm::vec3(2.0f, 0.0f, 5.0f) });
-    tex_cubes.back().first.init();
-    if (es = tex_cubes.back().first.load(std::format("{}/assets/texture2.jpg", SOURCE_DIR))) {
+    tex_cubes.push_back(Object<TexturedCube>({ 2.0f, 0.0f, 5.0f }));
+    tex_cubes.back().object.init();
+    if (es = tex_cubes.back().object.load(SOURCE_DIR"/assets/texture2.jpg")) {
         err::print(*es);
     }
-    tex_cubes.push_back({ TexturedCube(), glm::vec3(2.0f, 0.0f, 2.0f) });
-    tex_cubes.back().first.init();
-    if (es = tex_cubes.back().first.load(std::format("{}/assets/texture2.jpg", SOURCE_DIR))) {
+    tex_cubes.push_back(Object<TexturedCube>({ 2.0f, 0.0f, 2.0f }));
+    tex_cubes.back().object.init();
+    if (es = tex_cubes.back().object.load(SOURCE_DIR"/assets/texture2.jpg")) {
         err::print(*es);
     }
 
@@ -134,25 +131,39 @@ void WindowGLFW::update() {
 
         glm::mat4 projection = camera.projection_matrix(static_cast<float>(width) / static_cast<float>(height));
         glm::mat4 view = camera.view_matrix();
-        texture_shader.set_mat4("projection", projection);
-        texture_shader.set_mat4("view", view);
+
+        for (auto& [name, shader] : shaders) {
+            shader.set_mat4("projection", projection);
+            shader.set_mat4("view", view);
+            if (name == "skybox") {
+                // removing translation component
+                glm::mat4 static_view = view;
+                static_view[3] = glm::vec4(0, 0, 0, 1);
+                shader.set_mat4("view", static_view);
+            }
+        }
+
+        // draw calls
+        glDepthFunc(GL_LEQUAL);
+        sky_box.draw(shaders["skybox"]);
+        glDepthFunc(GL_LESS);
 
         for (auto& [cube, pos] : tex_cubes) {
             translate(cube, pos);
-            if (cube.id == 1) { // floor
+            if (cube.id == 2) { // floor
                 scale(cube, { 20.0f, 1.0f, 20.0f });
             }
-            cube.draw(texture_shader);
+            cube.draw(shaders["texture"]);
             cube.reset();
         }
 
         // second pass
-        glBindFramebuffer(GL_FRAMEBUFFER, 0); // back to default
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
         glDisable(GL_DEPTH_TEST);
-        fbo_quad.draw(quad_shader);
+        fbo_quad.draw(shaders["quad"]);
 
         glfwSwapBuffers(window);
         glfwPollEvents();

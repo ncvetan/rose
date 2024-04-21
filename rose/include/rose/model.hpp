@@ -196,12 +196,50 @@ class TexturedQuad {
     u32 VAO = 0;
     u32 VBO = 0;
 
-    std::vector<Vertex> verts = { { { 1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
-                                  { { -1.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } },
-                                  { { -1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } },
-                                  { { 1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
-                                  { { -1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } },
-                                  { { 1.0f, -1.0f, 0.0f }, { 1.0f, 0.0f } } };
+    std::vector<Vertex> verts = {
+        { { 1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },   { { -1.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } },
+        { { -1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } }, { { 1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
+        { { -1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } }, { { 1.0f, -1.0f, 0.0f }, { 1.0f, 0.0f } }
+    };
+};
+
+class SkyBox {
+  public:
+    struct Vertex {
+        glm::vec3 pos;
+    };
+
+    SkyBox() = default;
+    SkyBox(const SkyBox& other) = delete;
+    SkyBox(SkyBox&& other) noexcept;
+    ~SkyBox();
+
+    SkyBox& operator=(const SkyBox& other) = delete;
+    SkyBox& operator=(SkyBox&& other) noexcept;
+
+    void init();
+    std::optional<rses> load(const std::vector<fs::path>& paths);
+    void draw(ShaderGL& shader) const;
+    inline void reset() { model_mat = glm::mat4(1.0f); }
+
+    u32 id = 0;
+    TextureRef texture;
+    glm::mat4 model_mat = glm::mat4(1.0f);
+    u32 VAO = 0;
+    u32 VBO = 0;
+
+    std::vector<Vertex> verts = { { { -1.0f, 1.0f, -1.0f } },  { { -1.0f, -1.0f, -1.0f } }, { { 1.0f, -1.0f, -1.0f } },
+                                  { { 1.0f, -1.0f, -1.0f } },  { { 1.0f, 1.0f, -1.0f } },   { { -1.0f, 1.0f, -1.0f } },
+                                  { { -1.0f, -1.0f, 1.0f } },  { { -1.0f, -1.0f, -1.0f } }, { { -1.0f, 1.0f, -1.0f } },
+                                  { { -1.0f, 1.0f, -1.0f } },  { { -1.0f, 1.0f, 1.0f } },   { { -1.0f, -1.0f, 1.0f } },
+                                  { { 1.0f, -1.0f, -1.0f } },  { { 1.0f, -1.0f, 1.0f } },   { { 1.0f, 1.0f, 1.0f } },
+                                  { { 1.0f, 1.0f, 1.0f } },    { { 1.0f, 1.0f, -1.0f } },   { { 1.0f, -1.0f, -1.0f } },
+                                  { { -1.0f, -1.0f, 1.0f } },  { { -1.0f, 1.0f, 1.0f } },   { { 1.0f, 1.0f, 1.0f } },
+                                  { { 1.0f, 1.0f, 1.0f } },    { { 1.0f, -1.0f, 1.0f } },   { { -1.0f, -1.0f, 1.0f } },
+                                  { { -1.0f, 1.0f, -1.0f } },  { { 1.0f, 1.0f, -1.0f } },   { { 1.0f, 1.0f, 1.0f } },
+                                  { { 1.0f, 1.0f, 1.0f } },    { { -1.0f, 1.0f, 1.0f } },   { { -1.0f, 1.0f, -1.0f } },
+                                  { { -1.0f, -1.0f, -1.0f } }, { { -1.0f, -1.0f, 1.0f } },  { { 1.0f, -1.0f, -1.0f } },
+                                  { { 1.0f, -1.0f, -1.0f } },  { { -1.0f, -1.0f, 1.0f } },  { { 1.0f, -1.0f, 1.0f } } };
 };
 
 } // namespace rose

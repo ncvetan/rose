@@ -256,6 +256,7 @@ TexturedCube::TexturedCube(TexturedCube&& other) noexcept {
     verts = std::move(other.verts);
     model_mat = std::move(other.model_mat);
     id = other.id;
+    other.id = 0;
 }
 
 TexturedCube& TexturedCube::operator=(TexturedCube&& other) noexcept {
@@ -314,6 +315,7 @@ TexturedQuad::TexturedQuad(TexturedQuad&& other) noexcept {
     verts = std::move(other.verts);
     model_mat = std::move(other.model_mat);
     id = other.id;
+    other.id = 0;
 }
 
 TexturedQuad& TexturedQuad::operator=(TexturedQuad&& other) noexcept {
@@ -361,6 +363,64 @@ void TexturedQuad::draw(ShaderGL& shader) const {
 TexturedQuad::~TexturedQuad() {
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
+}
+
+
+SkyBox::SkyBox(SkyBox&& other) noexcept {
+    VAO = other.VAO;
+    other.VAO = 0;
+    VBO = other.VBO;
+    other.VBO = 0;
+    texture = std::move(other.texture);
+    verts = std::move(other.verts);
+    model_mat = std::move(other.model_mat);
+    id = other.id;
+    other.id = 0;
+}
+
+SkyBox& SkyBox::operator=(SkyBox&& other) noexcept {
+    if (this == &other) return *this;
+    this->~SkyBox();
+    new (this) SkyBox(std::move(other));
+    return *this;
+}
+
+SkyBox::~SkyBox() {
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
+}
+
+void SkyBox::init() {
+    glGenVertexArrays(1, &VAO);
+    glBindVertexArray(VAO);
+    glGenBuffers(1, &VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(Vertex), verts.data(), GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, pos));
+    glBindVertexArray(0);
+    id = new_id();
+}
+
+std::optional<rses> SkyBox::load(const std::vector<fs::path>& paths) {
+    std::optional<TextureRef> t = load_cubemap(paths);
+    if (!t) {
+        return rses().io("unable to load skybox");
+    }
+    texture = t.value();
+    return std::nullopt;
+}
+
+void SkyBox::draw(ShaderGL& shader) const {
+    glDepthMask(GL_FALSE);
+    shader.use();
+    glBindVertexArray(VAO);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, texture.ref->id);
+    // shader.set_int("cube_map", 0);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glBindVertexArray(0);
+    glDepthMask(GL_TRUE);
 }
 
 } // namespace rose

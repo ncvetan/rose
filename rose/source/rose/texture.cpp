@@ -134,6 +134,7 @@ std::optional<TextureRef> load_cubemap(const std::vector<fs::path>& paths) {
     texture.ty = TextureType::CUBE_MAP;
     glGenTextures(1, &texture.id);
     glBindTexture(GL_TEXTURE_CUBE_MAP, texture.id);
+    
     for (int i = 0; i < 6; i++) {
         texture_data = stbi_load(paths[i].generic_string().c_str(), &width, &height, &n_channels, 0);
         if (!texture_data) {
@@ -164,6 +165,7 @@ std::optional<TextureRef> load_cubemap(const std::vector<fs::path>& paths) {
                      texture_data);
         stbi_image_free(texture_data);
     }
+
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);

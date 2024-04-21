@@ -18,6 +18,16 @@ concept drawable = requires(T d, ShaderGL& shader) {
     { d.draw(shader) } -> std::same_as<void>;
 };
 
+template<drawable T>
+struct Object {
+
+    Object() = default;
+    Object(const glm::vec3& pos) : world_pos(pos) {};
+
+    T object;
+    glm::vec3 world_pos;
+};
+
 class WindowGLFW {
   public:
     WindowGLFW() = default;
@@ -30,20 +40,14 @@ class WindowGLFW {
     GLFWwindow* window = nullptr;
     CameraGL camera;
     
-    std::vector<ShaderGL> shaders;
-    std::unordered_map<std::string, int> shader_index;
+    std::unordered_map<std::string, ShaderGL> shaders;
 
-    ShaderGL object_shader;
-    ShaderGL light_shader;
-    ShaderGL texture_shader;
-    ShaderGL single_col_shader;
-    ShaderGL quad_shader;
-    
-    std::vector<std::pair<Model, glm::vec3>> objects;
-    std::vector<std::pair<Cube, glm::vec3>> cubes;
-    std::vector<std::pair<TexturedCube, glm::vec3>> tex_cubes;
-    std::vector<std::pair<Cube, glm::vec3>> pnt_lights;
-    std::vector<std::pair<TexturedQuad, glm::vec3>> quads;
+    SkyBox sky_box;
+    std::vector<Object<Model>> objects;
+    std::vector<Object<Cube>> cubes;
+    std::vector<Object<TexturedCube>> tex_cubes;
+    std::vector<Object<Cube>> pnt_lights;
+    std::vector<Object<TexturedQuad>> quads;
 
     u32 fbo = 0;
     u32 rbo = 0;
