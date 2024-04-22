@@ -3,6 +3,9 @@
 #include <rose/model.hpp>
 #include <rose/window.hpp>
 
+#include <imgui.h>
+#include <backends/imgui_impl_glfw.h>
+#include <backends/imgui_impl_opengl3.h>
 #include <glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <stb_image.h>
@@ -11,9 +14,6 @@
 #include <iostream>
 
 namespace rose {
-
-float delta_time = 0.0f;
-float last_frame_time = 0.0f;
 
 std::optional<rses> WindowGLFW::init() {
 
@@ -44,6 +44,24 @@ std::optional<rses> WindowGLFW::init() {
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+
+    // ImGui initialization
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+
+    ImGuiStyle& style = ImGui::GetStyle();
+    if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+        style.WindowRounding = 0.0f;
+        style.Colors[ImGuiCol_WindowBg].w = 1.0f;
+    }
+
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 460");
 
     // GLEW initialization
     if (GLenum glew_success = glewInit(); glew_success != GLEW_OK) {
@@ -133,11 +151,13 @@ void WindowGLFW::update() {
 
     while (!glfwWindowShouldClose(window)) {
 
-        float current_frame_time = static_cast<float>(glfwGetTime());
-        delta_time = current_frame_time - last_frame_time;
-        last_frame_time = current_frame_time;
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+        ImGuiIO& io = ImGui::GetIO(); (void)io;
+
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-        process_input(window, delta_time);
+        process_input(window, io.DeltaTime);
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
         glEnable(GL_DEPTH_TEST);
@@ -173,12 +193,29 @@ void WindowGLFW::update() {
         glDisable(GL_DEPTH_TEST);
         fbo_quad.draw(shaders["quad"], state);
 
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+        // Update and Render additional Platform Windows
+        // (Platform functions may change the current OpenGL context, so we save/restore it to make it easier to paste this code elsewhere.
+        //  For this specific demo app we could also call glfwMakeContextCurrent(window) directly)
+        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+        {
+            GLFWwindow* backup_current_context = glfwGetCurrentContext();
+            ImGui::UpdatePlatformWindows();
+            ImGui::RenderPlatformWindowsDefault();
+            glfwMakeContextCurrent(backup_current_context);
+        }
+
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
 };
 
 void WindowGLFW::destroy() {
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
     glfwDestroyWindow(window);
     glfwTerminate();
     window = nullptr;
