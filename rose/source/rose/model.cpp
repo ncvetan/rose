@@ -1,6 +1,7 @@
 #include <rose/err.hpp>
 #include <rose/logger.hpp>
 #include <rose/model.hpp>
+#include <rose/window.hpp>
 
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
@@ -64,7 +65,7 @@ void Mesh::init() {
     id = new_id();
 }
 
-void Mesh::draw(ShaderGL& shader) const {
+void Mesh::draw(ShaderGL& shader, const WorldState& state) const {
 
     shader.use();
     u32 diff_n = 0;
@@ -100,11 +101,11 @@ Mesh::~Mesh() {
     glDeleteBuffers(1, &EBO);
 }
 
-void Model::draw(ShaderGL& shader) const {
+void Model::draw(ShaderGL& shader, const WorldState& state) const {
     shader.use();
     shader.set_mat4("model", model_mat);
     for (auto& mesh : meshes) {
-        mesh.draw(shader);
+        mesh.draw(shader, state);
     }
 }
 
@@ -234,7 +235,7 @@ void Cube::init() {
     id = new_id();
 }
 
-void Cube::draw(ShaderGL& shader) const {
+void Cube::draw(ShaderGL& shader, const WorldState& state) const {
     shader.use();
     shader.set_mat4("model", model_mat);
     glBindVertexArray(VAO);
@@ -275,7 +276,9 @@ void TexturedCube::init() {
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, pos));
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, tex));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, norm));
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, tex));
     glBindVertexArray(0);
     id = new_id();
 }
@@ -289,12 +292,13 @@ std::optional<rses> TexturedCube::load(const fs::path& path) {
     return std::nullopt;
 }
 
-void TexturedCube::draw(ShaderGL& shader) const {
+void TexturedCube::draw(ShaderGL& shader, const WorldState& state) const {
     shader.use();
     shader.set_mat4("model", model_mat);
     glBindVertexArray(VAO);
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture.ref->id);
+    // glBindTexture(GL_TEXTURE_2D, texture.ref->id);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, state.sky_box.texture.ref->id);
     shader.set_int("tex", 0);
     glDrawArrays(GL_TRIANGLES, 0, verts.size());
     glBindVertexArray(0);
@@ -348,7 +352,7 @@ std::optional<rses> TexturedQuad::load(const fs::path& path) {
     return std::nullopt;
 }
 
-void TexturedQuad::draw(ShaderGL& shader) const {
+void TexturedQuad::draw(ShaderGL& shader, const WorldState& state) const {
     shader.use();
     shader.set_mat4("model", model_mat);
     glBindVertexArray(VAO);
@@ -411,13 +415,12 @@ std::optional<rses> SkyBox::load(const std::vector<fs::path>& paths) {
     return std::nullopt;
 }
 
-void SkyBox::draw(ShaderGL& shader) const {
+void SkyBox::draw(ShaderGL& shader, const WorldState& state) const {
     glDepthMask(GL_FALSE);
     shader.use();
     glBindVertexArray(VAO);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_CUBE_MAP, texture.ref->id);
-    // shader.set_int("cube_map", 0);
     glDrawArrays(GL_TRIANGLES, 0, 36);
     glBindVertexArray(0);
     glDepthMask(GL_TRUE);

@@ -42,7 +42,7 @@ std::optional<rses> ShaderGL::init(const std::string& vertex_path, const std::st
     glGetShaderiv(vertex, GL_COMPILE_STATUS, &success);
     if (!success) {
         glGetShaderInfoLog(vertex, 512, NULL, info_log);
-        return rses().gl("Vertex shader compilation failed: {}", info_log);
+        return rses().gl("Vertex shader compilation failed at path {}: {}", vertex_path, info_log);
     };
 
     fragment = glCreateShader(GL_FRAGMENT_SHADER);
@@ -52,7 +52,7 @@ std::optional<rses> ShaderGL::init(const std::string& vertex_path, const std::st
     glGetShaderiv(fragment, GL_COMPILE_STATUS, &success);
     if (!success) {
         glGetShaderInfoLog(fragment, 512, NULL, info_log);
-        return rses().gl("Fragment shader compilation failed: {}", info_log);
+        return rses().gl("Fragment shader compilation failed at path {}: {}", fragment_path, info_log);
     };
 
     prg = glCreateProgram();

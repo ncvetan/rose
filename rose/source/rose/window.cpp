@@ -4,6 +4,7 @@
 #include <rose/window.hpp>
 
 #include <glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
 #include <stb_image.h>
 
 #include <format>
@@ -66,22 +67,27 @@ std::optional<rses> WindowGLFW::init() {
     }
 
     if (auto es = shaders["skybox"].init(SOURCE_DIR"/rose/shaders/gl/skybox.vert",
-                                         SOURCE_DIR"/rose/shaders/gl/skybox.frag"); es.has_value()) {
+                                         SOURCE_DIR"/rose/shaders/gl/skybox.frag")) {
+        err::print(*es);
+    }
+
+    if (auto es = shaders["skybox_reflect"].init(SOURCE_DIR"/rose/shaders/gl/skybox_reflect.vert",
+                                                 SOURCE_DIR"/rose/shaders/gl/skybox_reflect.frag")) {
         err::print(*es);
     }
 
     std::optional<rses> es;
     
     // skybox
-    sky_box.init();
-    if (es = sky_box.load({ SOURCE_DIR"/assets/skybox/right.jpg", SOURCE_DIR"/assets/skybox/left.jpg", 
+    state.sky_box.init();
+    if (es = state.sky_box.load({ SOURCE_DIR"/assets/skybox/right.jpg", SOURCE_DIR"/assets/skybox/left.jpg", 
                             SOURCE_DIR"/assets/skybox/top.jpg", SOURCE_DIR"/assets/skybox/bottom.jpg",
                             SOURCE_DIR"/assets/skybox/front.jpg", SOURCE_DIR"/assets/skybox/back.jpg" })) {
         err::print(*es);
     }
     
     // floor
-    tex_cubes.push_back(Object<TexturedCube>({ 0.0f, -1.0f, 0.0f }));
+    tex_cubes.push_back(Object<TexturedCube>({ 0.0f, -1.0f, 0.0f }, { 20.0f, 1.0f, 20.0f }));
     tex_cubes.back().object.init();
     if (es = tex_cubes.back().object.load(SOURCE_DIR"/assets/texture1.png")) {
         err::print(*es);
@@ -113,6 +119,13 @@ std::optional<rses> WindowGLFW::init() {
         return rses().gl("framebuffer is incomplete");
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    
+    glGenBuffers(1, &state.ubo);
+    glBindBuffer(GL_UNIFORM_BUFFER, state.ubo);
+    glBufferData(GL_UNIFORM_BUFFER, 144, nullptr, GL_STATIC_DRAW);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 2, state.ubo);
+
     return std::nullopt;
 };
 
@@ -132,28 +145,23 @@ void WindowGLFW::update() {
         glm::mat4 projection = camera.projection_matrix(static_cast<float>(width) / static_cast<float>(height));
         glm::mat4 view = camera.view_matrix();
 
-        for (auto& [name, shader] : shaders) {
-            shader.set_mat4("projection", projection);
-            shader.set_mat4("view", view);
-            if (name == "skybox") {
-                // removing translation component
-                glm::mat4 static_view = view;
-                static_view[3] = glm::vec4(0, 0, 0, 1);
-                shader.set_mat4("view", static_view);
-            }
-        }
+        glBindBuffer(GL_UNIFORM_BUFFER, state.ubo);
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::mat4), glm::value_ptr(projection));
+        glBufferSubData(GL_UNIFORM_BUFFER, 128, 16, glm::value_ptr(camera.position));
 
         // draw calls
-        glDepthFunc(GL_LEQUAL);
-        sky_box.draw(shaders["skybox"]);
-        glDepthFunc(GL_LESS);
+        glm::mat4 static_view = view;
+        static_view[3] = glm::vec4(0, 0, 0, 1);
+        glBufferSubData(GL_UNIFORM_BUFFER, 64, sizeof(glm::mat4), glm::value_ptr(static_view));
+        state.sky_box.draw(shaders["skybox"], state);
 
-        for (auto& [cube, pos] : tex_cubes) {
-            translate(cube, pos);
-            if (cube.id == 2) { // floor
-                scale(cube, { 20.0f, 1.0f, 20.0f });
-            }
-            cube.draw(shaders["texture"]);
+        glBufferSubData(GL_UNIFORM_BUFFER, 64, sizeof(glm::mat4), glm::value_ptr(view));
+        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+        for (auto& [cube, pos_vec, scale_vec] : tex_cubes) {
+            translate(cube, pos_vec);
+            scale(cube, scale_vec);
+            cube.draw(shaders["skybox_reflect"], state);
             cube.reset();
         }
 
@@ -163,7 +171,7 @@ void WindowGLFW::update() {
         glClear(GL_COLOR_BUFFER_BIT);
 
         glDisable(GL_DEPTH_TEST);
-        fbo_quad.draw(shaders["quad"]);
+        fbo_quad.draw(shaders["quad"], state);
 
         glfwSwapBuffers(window);
         glfwPollEvents();

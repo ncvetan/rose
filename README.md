@@ -19,3 +19,10 @@ cd build
 cmake <path to top level CMakeLists.txt>
 cmake --build .
 ```
+
+## Details
+
+Some features that Rose supports includes...
+
+- Phong illumination
+- Skyboxes

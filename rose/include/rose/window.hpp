@@ -14,18 +14,25 @@
 namespace rose {
 
 template <typename T>
-concept drawable = requires(T d, ShaderGL& shader) {
-    { d.draw(shader) } -> std::same_as<void>;
+concept drawable = requires(T d, ShaderGL& shader, const WorldState& state) {
+    { d.draw(shader, state) } -> std::same_as<void>;
 };
 
-template<drawable T>
+template <drawable T>
 struct Object {
 
     Object() = default;
-    Object(const glm::vec3& pos) : world_pos(pos) {};
+    Object(const glm::vec3& pos) : world_pos(pos){};
+    Object(const glm::vec3& pos, const glm::vec3& scale) : world_pos(pos), scale(scale) {};
 
     T object;
     glm::vec3 world_pos;
+    glm::vec3 scale = glm::vec3(1.0);
+};
+
+struct WorldState {
+    SkyBox sky_box;
+    uint32_t ubo;
 };
 
 class WindowGLFW {
@@ -39,15 +46,13 @@ class WindowGLFW {
 
     GLFWwindow* window = nullptr;
     CameraGL camera;
-    
+
     std::unordered_map<std::string, ShaderGL> shaders;
 
-    SkyBox sky_box;
+    WorldState state;
+
     std::vector<Object<Model>> objects;
-    std::vector<Object<Cube>> cubes;
     std::vector<Object<TexturedCube>> tex_cubes;
-    std::vector<Object<Cube>> pnt_lights;
-    std::vector<Object<TexturedQuad>> quads;
 
     u32 fbo = 0;
     u32 rbo = 0;

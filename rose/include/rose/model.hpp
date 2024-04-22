@@ -15,6 +15,8 @@ namespace rose {
 
 namespace fs = std::filesystem;
 
+struct WorldState;
+
 template <typename T>
 concept Transformable = requires { T::model_mat; };
 
@@ -56,7 +58,7 @@ class Mesh {
     Mesh& operator=(Mesh&& other) noexcept;
 
     void init();
-    void draw(ShaderGL& shader) const;
+    void draw(ShaderGL& shader, const WorldState& state) const;
 
     u32 id = 0;
     std::vector<Vertex> verts;
@@ -70,7 +72,7 @@ class Mesh {
 
 class Model {
   public:
-    void draw(ShaderGL& shader) const;
+    void draw(ShaderGL& shader, const WorldState& state) const;
     std::optional<rses> load(const std::filesystem::path& path);
 
     glm::mat4 model_mat = glm::mat4(1.0f);
@@ -93,7 +95,7 @@ class Cube {
     Cube& operator=(Cube&& other) noexcept;
 
     void init();
-    void draw(ShaderGL& shader) const;
+    void draw(ShaderGL& shader, const WorldState& state) const;
 
     u32 id = 0;
     glm::mat4 model_mat = glm::mat4(1.0f);
@@ -126,6 +128,7 @@ class TexturedCube {
   public:
     struct Vertex {
         glm::vec3 pos;
+        glm::vec3 norm;
         glm::vec2 tex;
     };
 
@@ -139,7 +142,7 @@ class TexturedCube {
 
     void init();
     std::optional<rses> load(const fs::path& path);
-    void draw(ShaderGL& shader) const;
+    void draw(ShaderGL& shader, const WorldState& state) const;
     inline void reset() { model_mat = glm::mat4(1.0f); }
 
     u32 id = 0;
@@ -149,24 +152,47 @@ class TexturedCube {
     u32 VBO = 0;
 
     std::vector<Vertex> verts = {
-        { { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f } }, { { 0.5f, 0.5f, -0.5f }, { 1.0f, 1.0f } },
-        { { 0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f } },  { { 0.5f, 0.5f, -0.5f }, { 1.0f, 1.0f } },
-        { { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f } }, { { -0.5f, 0.5f, -0.5f }, { 0.0f, 1.0f } },
-        { { -0.5f, -0.5f, 0.5f }, { 0.0f, 0.0f } },  { { 0.5f, -0.5f, 0.5f }, { 1.0f, 0.0f } },
-        { { 0.5f, 0.5f, 0.5f }, { 1.0f, 1.0f } },    { { 0.5f, 0.5f, 0.5f }, { 1.0f, 1.0f } },
-        { { -0.5f, 0.5f, 0.5f }, { 0.0f, 1.0f } },   { { -0.5f, -0.5f, 0.5f }, { 0.0f, 0.0f } },
-        { { -0.5f, 0.5f, 0.5f }, { 1.0f, 0.0f } },   { { -0.5f, 0.5f, -0.5f }, { 1.0f, 1.0f } },
-        { { -0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f } }, { { -0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f } },
-        { { -0.5f, -0.5f, 0.5f }, { 0.0f, 0.0f } },  { { -0.5f, 0.5f, 0.5f }, { 1.0f, 0.0f } },
-        { { 0.5f, 0.5f, 0.5f }, { 1.0f, 0.0f } },    { { 0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f } },
-        { { 0.5f, 0.5f, -0.5f }, { 1.0f, 1.0f } },   { { 0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f } },
-        { { 0.5f, 0.5f, 0.5f }, { 1.0f, 0.0f } },    { { 0.5f, -0.5f, 0.5f }, { 0.0f, 0.0f } },
-        { { -0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f } }, { { 0.5f, -0.5f, -0.5f }, { 1.0f, 1.0f } },
-        { { 0.5f, -0.5f, 0.5f }, { 1.0f, 0.0f } },   { { 0.5f, -0.5f, 0.5f }, { 1.0f, 0.0f } },
-        { { -0.5f, -0.5f, 0.5f }, { 0.0f, 0.0f } },  { { -0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f } },
-        { { -0.5f, 0.5f, -0.5f }, { 0.0f, 1.0f } },  { { 0.5f, 0.5f, 0.5f }, { 1.0f, 0.0f } },
-        { { 0.5f, 0.5f, -0.5f }, { 1.0f, 1.0f } },   { { 0.5f, 0.5f, 0.5f }, { 1.0f, 0.0f } },
-        { { -0.5f, 0.5f, -0.5f }, { 0.0f, 1.0f } },  { { -0.5f, 0.5f, 0.5f }, { 0.0f, 0.0f } }
+        { { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } }, 
+        { { 0.5f, 0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
+        { { 0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } },  
+        { { 0.5f, 0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
+        { { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } }, 
+        { { -0.5f, 0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
+
+        { { -0.5f, -0.5f, 0.5f }, { 0.0f, 0.0f, -1.0f }, { 0.0f, 0.0f } },  
+        { { 0.5f, -0.5f, 0.5f }, { 0.0f, 0.0f, -1.0f }, { 1.0f, 0.0f } },
+        { { 0.5f, 0.5f, 0.5f }, { 0.0f, 0.0f, -1.0f }, { 1.0f, 1.0f } },    
+        { { 0.5f, 0.5f, 0.5f }, { 0.0f, 0.0f, -1.0f }, { 1.0f, 1.0f } },
+        { { -0.5f, 0.5f, 0.5f }, { 0.0f, 0.0f, -1.0f }, { 0.0f, 1.0f } },   
+        { { -0.5f, -0.5f, 0.5f }, { 0.0f, 0.0f, -1.0f }, { 0.0f, 0.0f } },
+
+        { { -0.5f, 0.5f, 0.5f }, { -1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },   
+        { { -0.5f, 0.5f, -0.5f }, { -1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } },
+        { { -0.5f, -0.5f, -0.5f }, { -1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } }, 
+        { { -0.5f, -0.5f, -0.5f }, { -1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } },
+        { { -0.5f, -0.5f, 0.5f }, { -1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },  
+        { { -0.5f, 0.5f, 0.5f }, { -1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
+
+        { { 0.5f, 0.5f, 0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },    
+        { { 0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } },
+        { { 0.5f, 0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } },   
+        { { 0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } },
+        { { 0.5f, 0.5f, 0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },    
+        { { 0.5f, -0.5f, 0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
+
+        { { -0.5f, -0.5f, -0.5f }, { 0.0f, -1.0f, 0.0f }, { 0.0f, 1.0f } }, 
+        { { 0.5f, -0.5f, -0.5f }, { 0.0f, -1.0f, 0.0f }, { 1.0f, 1.0f } },
+        { { 0.5f, -0.5f, 0.5f }, { 0.0f, -1.0f, 0.0f }, { 1.0f, 0.0f } },   
+        { { 0.5f, -0.5f, 0.5f }, { 0.0f, -1.0f, 0.0f }, { 1.0f, 0.0f } },
+        { { -0.5f, -0.5f, 0.5f }, { 0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } },  
+        { { -0.5f, -0.5f, -0.5f }, { 0.0f, -1.0f, 0.0f }, { 0.0f, 1.0f } },
+
+        { { -0.5f, 0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } },  
+        { { 0.5f, 0.5f, 0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
+        { { 0.5f, 0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },   
+        { { 0.5f, 0.5f, 0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
+        { { -0.5f, 0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } },  
+        { { -0.5f, 0.5f, 0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } }
     };
 };
 
@@ -187,7 +213,7 @@ class TexturedQuad {
 
     void init();
     std::optional<rses> load(const fs::path& path);
-    void draw(ShaderGL& shader) const;
+    void draw(ShaderGL& shader, const WorldState& state) const;
     inline void reset() { model_mat = glm::mat4(1.0f); }
 
     u32 id = 0;
@@ -219,7 +245,7 @@ class SkyBox {
 
     void init();
     std::optional<rses> load(const std::vector<fs::path>& paths);
-    void draw(ShaderGL& shader) const;
+    void draw(ShaderGL& shader, const WorldState& state) const;
     inline void reset() { model_mat = glm::mat4(1.0f); }
 
     u32 id = 0;
