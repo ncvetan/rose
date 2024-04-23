@@ -141,12 +141,13 @@ class TexturedCube {
     TexturedCube& operator=(TexturedCube&& other) noexcept;
 
     void init();
-    std::optional<rses> load(const fs::path& path);
+    std::optional<rses> load(const fs::path& diff_path, std::optional<fs::path> spec_path = std::nullopt);
     void draw(ShaderGL& shader, const WorldState& state) const;
     inline void reset() { model_mat = glm::mat4(1.0f); }
 
     u32 id = 0;
-    TextureRef texture;
+    TextureRef diff;
+    TextureRef spec;
     glm::mat4 model_mat = glm::mat4(1.0f);
     u32 VAO = 0;
     u32 VBO = 0;

@@ -253,7 +253,7 @@ TexturedCube::TexturedCube(TexturedCube&& other) noexcept {
     other.VAO = 0;
     VBO = other.VBO;
     other.VBO = 0;
-    texture = std::move(other.texture);
+    diff = std::move(other.diff);
     verts = std::move(other.verts);
     model_mat = std::move(other.model_mat);
     id = other.id;
@@ -283,12 +283,21 @@ void TexturedCube::init() {
     id = new_id();
 }
 
-std::optional<rses> TexturedCube::load(const fs::path& path) {
-    std::optional<TextureRef> t = load_texture(path, TextureType::DIFFUSE);
-    if (!t) {
-        return rses().io("unable to load texture: {}", path.generic_string());
+std::optional<rses> TexturedCube::load(const fs::path& diff_path, std::optional<fs::path> spec_path) {
+    std::optional<TextureRef> diff = load_texture(diff_path, TextureType::DIFFUSE);
+    if (!diff) {
+        return rses().io("unable to load texture: {}", diff_path.generic_string());
     }
-    texture = t.value();
+
+    if (spec_path) {
+        std::optional<TextureRef> spec = load_texture(diff_path, TextureType::SPECULAR);
+        if (!spec) {
+            return rses().io("unable to load texture: {}", diff_path.generic_string());
+        }
+        this->spec = spec.value();
+    }
+
+    this->diff = diff.value();
     return std::nullopt;
 }
 
@@ -297,9 +306,16 @@ void TexturedCube::draw(ShaderGL& shader, const WorldState& state) const {
     shader.set_mat4("model", model_mat);
     glBindVertexArray(VAO);
     glActiveTexture(GL_TEXTURE0);
-    // glBindTexture(GL_TEXTURE_2D, texture.ref->id);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, state.sky_box.texture.ref->id);
-    shader.set_int("tex", 0);
+    glBindTexture(GL_TEXTURE_2D, diff.ref->id);
+    shader.set_int("materials[0].diffuse", 0);
+    // todo: shack if cube doesn't have a spec map, fix this
+    if (spec.ref) {
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, spec.ref->id);
+        shader.set_int("materials[0].specular", 1);
+    }
+    shader.set_float("materials[0].shine", 32.0f);
+    // glBindTexture(GL_TEXTURE_CUBE_MAP, state.sky_box.texture.ref->id);
     glDrawArrays(GL_TRIANGLES, 0, verts.size());
     glBindVertexArray(0);
     glActiveTexture(GL_TEXTURE0);

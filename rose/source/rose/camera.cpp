@@ -3,15 +3,10 @@
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>
 
-#include <iostream>
-
 namespace rose {
 
-CameraGL::CameraGL() {}
-
 glm::mat4 CameraGL::view_matrix() {
-    auto test = glm::lookAt(position, position + front, up);
-    return test;
+    return glm::lookAt(position, position + front, up);
 }
 
 glm::mat4 CameraGL::projection_matrix(float aspect_ratio) {

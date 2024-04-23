@@ -128,6 +128,11 @@ std::optional<TextureRef> load_texture(const fs::path& path, TextureType ty) {
 }
 
 std::optional<TextureRef> load_cubemap(const std::vector<fs::path>& paths) {
+    
+    if (paths.size() != 6) {
+        return std::nullopt; // todo: improve err handling here. arg can really be a std::array
+    }
+
     i32 width = 0, height = 0, n_channels = 0;
     unsigned char* texture_data = nullptr;
     TextureGL texture;
@@ -135,8 +140,8 @@ std::optional<TextureRef> load_cubemap(const std::vector<fs::path>& paths) {
     glGenTextures(1, &texture.id);
     glBindTexture(GL_TEXTURE_CUBE_MAP, texture.id);
     
-    for (int i = 0; i < 6; i++) {
-        texture_data = stbi_load(paths[i].generic_string().c_str(), &width, &height, &n_channels, 0);
+    for (const auto& path : paths) {
+        texture_data = stbi_load(path.generic_string().c_str(), &width, &height, &n_channels, 0);
         if (!texture_data) {
             stbi_image_free(texture_data);
             texture.free();
@@ -161,7 +166,30 @@ std::optional<TextureRef> load_cubemap(const std::vector<fs::path>& paths) {
             assert(false);
             break;
         }
-        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, fmt, GL_UNSIGNED_BYTE,
+
+        GLenum target = 0;
+        fs::path name = path.stem();
+
+        if (name == "right") {
+            target = GL_TEXTURE_CUBE_MAP_POSITIVE_X;
+        } else if (name == "left") {
+            target = GL_TEXTURE_CUBE_MAP_NEGATIVE_X;
+        } else if (name == "top") {
+            target = GL_TEXTURE_CUBE_MAP_POSITIVE_Y;
+        } else if (name == "bottom") {
+            target = GL_TEXTURE_CUBE_MAP_NEGATIVE_Y;
+        } else if (name == "front") {
+            target = GL_TEXTURE_CUBE_MAP_POSITIVE_Z;
+        } else if (name == "back") {
+            target = GL_TEXTURE_CUBE_MAP_NEGATIVE_Z;
+        } else {
+            stbi_image_free(texture_data);
+            texture.free();
+            glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+            return std::nullopt;
+        }
+
+        glTexImage2D(target, 0, GL_RGB, width, height, 0, fmt, GL_UNSIGNED_BYTE,
                      texture_data);
         stbi_image_free(texture_data);
     }

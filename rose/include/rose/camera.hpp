@@ -1,12 +1,8 @@
 #ifndef ROSE_INCLUDE_CAMERA
 #define ROSE_INCLUDE_CAMERA
 
-#include <rose/logger.hpp>
-
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>
-
-#include <vector>
 
 namespace rose {
 
@@ -14,8 +10,6 @@ enum class CameraMovement { FORWARD, BACKWARD, LEFT, RIGHT, UP, DOWN };
 
 class CameraGL {
   public:
-    CameraGL();
-
     glm::mat4 view_matrix();
     glm::mat4 projection_matrix(float aspect_ratio);
     void process_keyboard(CameraMovement direction, float delta_time);
@@ -37,8 +31,6 @@ class CameraGL {
     float far_plane = 100.0f;
 
     void update_camera_vectors();
-
-  private:
 };
 
 } // namespace rose
