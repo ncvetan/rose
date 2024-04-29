@@ -17,6 +17,7 @@ struct Rectf {
     float y_max = 0.0f;
 
     bool contains(float x, float y);
+    bool contains(vec2f xy);
 };
 
 } // namespace rose

@@ -34,6 +34,10 @@ TextureRef& TextureRef::operator=(TextureRef&& other) noexcept {
     return *this;
 }
 
+TextureGL* TextureRef::operator->() {
+    return this->ref;
+}
+
 TextureRef::~TextureRef() {
     if (ref && globals::loaded_textures.contains(ref->id)) {
         auto& [texture, refcnt] = globals::loaded_textures[ref->id];

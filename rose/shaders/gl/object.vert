@@ -29,7 +29,7 @@ uniform mat4 model;
 
 void main() {
 	vs_out.frag_pos = vec3(model * vec4(a_pos, 1.0));
-	// Keeping the normals perpedicular to the transformed surface
+	// Keeping the normals perpedicular to the transformed surface, in world space
 	vs_out.normal = mat3(transpose(inverse(model))) * a_normal;
 	vs_out.tex_coords = a_tex_coords;
 	gl_Position = projection * view * vec4(vs_out.frag_pos, 1.0);

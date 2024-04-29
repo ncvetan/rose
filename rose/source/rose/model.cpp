@@ -283,21 +283,18 @@ void TexturedCube::init() {
     id = new_id();
 }
 
-std::optional<rses> TexturedCube::load(const fs::path& diff_path, std::optional<fs::path> spec_path) {
+std::optional<rses> TexturedCube::load(const fs::path& diff_path, const fs::path& spec_path) {
     std::optional<TextureRef> diff = load_texture(diff_path, TextureType::DIFFUSE);
     if (!diff) {
         return rses().io("unable to load texture: {}", diff_path.generic_string());
     }
-
-    if (spec_path) {
-        std::optional<TextureRef> spec = load_texture(diff_path, TextureType::SPECULAR);
-        if (!spec) {
-            return rses().io("unable to load texture: {}", diff_path.generic_string());
-        }
-        this->spec = spec.value();
+    std::optional<TextureRef> spec = load_texture(diff_path, TextureType::SPECULAR);
+    if (!spec) {
+        return rses().io("unable to load texture: {}", diff_path.generic_string());
     }
-
+    
     this->diff = diff.value();
+    this->spec = spec.value();
     return std::nullopt;
 }
 
@@ -308,14 +305,15 @@ void TexturedCube::draw(ShaderGL& shader, const WorldState& state) const {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, diff.ref->id);
     shader.set_int("materials[0].diffuse", 0);
-    // todo: shack if cube doesn't have a spec map, fix this
+    // todo: check if cube doesn't have a spec map, fix this
     if (spec.ref) {
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, spec.ref->id);
         shader.set_int("materials[0].specular", 1);
+    } else {
+        shader.set_int("materials[0].specular", 0);
     }
     shader.set_float("materials[0].shine", 32.0f);
-    // glBindTexture(GL_TEXTURE_CUBE_MAP, state.sky_box.texture.ref->id);
     glDrawArrays(GL_TRIANGLES, 0, verts.size());
     glBindVertexArray(0);
     glActiveTexture(GL_TEXTURE0);

@@ -74,6 +74,7 @@ class Model {
   public:
     void draw(ShaderGL& shader, const WorldState& state) const;
     std::optional<rses> load(const std::filesystem::path& path);
+    inline void reset() { model_mat = glm::mat4(1.0f); }
 
     glm::mat4 model_mat = glm::mat4(1.0f);
     std::vector<Mesh> meshes;
@@ -96,6 +97,7 @@ class Cube {
 
     void init();
     void draw(ShaderGL& shader, const WorldState& state) const;
+    inline void reset() { model_mat = glm::mat4(1.0f); }
 
     u32 id = 0;
     glm::mat4 model_mat = glm::mat4(1.0f);
@@ -141,7 +143,7 @@ class TexturedCube {
     TexturedCube& operator=(TexturedCube&& other) noexcept;
 
     void init();
-    std::optional<rses> load(const fs::path& diff_path, std::optional<fs::path> spec_path = std::nullopt);
+    std::optional<rses> load(const fs::path& diff_path, const fs::path& spec_path);
     void draw(ShaderGL& shader, const WorldState& state) const;
     inline void reset() { model_mat = glm::mat4(1.0f); }
 

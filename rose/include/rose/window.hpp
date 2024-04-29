@@ -21,15 +21,15 @@ concept drawable = requires(T d, ShaderGL& shader, const WorldState& state) {
     { d.draw(shader, state) } -> std::same_as<void>;
 };
 
+// model + additional context
 template <drawable T>
 struct Object {
-
     Object() = default;
-    Object(const glm::vec3& pos) : world_pos(pos){};
+    Object(const glm::vec3& pos) : world_pos(pos) {};
     Object(const glm::vec3& pos, const glm::vec3& scale) : world_pos(pos), scale(scale) {};
 
-    T object;
-    glm::vec3 world_pos;
+    T model;
+    glm::vec3 world_pos = { 0.0f, 0.0f, 0.0f };
     glm::vec3 scale = { 1.0f, 1.0f, 1.0f };
 };
 
@@ -38,6 +38,26 @@ struct DirLight {
     glm::vec3 ambient;
     glm::vec3 diffuse;
     glm::vec3 specular;
+};
+
+struct PointLight {
+    glm::vec3 ambient = { 0.02f, 0.02f, 0.02f };
+    glm::vec3 diffuse = { 0.05f, 0.05f, 0.05f };
+    glm::vec3 specular = { 0.2f, 0.2f, 0.2f };
+    float attn_const = 1.0f;
+    float attn_lin = 0.09f;
+    float attn_quad = 0.032f;
+};
+
+// Object with additional light properties
+template <drawable T>
+struct LightObject {
+    LightObject() = default;
+    LightObject(const glm::vec3& pos) : object(pos) {};
+    LightObject(const glm::vec3& pos, const glm::vec3& scale) : object(pos, scale) {};
+
+    Object<T> object;
+    PointLight light;
 };
 
 struct WorldState {
@@ -59,13 +79,14 @@ class WindowGLFW {
     CameraGL camera;
     std::unordered_map<std::string, ShaderGL> shaders;
 
-    WorldState state;
+    WorldState world_state;
     std::vector<Object<Model>> objects;
     std::vector<Object<TexturedCube>> tex_cubes;
+    std::vector<LightObject<Cube>> pnt_lights;
 
     u32 fbo = 0;
     u32 rbo = 0;
-    TexturedQuad fbo_quad;
+    TextureRef fbo_tex;
     u16 width = 1920;
     u16 height = 1080;
     ImGuiID dock_id = 0;
@@ -73,7 +94,8 @@ class WindowGLFW {
     glm::vec2 last_xy;
     
     vec2f mouse_xy;
-    Rectf vp_sz;
+    bool vp_focused;
+    Rectf vp_rect;
     bool glfw_captured = true;
 };
 

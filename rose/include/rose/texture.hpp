@@ -27,6 +27,7 @@ struct TextureRef {
 
     TextureRef& operator=(const TextureRef& other);
     TextureRef& operator=(TextureRef&& other) noexcept;
+    TextureGL* operator->();
 
     TextureGL* ref = nullptr;
 };

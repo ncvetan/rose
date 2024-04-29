@@ -4,7 +4,7 @@ in vs_data {
 	vec3 frag_pos;
 	vec3 normal;
 	vec2 tex_coords;
-} vs_in;
+} fs_in;
 
 struct DirLight {
 	vec3 direction;
@@ -29,11 +29,9 @@ struct Material {
 
 struct PointLight {
 	vec3 position;
-	
 	vec3 ambient;
 	vec3 diffuse;
 	vec3 specular;
-
 	float attn_const;
 	float attn_lin;
 	float attn_quad;
@@ -42,80 +40,82 @@ struct PointLight {
 #define N_MATS 1
 uniform Material materials[N_MATS];
 
-#define N_POINT_LIGHTS 2
+#define N_POINT_LIGHTS 1
 uniform PointLight point_lights[N_POINT_LIGHTS];
 
 out vec4 frag_color;
 
-vec3 calc_dir_light(DirLight light, vec3 normal, vec3 view_dir) {
-	
+vec3 calc_dir_light(DirLight light, vec3 normal) {
 	// ambient
-	vec3    ambient_rgb = vec3(0.0);
-	vec3    light_dir = normalize(-light.direction);
+	vec3 ambient_rgb = vec3(0.0);
 	for (int i = 0; i < N_MATS; ++i){
-		ambient_rgb += texture(materials[i].diffuse, vs_in.tex_coords).rgb;
+		ambient_rgb += texture(materials[i].diffuse, fs_in.tex_coords).rgb;
 	}
 	ambient_rgb *= light.ambient;
 
 	// diffuse
-	vec3	diffuse_rgb = vec3(0.0);
-	float	diffuse_strength = max(dot(normal, light_dir), 0.0);
+	vec3 diffuse_rgb = vec3(0.0);
+	float diffuse_strength = max(dot(-normalize(light.direction), normal), 0.0);
 	for (int i = 0; i < N_MATS; ++i){
-		diffuse_rgb += texture(materials[i].diffuse, vs_in.tex_coords).rgb;
+		diffuse_rgb += texture(materials[i].diffuse, fs_in.tex_coords).rgb;
 	}
 	diffuse_rgb *= light.diffuse * diffuse_strength;
 	
 	// specular
-	vec3	specular_rgb;
-	vec3	reflect_dir = reflect(-light_dir, normal);
+	vec3 specular_rgb = vec3(0.0);
+	vec3 reflect_dir = reflect(normalize(light.direction), normal);
+	vec3 view_dir = normalize(camera_pos - fs_in.frag_pos);
 	for (int i = 0; i < N_MATS; ++i){
-		float	specular_strength = pow(max(dot(view_dir, reflect_dir), 0.0), materials[i].shine);
-		specular_rgb += texture(materials[i].specular, vs_in.tex_coords).rgb * specular_strength;
+		float specular_strength = pow(max(dot(view_dir, reflect_dir), 0.0), materials[i].shine);
+		specular_rgb += texture(materials[i].specular, fs_in.tex_coords).rgb * specular_strength;
 	}
 	specular_rgb *= light.specular;
 
-	return  (ambient_rgb + diffuse_rgb + specular_rgb);
+	return (ambient_rgb + diffuse_rgb + specular_rgb);
 }
 
-vec3 calc_point_light(PointLight light, vec3 normal, vec3 view_dir, vec3 frag_pos) {
-	
-	vec3    light_dir = normalize(light.position - frag_pos);
-	vec3    ambient_rgb = light.ambient;
-	
+vec3 calc_point_light(PointLight light, vec3 normal) {
+	// ambient
+	vec3 ambient_rgb = vec3(0.0);
 	for (int i = 0; i < N_MATS; ++i){
-		ambient_rgb *= texture(materials[i].diffuse, vs_in.tex_coords).rgb;
+		ambient_rgb += texture(materials[i].diffuse, fs_in.tex_coords).rgb;
 	}
+	ambient_rgb *= light.ambient;
 
-	float	diffuse_strength = max(dot(normal, light_dir), 0.0);
-	vec3	diffuse_rgb = light.diffuse * diffuse_strength;
-
+	// diffuse
+	vec3 light_dir = normalize(light.position - fs_in.frag_pos);
+	light_dir.z = -light_dir.z;
+	vec3 diffuse_rgb = vec3(0.0);
+	float diffuse_strength = max(dot(light_dir, normal), 0.0);
 	for (int i = 0; i < N_MATS; ++i){
-		diffuse_rgb *= texture(materials[i].diffuse, vs_in.tex_coords).rgb;
+		diffuse_rgb += texture(materials[i].diffuse, fs_in.tex_coords).rgb;
 	}
+	diffuse_rgb *= light.diffuse * diffuse_strength;
 
-	vec3	reflect_dir = reflect(-light_dir, normal);
-	vec3	specular_rgb = light.specular;
-
+	// specular
+	vec3 specular_rgb = vec3(0.0);
+	vec3 reflect_dir = reflect(-light_dir, normal);
+	vec3 view_dir = normalize(camera_pos - fs_in.frag_pos);
 	for (int i = 0; i < N_MATS; ++i){
-		float	specular_strength = pow(max(dot(view_dir, reflect_dir), 0.0), materials[i].shine);
-		specular_rgb *= texture(materials[i].specular, vs_in.tex_coords).rgb * specular_strength;
+		float specular_strength = pow(max(dot(view_dir, reflect_dir), 0.0), materials[i].shine);
+		specular_rgb += texture(materials[i].specular, fs_in.tex_coords).rgb * specular_strength;
 	}
+	specular_rgb *= light.specular;
 
-	float   d = length(light.position - frag_pos);
-	float   attenuation = 1.0 / (light.attn_const + light.attn_lin * d + light.attn_quad * pow(d, 2));
+	float d = length(light.position - fs_in.frag_pos);
+	float attenuation = 1.0 / (light.attn_const + light.attn_lin * d + light.attn_quad * pow(d, 2));
 
-	return vec3((ambient_rgb + diffuse_rgb + specular_rgb) * attenuation);
+	return vec3(ambient_rgb + diffuse_rgb + specular_rgb) * attenuation;
 }
 
 void main() {
 
-	vec3 normal = normalize(vs_in.normal);
-	vec3 view_dir = normalize(camera_pos - vs_in.frag_pos);
-	vec3 result = calc_dir_light(dir_light, normal, view_dir);
+	vec3 normal = normalize(fs_in.normal);
+	vec3 result = calc_dir_light(dir_light, normal);
 
-	//	for (int i = 0; i < N_POINT_LIGHTS; ++i){
-	//		result += calc_point_light(point_lights[i], norm, view_dir, normalize(vs_in.frag_pos));
-	//	}
+	for (int i = 0; i < N_POINT_LIGHTS; ++i){
+		result += calc_point_light(point_lights[i], normal);
+	}
 
 	frag_color = vec4(result, 1.0);
 }
