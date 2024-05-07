@@ -14,13 +14,14 @@ namespace gui {
 static float dir_angle = std::numbers::pi / 2;
 static bool first_frame = true;
 static bool vp_open = true;
+static bool controls_open = true;
 
 void imgui(WindowGLFW& state) {
 
     ImGuiIO& io = ImGui::GetIO();
     (void)io;
 
-    ImGui::Begin("controls", (bool*)true, ImGuiWindowFlags_AlwaysAutoResize);
+    ImGui::Begin("controls", &controls_open, ImGuiWindowFlags_AlwaysAutoResize);
     ImGui::Text("FPS: %f", io.Framerate);
     
     ImGui::Text("light controls");
@@ -47,17 +48,25 @@ void imgui(WindowGLFW& state) {
         }
         ImGui::TreePop();
     }
-
     ImGui::End();
 
     // render our framebuffer to an imgui window
     ImGui::Begin("viewport", &vp_open, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     state.vp_focused = ImGui::IsWindowFocused();
+
     state.vp_rect.x_min = ImGui::GetWindowPos().x;
     state.vp_rect.y_min = ImGui::GetWindowPos().y;
     state.vp_rect.x_max = ImGui::GetWindowPos().x + ImGui::GetWindowSize().x;
     state.vp_rect.y_max = ImGui::GetWindowPos().y + ImGui::GetWindowSize().y;
-    ImGui::Image((void*)state.fbo_tex->id, { (float)state.width, (float)state.height }, { 0, 1 }, { 1, 0 });
+
+    // center the image in the viewport
+    float scale = std::min(state.vp_rect.width() / state.width, state.vp_rect.height() / state.height);
+    float offset_x = (state.vp_rect.width() / 2) - scale * (float)state.width / 2;
+    float offset_y = (state.vp_rect.height() / 2) - scale * (float)state.height / 2;
+    ImGui::SetCursorPos({ offset_x, offset_y });
+
+    // resize the image based on the size of the viewport
+    ImGui::Image((void*)state.fbo_tex->id, { scale * (float)state.width, scale * (float)state.height }, { 0, 1 }, { 1, 0 });
     ImGui::End();
 
     // setting an initial docking layout

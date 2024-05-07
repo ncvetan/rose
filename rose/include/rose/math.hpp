@@ -18,6 +18,8 @@ struct Rectf {
 
     bool contains(float x, float y);
     bool contains(vec2f xy);
+    inline float width() { return x_max - x_min; }
+    inline float height() { return y_max - y_min; }
 };
 
 } // namespace rose
