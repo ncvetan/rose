@@ -6,6 +6,7 @@ layout (location = 2) in vec2 a_tex_coords;
 
 out vs_data {
 	vec3 frag_pos;
+	vec4 frag_pos_light_space;
 	vec3 normal;
 	vec2 tex_coords;
 } vs_out;
@@ -26,11 +27,13 @@ layout (std140, binding = 2) uniform globals
 };
 
 uniform mat4 model;
+uniform mat4 light_space;
 
 void main() {
 	vs_out.frag_pos = vec3(model * vec4(a_pos, 1.0));
 	// Keeping the normals perpedicular to the transformed surface, in world space
 	vs_out.normal = mat3(transpose(inverse(model))) * a_normal;
 	vs_out.tex_coords = a_tex_coords;
+	vs_out.frag_pos_light_space = light_space * vec4(vs_out.frag_pos, 1.0);
 	gl_Position = projection * view * vec4(vs_out.frag_pos, 1.0);
 };

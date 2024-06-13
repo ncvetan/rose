@@ -83,29 +83,24 @@ std::optional<rses> WindowGLFW::init() {
     if (es = shaders["quad"].init(SOURCE_DIR "/rose/shaders/gl/quad.vert", SOURCE_DIR "/rose/shaders/gl/quad.frag")) {
         err::print(*es);
     }
-
     if (es = shaders["texture"].init(SOURCE_DIR "/rose/shaders/gl/texture.vert",
                                      SOURCE_DIR "/rose/shaders/gl/texture.frag")) {
         err::print(*es);
     }
-
     if (es = shaders["skybox"].init(SOURCE_DIR "/rose/shaders/gl/skybox.vert",
                                     SOURCE_DIR "/rose/shaders/gl/skybox.frag")) {
         err::print(*es);
     }
-
-    if (es = shaders["skybox_reflect"].init(SOURCE_DIR "/rose/shaders/gl/skybox_reflect.vert",
-                                            SOURCE_DIR "/rose/shaders/gl/skybox_reflect.frag")) {
-        err::print(*es);
-    }
-
     if (es = shaders["object"].init(SOURCE_DIR "/rose/shaders/gl/object.vert",
                                     SOURCE_DIR "/rose/shaders/gl/object.frag")) {
         err::print(*es);
     }
-
     if (es =
             shaders["light"].init(SOURCE_DIR "/rose/shaders/gl/light.vert", SOURCE_DIR "/rose/shaders/gl/light.frag")) {
+        err::print(*es);
+    }
+    if (es =
+            shaders["depth"].init(SOURCE_DIR "/rose/shaders/gl/depth.vert", SOURCE_DIR "/rose/shaders/gl/depth.frag")) {
         err::print(*es);
     }
 
@@ -124,16 +119,30 @@ std::optional<rses> WindowGLFW::init() {
         err::print(*es);
     }
 
-    // cube
-    tex_cubes.push_back(Object<TexturedCube>({ 2.0f, 0.0f, 5.0f }));
+    // cubes
+    tex_cubes.push_back(Object<TexturedCube>({ 2.0f, 1.0f, 5.0f }));
+    tex_cubes.back().model.init();
+    if (es = tex_cubes.back().model.load(SOURCE_DIR "/assets/texture2.jpg", SOURCE_DIR "/assets/texture2.jpg")) {
+        err::print(*es);
+    }
+
+    tex_cubes.push_back(Object<TexturedCube>({ -3.0f, 1.0f, -4.0f }));
     tex_cubes.back().model.init();
     if (es = tex_cubes.back().model.load(SOURCE_DIR "/assets/texture2.jpg", SOURCE_DIR "/assets/texture2.jpg")) {
         err::print(*es);
     }
 
     // point lights
-    pnt_lights.push_back(LightObject<Cube>({ 2.0f, 1.2f, 5.0f }, { 0.2f, 0.2f, 0.2f }));
-    pnt_lights.back().object.model.init();
+    pnt_lights.push_back(Object<Cube>({ 2.0f, 1.2f, 5.0f }, { 0.2f, 0.2f, 0.2f }, (u8)ObjectFlags::EMIT_LIGHT));
+    pnt_lights.back().model.init();
+    pnt_lights.back().light_props.ambient = { 0.02f, 0.02f, 0.02f };
+    pnt_lights.back().light_props.diffuse = { 0.3f, 0.3f, 0.3f };
+    pnt_lights.back().light_props.specular = { 0.0f, 0.0f, 0.0f };
+
+    world_state.dir_light.direction = { 0.0f, -1.0f, 0.0f };
+    world_state.dir_light.ambient = { 0.1f, 0.1f, 0.1f };
+    world_state.dir_light.diffuse = { 0.3f, 0.3f, 0.3f };
+    world_state.dir_light.specular = { 1.0f, 1.0f, 1.0f };
 
     // framebuffer
     glGenFramebuffers(1, &fbo);
@@ -157,21 +166,31 @@ std::optional<rses> WindowGLFW::init() {
     glBufferData(GL_UNIFORM_BUFFER, 208, nullptr, GL_STATIC_DRAW);
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
     glBindBufferBase(GL_UNIFORM_BUFFER, 2, world_state.ubo);
+    
+    // shadow map
+    glGenFramebuffers(1, &world_state.shadow.shadow_map_fbo);
+    glGenTextures(1, &world_state.shadow.shadow_map_tex );
+    glBindTexture(GL_TEXTURE_2D, world_state.shadow.shadow_map_tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, world_state.shadow.res, world_state.shadow.res, 0,
+                 GL_DEPTH_COMPONENT,
+                 GL_FLOAT, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    float border_color[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border_color);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, world_state.shadow.shadow_map_fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, world_state.shadow.shadow_map_tex, 0);
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     return std::nullopt;
 };
 
 void WindowGLFW::update() {
-
-    world_state.dir_light.direction = { 0.0f, -1.0f, 0.0f };
-    world_state.dir_light.ambient = { 0.1f, 0.1f, 0.1f };
-    world_state.dir_light.diffuse = { 0.3f, 0.3f, 0.3f };
-    world_state.dir_light.specular = { 1.0f, 1.0f, 1.0f };
-
-    pnt_lights.back().light.ambient = { 0.02f, 0.02f, 0.02f };
-    pnt_lights.back().light.diffuse = { 0.3f, 0.3f, 0.3f };
-    pnt_lights.back().light.specular = { 0.0f, 0.0f, 0.0f };
-
     while (!glfwWindowShouldClose(window)) {
 
         ImGui_ImplOpenGL3_NewFrame();
@@ -180,14 +199,44 @@ void WindowGLFW::update() {
         dock_id = ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
 
         ImGuiIO& io = ImGui::GetIO();
-        (void)io;
 
         process_input(window, io.DeltaTime);
+        glEnable(GL_DEPTH_TEST);
 
+        // shadow pass ================================================================================================
+        glm::mat4 light_projection_mat = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 1.0f, 100.0f);
+        glm::mat4 light_view_mat = glm::lookAt(glm::vec3(-2.0f, 4.0f, -1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+        shaders["object"].set_mat4("light_space", light_projection_mat * light_view_mat);
+        shaders["depth"].set_mat4("light_space", light_projection_mat * light_view_mat);
+        
+        glViewport(0, 0, world_state.shadow.res, world_state.shadow.res);
+        glBindFramebuffer(GL_FRAMEBUFFER, world_state.shadow.shadow_map_fbo);
+        glClear(GL_DEPTH_BUFFER_BIT);
+        glCullFace(GL_FRONT);  // preventing peter panning
+
+        for (auto& light : pnt_lights) {
+            translate(light.model, light.pos);
+            scale(light.model, light.scale);
+            light.draw(shaders["depth"], world_state);
+            light.model.reset();
+        }
+
+        for (auto& cube : tex_cubes) {
+            translate(cube.model, cube.pos);
+            scale(cube.model, cube.scale);
+            cube.draw(shaders["depth"], world_state);
+            cube.model.reset();
+        }
+
+        glCullFace(GL_BACK);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        
+        // render pass ================================================================================================
+        glViewport(0, 0, width, height)    ;
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-        glEnable(GL_DEPTH_TEST);
 
         glm::mat4 projection = camera.projection_matrix(static_cast<float>(width) / static_cast<float>(height));
         glm::mat4 view = camera.view_matrix();
@@ -210,28 +259,27 @@ void WindowGLFW::update() {
         glBufferSubData(GL_UNIFORM_BUFFER, 64, sizeof(glm::mat4), glm::value_ptr(view));
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
-        for (int i = 0; auto& pnt_light : pnt_lights) {
-            auto& [object, light] = pnt_light;
-            translate(object.model, object.world_pos);
-            scale(object.model, object.scale);
-            object.model.draw(shaders["light"], world_state);
-            object.model.reset();
+        shaders["object"].set_float("gamma_co", gamma);
+        shaders["object"].set_float("bias", world_state.shadow.bias);
+
+        for (int i = 0; auto& light : pnt_lights) {
+            translate(light.model, light.pos);
+            scale(light.model, light.scale);
+            light.draw(shaders["light"], world_state);
+            light.model.reset();
             shaders["object"].use();
-            shaders["object"].set_vec3(std::format("point_lights[{}].position", i), object.world_pos);
-            shaders["object"].set_vec3(std::format("point_lights[{}].ambient", i), light.ambient);
-            shaders["object"].set_vec3(std::format("point_lights[{}].diffuse", i), light.diffuse);
-            shaders["object"].set_vec3(std::format("point_lights[{}].specular", i), light.specular);
-            shaders["object"].set_float(std::format("point_lights[{}].attn_const", i), light.attn_const);
-            shaders["object"].set_float(std::format("point_lights[{}].attn_lin", i), light.attn_lin);
-            shaders["object"].set_float(std::format("point_lights[{}].attn_quad", i), light.attn_quad);
+            shaders["object"].set_vec3(std::format("point_lights[{}].position", i), light.pos);
+            shaders["object"].set_vec3(std::format("point_lights[{}].ambient", i), light.light_props.ambient);
+            shaders["object"].set_vec3(std::format("point_lights[{}].diffuse", i), light.light_props.diffuse);
+            shaders["object"].set_vec3(std::format("point_lights[{}].specular", i), light.light_props.specular);
             ++i;
         }
 
-        for (auto& [cube, pos_vec, scale_vec] : tex_cubes) {
-            translate(cube, pos_vec);
-            scale(cube, scale_vec);
+        for (auto& cube : tex_cubes) {
+            translate(cube.model, cube.pos);
+            scale(cube.model, cube.scale);
             cube.draw(shaders["object"], world_state);
-            cube.reset();
+            cube.model.reset();
         }
 
         // second pass

@@ -3,6 +3,7 @@
 
 #include <GL/glew.h>
 #include <glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 namespace rose {
 
@@ -90,7 +91,7 @@ void ShaderGL::set_float(const std::string& name, float value) const {
 }
 
 void ShaderGL::set_mat4(const std::string& name, const glm::mat4& value) const {
-    glProgramUniformMatrix4fv(prg, glGetUniformLocation(prg, name.c_str()), 1, GL_FALSE, &value[0][0]);
+    glProgramUniformMatrix4fv(prg, glGetUniformLocation(prg, name.c_str()), 1, GL_FALSE, glm::value_ptr(value));
 }
 
 void ShaderGL::set_vec3(const std::string& name, const glm::vec3& value) const {

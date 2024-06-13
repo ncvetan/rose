@@ -4,7 +4,7 @@
 
 #include <imgui.h>
 #include <imgui_internal.h>
-#include <glm/gtc/type_ptr.hpp>s
+#include <glm/gtc/type_ptr.hpp>
 
 #include <numbers>
 
@@ -24,8 +24,10 @@ void imgui(WindowGLFW& state) {
     ImGui::Begin("controls", &controls_open, ImGuiWindowFlags_AlwaysAutoResize);
     ImGui::Text("FPS: %f", io.Framerate);
     
-    ImGui::Text("light controls");
+    ImGui::Text("lighting controls");
     ImGui::Separator();
+    ImGui::SliderFloat("gamma", &state.gamma, 1.0, 3.0);
+    ImGui::SliderFloat("shadow bias", &state.world_state.shadow.bias, 0.0001, 0.5);
     ImGui::SeparatorText("global light");
     if (ImGui::SliderAngle("angle", &dir_angle, 0.0f, 180.0f)) {
         state.world_state.dir_light.direction.y = -std::sin(dir_angle) * 1.0f;
@@ -39,10 +41,10 @@ void imgui(WindowGLFW& state) {
     if (ImGui::TreeNode("lights")) {
         for (int i = 0; i < state.pnt_lights.size(); i++) {
             if (ImGui::TreeNode((void*)(intptr_t)i, "light %d", i)) {
-                ImGui::SliderFloat3("position", glm::value_ptr(state.pnt_lights[i].object.world_pos), -10.0f, 10.0f);
-                ImGui::ColorEdit3("ambient", glm::value_ptr(state.pnt_lights[i].light.ambient));
-                ImGui::ColorEdit3("diffuse", glm::value_ptr(state.pnt_lights[i].light.diffuse));
-                ImGui::ColorEdit3("specular", glm::value_ptr(state.pnt_lights[i].light.specular));
+                ImGui::SliderFloat3("position", glm::value_ptr(state.pnt_lights[i].pos), -10.0f, 10.0f);
+                ImGui::ColorEdit3("ambient", glm::value_ptr(state.pnt_lights[i].light_props.ambient));
+                ImGui::ColorEdit3("diffuse", glm::value_ptr(state.pnt_lights[i].light_props.diffuse));
+                ImGui::ColorEdit3("specular", glm::value_ptr(state.pnt_lights[i].light_props.specular));
                 ImGui::TreePop();
             }
         }
@@ -61,8 +63,8 @@ void imgui(WindowGLFW& state) {
 
     // center the image in the viewport
     float scale = std::min(state.vp_rect.width() / state.width, state.vp_rect.height() / state.height);
-    float offset_x = (state.vp_rect.width() / 2) - scale * (float)state.width / 2;
-    float offset_y = (state.vp_rect.height() / 2) - scale * (float)state.height / 2;
+    float offset_x = (state.vp_rect.width() - scale * (float)state.width) / 2;
+    float offset_y = (state.vp_rect.height() - scale * (float)state.height) / 2;
     ImGui::SetCursorPos({ offset_x, offset_y });
 
     // resize the image based on the size of the viewport

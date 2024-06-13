@@ -15,7 +15,7 @@ namespace rose {
 
 namespace fs = std::filesystem;
 
-struct WorldState;
+struct GlobalState;
 
 template <typename T>
 concept Transformable = requires { T::model_mat; };
@@ -58,7 +58,7 @@ class Mesh {
     Mesh& operator=(Mesh&& other) noexcept;
 
     void init();
-    void draw(ShaderGL& shader, const WorldState& state) const;
+    void draw(ShaderGL& shader, const GlobalState& state) const;
 
     u32 id = 0;
     std::vector<Vertex> verts;
@@ -72,7 +72,7 @@ class Mesh {
 
 class Model {
   public:
-    void draw(ShaderGL& shader, const WorldState& state) const;
+    void draw(ShaderGL& shader, const GlobalState& state) const;
     std::optional<rses> load(const std::filesystem::path& path);
     inline void reset() { model_mat = glm::mat4(1.0f); }
 
@@ -96,7 +96,7 @@ class Cube {
     Cube& operator=(Cube&& other) noexcept;
 
     void init();
-    void draw(ShaderGL& shader, const WorldState& state) const;
+    void draw(ShaderGL& shader, const GlobalState& state) const;
     inline void reset() { model_mat = glm::mat4(1.0f); }
 
     u32 id = 0;
@@ -144,7 +144,7 @@ class TexturedCube {
 
     void init();
     std::optional<rses> load(const fs::path& diff_path, const fs::path& spec_path);
-    void draw(ShaderGL& shader, const WorldState& state) const;
+    void draw(ShaderGL& shader, const GlobalState& state) const;
     inline void reset() { model_mat = glm::mat4(1.0f); }
 
     u32 id = 0;
@@ -216,7 +216,7 @@ class TexturedQuad {
 
     void init();
     std::optional<rses> load(const fs::path& path);
-    void draw(ShaderGL& shader, const WorldState& state) const;
+    void draw(ShaderGL& shader, const GlobalState& state) const;
     inline void reset() { model_mat = glm::mat4(1.0f); }
 
     u32 id = 0;
@@ -248,7 +248,7 @@ class SkyBox {
 
     void init();
     std::optional<rses> load(const std::vector<fs::path>& paths);
-    void draw(ShaderGL& shader, const WorldState& state) const;
+    void draw(ShaderGL& shader, const GlobalState& state) const;
     inline void reset() { model_mat = glm::mat4(1.0f); }
 
     u32 id = 0;

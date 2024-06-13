@@ -65,7 +65,7 @@ void Mesh::init() {
     id = new_id();
 }
 
-void Mesh::draw(ShaderGL& shader, const WorldState& state) const {
+void Mesh::draw(ShaderGL& shader, const GlobalState& state) const {
 
     shader.use();
     u32 diff_n = 0;
@@ -101,7 +101,7 @@ Mesh::~Mesh() {
     glDeleteBuffers(1, &EBO);
 }
 
-void Model::draw(ShaderGL& shader, const WorldState& state) const {
+void Model::draw(ShaderGL& shader, const GlobalState& state) const {
     shader.use();
     shader.set_mat4("model", model_mat);
     for (auto& mesh : meshes) {
@@ -235,7 +235,7 @@ void Cube::init() {
     id = new_id();
 }
 
-void Cube::draw(ShaderGL& shader, const WorldState& state) const {
+void Cube::draw(ShaderGL& shader, const GlobalState& state) const {
     shader.use();
     shader.set_mat4("model", model_mat);
     glBindVertexArray(VAO);
@@ -298,7 +298,7 @@ std::optional<rses> TexturedCube::load(const fs::path& diff_path, const fs::path
     return std::nullopt;
 }
 
-void TexturedCube::draw(ShaderGL& shader, const WorldState& state) const {
+void TexturedCube::draw(ShaderGL& shader, const GlobalState& state) const {
     shader.use();
     shader.set_mat4("model", model_mat);
     glBindVertexArray(VAO);
@@ -314,6 +314,11 @@ void TexturedCube::draw(ShaderGL& shader, const WorldState& state) const {
         shader.set_int("materials[0].specular", 0);
     }
     shader.set_float("materials[0].shine", 32.0f);
+
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, state.shadow.shadow_map_tex);
+    shader.set_int("shadow_map", 2);
+
     glDrawArrays(GL_TRIANGLES, 0, verts.size());
     glBindVertexArray(0);
     glActiveTexture(GL_TEXTURE0);
@@ -366,7 +371,7 @@ std::optional<rses> TexturedQuad::load(const fs::path& path) {
     return std::nullopt;
 }
 
-void TexturedQuad::draw(ShaderGL& shader, const WorldState& state) const {
+void TexturedQuad::draw(ShaderGL& shader, const GlobalState& state) const {
     shader.use();
     shader.set_mat4("model", model_mat);
     glBindVertexArray(VAO);
@@ -429,7 +434,7 @@ std::optional<rses> SkyBox::load(const std::vector<fs::path>& paths) {
     return std::nullopt;
 }
 
-void SkyBox::draw(ShaderGL& shader, const WorldState& state) const {
+void SkyBox::draw(ShaderGL& shader, const GlobalState& state) const {
     glDepthMask(GL_FALSE);
     shader.use();
     glBindVertexArray(VAO);
