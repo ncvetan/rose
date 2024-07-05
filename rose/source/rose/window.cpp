@@ -13,6 +13,7 @@
 
 #include <format>
 #include <iostream>
+#include <array>
 
 namespace rose {
 
@@ -133,16 +134,11 @@ std::optional<rses> WindowGLFW::init() {
     }
 
     // point lights
-    pnt_lights.push_back(Object<Cube>({ 2.0f, 1.2f, 5.0f }, { 0.2f, 0.2f, 0.2f }, (u8)ObjectFlags::EMIT_LIGHT));
+    pnt_lights.push_back(Object<Cube>({ 2.0f, 2.0f, 5.0f }, { 0.2f, 0.2f, 0.2f }, (u8)ObjectFlags::EMIT_LIGHT));
     pnt_lights.back().model.init();
     pnt_lights.back().light_props.ambient = { 0.02f, 0.02f, 0.02f };
     pnt_lights.back().light_props.diffuse = { 0.3f, 0.3f, 0.3f };
     pnt_lights.back().light_props.specular = { 0.0f, 0.0f, 0.0f };
-
-    world_state.dir_light.direction = { 0.0f, -1.0f, 0.0f };
-    world_state.dir_light.ambient = { 0.1f, 0.1f, 0.1f };
-    world_state.dir_light.diffuse = { 0.3f, 0.3f, 0.3f };
-    world_state.dir_light.specular = { 1.0f, 1.0f, 1.0f };
 
     // framebuffer
     glGenFramebuffers(1, &fbo);
@@ -182,10 +178,19 @@ std::optional<rses> WindowGLFW::init() {
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border_color);
 
     glBindFramebuffer(GL_FRAMEBUFFER, world_state.shadow.shadow_map_fbo);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, world_state.shadow.shadow_map_tex, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, world_state.shadow.shadow_map_tex, 0);
     glDrawBuffer(GL_NONE);
     glReadBuffer(GL_NONE);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    // note: we switched to using cube maps for our shadow mapping, this code was from when we were only doing
+    // directional shadows
+    // 
+    // glBindFramebuffer(GL_FRAMEBUFFER, world_state.shadow.shadow_map_fbo);
+    // glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, world_state.shadow.shadow_map_tex, 0);
+    // glDrawBuffer(GL_NONE);
+    // glReadBuffer(GL_NONE);
+    // glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     return std::nullopt;
 };
@@ -197,30 +202,33 @@ void WindowGLFW::update() {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
         dock_id = ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
-
+        
         ImGuiIO& io = ImGui::GetIO();
-
         process_input(window, io.DeltaTime);
         glEnable(GL_DEPTH_TEST);
 
         // shadow pass ================================================================================================
-        glm::mat4 light_projection_mat = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 1.0f, 100.0f);
-        glm::mat4 light_view_mat = glm::lookAt(glm::vec3(-2.0f, 4.0f, -1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        
+        // glm::mat4 light_proj_mat = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 0.1f, 100.0f);
+        // glm::mat4 light_view_mat = glm::lookAt(-world_state.dir_light.direction, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        
+        glm::mat4 light_proj_mat = glm::perspective(glm::radians(90.0f), 1.0f, 1.0f, 25.0f);
 
-        shaders["object"].set_mat4("light_space", light_projection_mat * light_view_mat);
-        shaders["depth"].set_mat4("light_space", light_projection_mat * light_view_mat);
+        std::array<glm::mat4, 6> shadow_transforms;
+        shadow_transforms[0] = light_proj_mat * glm::lookAt(light_pos, light_pos + glm::vec3( 1.0, 0.0, 0.0), glm::vec3(0.0,-1.0, 0.0));
+        shadow_transforms[1] = light_proj_mat * glm::lookAt(light_pos, light_pos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0,-1.0, 0.0));
+        shadow_transforms[2] = light_proj_mat * glm::lookAt(light_pos, light_pos + glm::vec3( 0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, 1.0));
+        shadow_transforms[3] = light_proj_mat * glm::lookAt(light_pos, light_pos + glm::vec3( 0.0,-1.0, 0.0), glm::vec3(0.0, 0.0,-1.0));
+        shadow_transforms[4] = light_proj_mat * glm::lookAt(light_pos, light_pos + glm::vec3( 0.0, 0.0, 1.0), glm::vec3(0.0,-1.0, 0.0));
+        shadow_transforms[5] = light_proj_mat * glm::lookAt(light_pos, light_pos + glm::vec3( 0.0, 0.0,-1.0), glm::vec3(0.0,-1.0, 0.0));
+
+        shaders["object"].set_mat4("light_space", light_proj_mat * light_view_mat);
+        shaders["depth"].set_mat4("light_space", light_proj_mat * light_view_mat);
         
         glViewport(0, 0, world_state.shadow.res, world_state.shadow.res);
         glBindFramebuffer(GL_FRAMEBUFFER, world_state.shadow.shadow_map_fbo);
         glClear(GL_DEPTH_BUFFER_BIT);
         glCullFace(GL_FRONT);  // preventing peter panning
-
-        for (auto& light : pnt_lights) {
-            translate(light.model, light.pos);
-            scale(light.model, light.scale);
-            light.draw(shaders["depth"], world_state);
-            light.model.reset();
-        }
 
         for (auto& cube : tex_cubes) {
             translate(cube.model, cube.pos);
@@ -237,6 +245,8 @@ void WindowGLFW::update() {
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+        glBindTexture(GL_TEXTURE_CUBE_MAP, world_state.shadow.shadow_map_tex);
 
         glm::mat4 projection = camera.projection_matrix(static_cast<float>(width) / static_cast<float>(height));
         glm::mat4 view = camera.view_matrix();
@@ -267,7 +277,7 @@ void WindowGLFW::update() {
             scale(light.model, light.scale);
             light.draw(shaders["light"], world_state);
             light.model.reset();
-            shaders["object"].use();
+            // while we render our lights, update our uniforms for use in the object shaders
             shaders["object"].set_vec3(std::format("point_lights[{}].position", i), light.pos);
             shaders["object"].set_vec3(std::format("point_lights[{}].ambient", i), light.light_props.ambient);
             shaders["object"].set_vec3(std::format("point_lights[{}].diffuse", i), light.light_props.diffuse);
@@ -282,14 +292,13 @@ void WindowGLFW::update() {
             cube.model.reset();
         }
 
-        // second pass
+        // render the frame buffer to imgui
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         glDisable(GL_DEPTH_TEST);
         glBindTexture(GL_TEXTURE_2D, fbo_tex->id);
 
-        // ImGui::ShowDemoWindow();
         gui::imgui(*this);
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -309,7 +318,6 @@ void WindowGLFW::update() {
 void WindowGLFW::destroy() {
     glDeleteBuffers(1, &fbo);
     glDeleteBuffers(1, &rbo);
-
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
@@ -322,7 +330,6 @@ void WindowGLFW::enable_vsync(bool enable) { (enable) ? glfwSwapInterval(1) : gl
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     WindowGLFW* window_state = (WindowGLFW*)glfwGetWindowUserPointer(window);
-
     // handle window resizing
     glBindTexture(GL_TEXTURE_2D, window_state->fbo_tex->id);
     glBindFramebuffer(1, window_state->fbo);

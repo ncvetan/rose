@@ -35,6 +35,7 @@ struct TextureRef {
 std::optional<TextureRef> load_texture(const fs::path& path, TextureType ty);
 std::optional<TextureRef> load_cubemap(const std::vector<fs::path>& paths);
 std::optional<TextureRef> generate_texture(int w, int h);
+std::optional<TextureRef> generate_cubemap(int w, int h);
 
 struct TextureCtx {
     TextureGL texture;

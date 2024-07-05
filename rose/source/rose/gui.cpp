@@ -11,13 +11,14 @@
 namespace rose {
 namespace gui {
 
+// TODO: The GUI code is pretty rough right now andd is primarily used for debugging, I'd like to clean this up
+
 static float dir_angle = std::numbers::pi / 2;
 static bool first_frame = true;
 static bool vp_open = true;
 static bool controls_open = true;
 
 void imgui(WindowGLFW& state) {
-
     ImGuiIO& io = ImGui::GetIO();
     (void)io;
 
@@ -32,6 +33,7 @@ void imgui(WindowGLFW& state) {
     if (ImGui::SliderAngle("angle", &dir_angle, 0.0f, 180.0f)) {
         state.world_state.dir_light.direction.y = -std::sin(dir_angle) * 1.0f;
         state.world_state.dir_light.direction.z = std::cos(dir_angle) * 1.0f;
+        state.world_state.dir_light.direction = glm::normalize(state.world_state.dir_light.direction);
     }
     ImGui::ColorEdit3("ambient", glm::value_ptr(state.world_state.dir_light.ambient));
     ImGui::ColorEdit3("diffuse", glm::value_ptr(state.world_state.dir_light.diffuse));

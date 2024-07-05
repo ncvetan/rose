@@ -134,7 +134,7 @@ std::optional<TextureRef> load_texture(const fs::path& path, TextureType ty) {
 std::optional<TextureRef> load_cubemap(const std::vector<fs::path>& paths) {
     
     if (paths.size() != 6) {
-        return std::nullopt; // todo: improve err handling here. arg can really be a std::array
+        return std::nullopt; // todo: improve err handling here. arg can be a std::array
     }
 
     i32 width = 0, height = 0, n_channels = 0;
@@ -216,8 +216,29 @@ std::optional<TextureRef> generate_texture(int w, int h) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glBindTexture(GL_TEXTURE_2D, 0);
+
     globals::loaded_textures[texture.id] = { texture, 1 };
     return TextureRef(&globals::loaded_textures[texture.id].texture);
+};
+
+std::optional<TextureRef> generate_cubemap(int w, int h) {
+    TextureGL cubemap = { 0, TextureType::CUBE_MAP };
+    glGenTextures(1, &cubemap.id);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, cubemap.id);
+
+    for (int i = 0; i < 6; ++i) {
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, w, h, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+    }
+
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+
+    globals::loaded_textures[cubemap.id] = { cubemap, 1 };
+    return TextureRef(&globals::loaded_textures[cubemap.id].texture);
 };
 
 } // namespace rose

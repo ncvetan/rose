@@ -54,9 +54,8 @@ void CameraGL::process_mouse_movement(float xoffset, float yoffset) {
 
 void CameraGL::process_mouse_scroll(float yoffset) {
     zoom -= yoffset;
-
     if (zoom < 1.0f) zoom = 1.0f;
-    if (zoom > 45.0f) zoom = 45.0f;
+    else if (zoom > 45.0f) zoom = 45.0f;
 }
 
 } // namespace rose

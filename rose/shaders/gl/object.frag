@@ -16,10 +16,10 @@ struct DirLight {
 
 layout (std140, binding = 2) uniform globals
 {
-	mat4 projection;     // 64
-	mat4 view;		     // 128
-	vec3 camera_pos;     // 144
-	DirLight dir_light;  // 208
+	mat4 projection;
+	mat4 view;
+	vec3 camera_pos;
+	DirLight dir_light;
 };
 
 struct Material {

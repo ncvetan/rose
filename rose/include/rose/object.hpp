@@ -9,10 +9,10 @@
 namespace rose {
 
 struct DirLight {
-    glm::vec3 direction = { 0.0f, -1.0f, 0.0f };
-    glm::vec3 ambient;
-    glm::vec3 diffuse;
-    glm::vec3 specular;
+    glm::vec3 direction = { 0.0f, -0.999848f, -0.0174525f };
+    glm::vec3 ambient = { 0.6f, 0.6f, 0.6f };
+    glm::vec3 diffuse = { 0.3f, 0.3f, 0.3f };
+    glm::vec3 specular = { 1.0f, 1.0f, 1.0f };
 };
 
 struct PointLight {
@@ -25,13 +25,13 @@ struct PointLight {
 struct GlobalState {
     SkyBox sky_box;
     DirLight dir_light;
-    uint32_t ubo;
+    u32 ubo;
 
     struct ShadowCtx {
-        uint32_t shadow_map_fbo = 0;
-        uint32_t shadow_map_tex = 0;
+        u32 shadow_map_fbo = 0;
+        u32 shadow_map_tex = 0;
         float bias = 0.005;
-        uint16_t res = 2048;
+        u16 res = 2048;
     } shadow;
 };
 
@@ -40,7 +40,7 @@ concept drawable = requires(T d, ShaderGL& shader, const GlobalState& state) {
     { d.draw(shader, state) } -> std::same_as<void>;
 };
 
-enum class ObjectFlags : u8 { NONE = 0x00, EMIT_LIGHT = 0x01, VISIBLE = 0x02 };
+enum class ObjectFlags : u8 { NONE = 0x00, EMIT_LIGHT = 0x01, HIDE = 0x02 };
 
 template <drawable T>
 struct Object {
