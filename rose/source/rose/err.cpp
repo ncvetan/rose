@@ -63,7 +63,7 @@ rses Handle::gl(std::string&& errmsg) {
         new (&err.gl_err_msg) std::string("INVALID_FRAMEBUFFER_OPERATION");
         break;
     default:
-        new (&err.gl_err_msg) std::string("BRUH");
+        new (&err.gl_err_msg) std::string("ERR");
         break;
     }
     return add_error(std::move(err));

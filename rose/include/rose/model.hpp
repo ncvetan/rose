@@ -40,8 +40,7 @@ void rotate(T& obj, float deg, const glm::vec3& axis) {
     obj.model_mat = glm::rotate(obj.model_mat, glm::radians(deg), axis);
 }
 
-class Mesh {
-  public:
+struct Mesh {
     struct Vertex {
         glm::vec3 pos;
         glm::vec3 norm;
@@ -70,8 +69,7 @@ class Mesh {
     u32 EBO = 0;
 };
 
-class Model {
-  public:
+struct Model {
     void draw(ShaderGL& shader, const GlobalState& state) const;
     std::optional<rses> load(const std::filesystem::path& path);
     inline void reset() { model_mat = glm::mat4(1.0f); }
@@ -80,8 +78,7 @@ class Model {
     std::vector<Mesh> meshes;
 };
 
-class Cube {
-  public:
+struct Cube {
     struct Vertex {
         glm::vec3 pos;
         glm::vec3 norm;
@@ -126,8 +123,7 @@ class Cube {
     };
 };
 
-class TexturedCube {
-  public:
+struct TexturedCube {
     struct Vertex {
         glm::vec3 pos;
         glm::vec3 norm;
@@ -199,8 +195,7 @@ class TexturedCube {
     };
 };
 
-class TexturedQuad {
-  public:
+struct TexturedQuad {
     struct Vertex {
         glm::vec3 pos;
         glm::vec2 tex;
@@ -232,8 +227,8 @@ class TexturedQuad {
     };
 };
 
-class SkyBox {
-  public:
+struct SkyBox {
+
     struct Vertex {
         glm::vec3 pos;
     };

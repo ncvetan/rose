@@ -25,7 +25,7 @@ void imgui(WindowGLFW& state) {
     ImGui::Begin("controls", &controls_open, ImGuiWindowFlags_AlwaysAutoResize);
     ImGui::Text("FPS: %f", io.Framerate);
     
-    ImGui::Text("lighting controls");
+    ImGui::Text("lighting controls TESTTTTT");
     ImGui::Separator();
     ImGui::SliderFloat("gamma", &state.gamma, 1.0, 3.0);
     ImGui::SliderFloat("shadow bias", &state.world_state.shadow.bias, 0.0001, 0.5);

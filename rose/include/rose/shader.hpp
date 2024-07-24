@@ -21,6 +21,7 @@ class ShaderGL {
     ~ShaderGL();
 
     std::optional<rses> init(const std::string& vertex_path, const std::string& fragment_path);
+    std::optional<rses> init(const std::string& vertex_path, const std::string& fragment_path, const std::string& geometry_path);
     void use();
 
     void set_bool(const std::string& name, bool value) const;

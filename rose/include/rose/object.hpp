@@ -28,8 +28,8 @@ struct GlobalState {
     u32 ubo;
 
     struct ShadowCtx {
-        u32 shadow_map_fbo = 0;
-        u32 shadow_map_tex = 0;
+        u32 fbo = 0;
+        u32 tex = 0;
         float bias = 0.005;
         u16 res = 2048;
     } shadow;

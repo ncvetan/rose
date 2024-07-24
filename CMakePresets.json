@@ -1,0 +1,51 @@
+{
+    "version": 8,
+    "configurePresets": [
+        {
+            "name": "x64-debug",
+            "displayName": "Custom configure preset",
+            "description": "Debug configuration",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "architecture": {
+                "value": "x64",
+                "strategy": "external"
+            },
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+                "CMAKE_CXX_COMPILER": "C://Program Files//Microsoft Visual Studio//2022//Community//VC//Tools//MSVC//14.40.33807//bin//Hostx64//x64//cl.exe"
+            },
+            "vendor": {
+                "microsoft.com/VisualStudioSettings/CMake/1.0": {
+                    "hostOS": [
+                        "Windows"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "x64-release",
+            "displayName": "Custom configure preset",
+            "description": "Release configuration",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "architecture": {
+                "value": "x64",
+                "strategy": "external"
+            },
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+                "CMAKE_CXX_COMPILER": "C://Program Files//Microsoft Visual Studio//2022//Community//VC//Tools//MSVC//14.40.33807//bin//Hostx64//x64//cl.exe"
+            },
+            "vendor": {
+                "microsoft.com/VisualStudioSettings/CMake/1.0": {
+                    "hostOS": [
+                        "Windows"
+                    ]
+                }
+            }
+        }
+    ]
+}

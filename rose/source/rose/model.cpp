@@ -13,7 +13,7 @@
 
 namespace rose {
 
-// todo: probably not a great id system, will want something better
+// todo: bad id system, will want something better
 namespace globals {
 u32 id_counter = 1;
 } // namespace globals
@@ -316,7 +316,7 @@ void TexturedCube::draw(ShaderGL& shader, const GlobalState& state) const {
     shader.set_float("materials[0].shine", 32.0f);
 
     glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, state.shadow.shadow_map_tex);
+    glBindTexture(GL_TEXTURE_2D, state.shadow.tex);
     shader.set_int("shadow_map", 2);
 
     glDrawArrays(GL_TRIANGLES, 0, verts.size());
