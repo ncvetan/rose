@@ -1,15 +1,12 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
         {
             "name": "x64-debug-launch",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/out/build/x64-Debug/rose/rose.exe",
-            "symbolSearchPath": "${workspaceFolder}/out/build/x64-Debug/rose/Debug",
+            "program": "${workspaceFolder}/out/build/x64-debug/rose/rose.exe",
+            "symbolSearchPath": "${workspaceFolder}/out/build/x64-debug/rose/",
             "externalConsole": true,
             "cwd": "${workspaceFolder}"
           },
@@ -17,7 +14,7 @@
             "name": "x64-release-launch",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/out/build/x64-Release/rose/rose.exe",
+            "program": "${workspaceFolder}/out/build/x64-release/rose/rose.exe",
             "externalConsole": true,
             "cwd": "${workspaceFolder}"
           }

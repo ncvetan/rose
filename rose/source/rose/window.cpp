@@ -105,7 +105,7 @@ std::optional<rses> WindowGLFW::init() {
                                    SOURCE_DIR "/rose/shaders/gl/shadow.geom")) {
         err::print(*es);
     }
-
+    
     // skybox
     world_state.sky_box.init();
     if (es = world_state.sky_box.load({ SOURCE_DIR "/assets/skybox/right.jpg", SOURCE_DIR "/assets/skybox/left.jpg",
@@ -115,11 +115,11 @@ std::optional<rses> WindowGLFW::init() {
     }
 
     // sponza
-    objects.push_back(Object<Model>({ 0.0f, 0.0f, 0.0f }));
-    es = objects.back().model.load("C:\\Programs\\CRYENGINE Launcher\\Assets\\crytek\\sponza-sample-scene\\1.0.0\\gamesdk\\Assets\\Objects\\sponzaScene\\sponzaStructureMAT.mtl");
-    if (es) {
-        err::print(*es);
-    }
+    // objects.push_back(Object<Model>({ 0.0f, 0.0f, 0.0f }));
+    // es = objects.back().model.load("C:\\Programs\\CRYENGINE Launcher\\Assets\\crytek\\sponza-sample-scene\\1.0.0\\gamesdk\\Assets\\Objects\\sponzaScene\\sponzaStructureMAT.mtl");
+    // if (es) {
+    //     err::print(*es);
+    // }
 
     // floor
     tex_cubes.push_back(Object<TexturedCube>({ 0.0f, -1.0f, 0.0f }, { 20.0f, 1.0f, 20.0f }));
