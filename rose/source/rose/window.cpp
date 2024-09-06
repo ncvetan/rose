@@ -11,9 +11,9 @@
 #include <imgui.h>
 #include <stb_image.h>
 
+#include <array>
 #include <format>
 #include <iostream>
-#include <array>
 
 namespace rose {
 
@@ -81,42 +81,45 @@ std::optional<rses> WindowGLFW::init() {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     std::optional<rses> es;
-    if (es = shaders["quad"].init(SOURCE_DIR "/rose/shaders/gl/quad.vert", SOURCE_DIR "/rose/shaders/gl/quad.frag")) {
+    if (es = shaders["quad"].init({ { SOURCE_DIR "/rose/shaders/gl/quad.vert", GL_VERTEX_SHADER },
+                                    { SOURCE_DIR "/rose/shaders/gl/quad.frag", GL_FRAGMENT_SHADER } })) {
         err::print(*es);
     }
-    if (es = shaders["texture"].init(SOURCE_DIR "/rose/shaders/gl/texture.vert",
-                                     SOURCE_DIR "/rose/shaders/gl/texture.frag")) {
+    if (es = shaders["texture"].init({ { SOURCE_DIR "/rose/shaders/gl/texture.vert", GL_VERTEX_SHADER },
+                                       { SOURCE_DIR "/rose/shaders/gl/texture.frag", GL_FRAGMENT_SHADER } })) {
         err::print(*es);
     }
-    if (es = shaders["skybox"].init(SOURCE_DIR "/rose/shaders/gl/skybox.vert",
-                                    SOURCE_DIR "/rose/shaders/gl/skybox.frag")) {
+    if (es = shaders["skybox"].init({ { SOURCE_DIR "/rose/shaders/gl/skybox.vert", GL_VERTEX_SHADER },
+                                      { SOURCE_DIR "/rose/shaders/gl/skybox.frag", GL_FRAGMENT_SHADER } })) {
         err::print(*es);
     }
-    if (es = shaders["object"].init(SOURCE_DIR "/rose/shaders/gl/object.vert",
-                                    SOURCE_DIR "/rose/shaders/gl/object.frag")) {
+    if (es = shaders["object"].init({ { SOURCE_DIR "/rose/shaders/gl/object.vert", GL_VERTEX_SHADER },
+                                      { SOURCE_DIR "/rose/shaders/gl/object.frag", GL_FRAGMENT_SHADER } })) {
         err::print(*es);
     }
-    if (es =
-            shaders["light"].init(SOURCE_DIR "/rose/shaders/gl/light.vert", SOURCE_DIR "/rose/shaders/gl/light.frag")) {
+    if (es = shaders["light"].init({ { SOURCE_DIR "/rose/shaders/gl/light.vert", GL_VERTEX_SHADER },
+                                     { SOURCE_DIR "/rose/shaders/gl/light.frag", GL_FRAGMENT_SHADER } })) {
         err::print(*es);
     }
-    if (es =
-            shaders["shadow"].init(SOURCE_DIR "/rose/shaders/gl/shadow.vert", SOURCE_DIR "/rose/shaders/gl/shadow.frag",
-                                   SOURCE_DIR "/rose/shaders/gl/shadow.geom")) {
+    if (es = shaders["shadow"].init({ { SOURCE_DIR "/rose/shaders/gl/shadow.vert", GL_VERTEX_SHADER },
+                                      { SOURCE_DIR "/rose/shaders/gl/shadow.frag", GL_FRAGMENT_SHADER },
+                                      { SOURCE_DIR "/rose/shaders/gl/shadow.geom", GL_GEOMETRY_SHADER } })) {
         err::print(*es);
     }
-    
+
     // skybox
     world_state.sky_box.init();
-    if (es = world_state.sky_box.load({ SOURCE_DIR "/assets/skybox/right.jpg", SOURCE_DIR "/assets/skybox/left.jpg",
-                                  SOURCE_DIR "/assets/skybox/top.jpg", SOURCE_DIR "/assets/skybox/bottom.jpg",
-                                  SOURCE_DIR "/assets/skybox/front.jpg", SOURCE_DIR "/assets/skybox/back.jpg" })) {
+    if (es =
+            world_state.sky_box.load({ SOURCE_DIR "/assets/skybox/right.jpg", SOURCE_DIR "/assets/skybox/left.jpg",
+                                       SOURCE_DIR "/assets/skybox/top.jpg", SOURCE_DIR "/assets/skybox/bottom.jpg",
+                                       SOURCE_DIR "/assets/skybox/front.jpg", SOURCE_DIR "/assets/skybox/back.jpg" })) {
         err::print(*es);
     }
 
     // sponza
     // objects.push_back(Object<Model>({ 0.0f, 0.0f, 0.0f }));
-    // es = objects.back().model.load("C:\\Programs\\CRYENGINE Launcher\\Assets\\crytek\\sponza-sample-scene\\1.0.0\\gamesdk\\Assets\\Objects\\sponzaScene\\sponzaStructureMAT.mtl");
+    // es = objects.back().model.load("C:\\Programs\\CRYENGINE
+    // Launcher\\Assets\\crytek\\sponza-sample-scene\\1.0.0\\gamesdk\\Assets\\Objects\\sponzaScene\\sponzaStructureMAT.mtl");
     // if (es) {
     //     err::print(*es);
     // }
@@ -158,10 +161,12 @@ std::optional<rses> WindowGLFW::init() {
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
+    
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         return rses().gl("framebuffer is incomplete");
     }
+    
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     // uniform buffer
@@ -170,10 +175,10 @@ std::optional<rses> WindowGLFW::init() {
     glBufferData(GL_UNIFORM_BUFFER, 208, nullptr, GL_STATIC_DRAW);
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
     glBindBufferBase(GL_UNIFORM_BUFFER, 2, world_state.ubo);
-    
+
     // shadow map
     glGenFramebuffers(1, &world_state.shadow.fbo);
-    glGenTextures(1, &world_state.shadow.tex );
+    glGenTextures(1, &world_state.shadow.tex);
     glBindTexture(GL_TEXTURE_CUBE_MAP, world_state.shadow.tex);
 
     for (int i = 0; i < 6; ++i) {
@@ -195,7 +200,7 @@ std::optional<rses> WindowGLFW::init() {
 
     // note: we switched to using cube maps for our shadow mapping, this code was from when we were only doing
     // directional shadows
-    // 
+    //
     // glBindFramebuffer(GL_FRAMEBUFFER, world_state.shadow.shadow_map_fbo);
     // glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, world_state.shadow.shadow_map_tex, 0);
     // glDrawBuffer(GL_NONE);
@@ -206,39 +211,45 @@ std::optional<rses> WindowGLFW::init() {
 };
 
 void WindowGLFW::update() {
-    
+
     shaders["shadow"].set_float("far_plane", camera.far_plane);
     shaders["object"].set_float("far_plane", camera.far_plane);
-    
+
     while (!glfwWindowShouldClose(window)) {
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
         dock_id = ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
-        
+
         ImGuiIO& io = ImGui::GetIO();
         process_input(window, io.DeltaTime);
         glEnable(GL_DEPTH_TEST);
 
         // shadow pass ================================================================================================
-        
+
         glm::mat4 shadow_proj = glm::perspective(glm::radians(89.0f), 1.0f, 1.0f, 25.0f);
         std::array<glm::mat4, 6> shadow_transforms;
 
         glViewport(0, 0, world_state.shadow.res, world_state.shadow.res);
         glBindFramebuffer(GL_FRAMEBUFFER, world_state.shadow.fbo);
         glClear(GL_DEPTH_BUFFER_BIT);
-        glCullFace(GL_FRONT);  // preventing peter panning
+        glCullFace(GL_FRONT); // preventing peter panning
 
         for (auto& light : pnt_lights) {
-            shadow_transforms[0] = shadow_proj * glm::lookAt(light.pos, light.pos + glm::vec3( 1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f));
-            shadow_transforms[1] = shadow_proj * glm::lookAt(light.pos, light.pos + glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f));
-            shadow_transforms[2] = shadow_proj * glm::lookAt(light.pos, light.pos + glm::vec3( 0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f));
-            shadow_transforms[3] = shadow_proj * glm::lookAt(light.pos, light.pos + glm::vec3( 0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f));
-            shadow_transforms[4] = shadow_proj * glm::lookAt(light.pos, light.pos + glm::vec3( 0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f));
-            shadow_transforms[5] = shadow_proj * glm::lookAt(light.pos, light.pos + glm::vec3( 0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f));
-            
+            shadow_transforms[0] = shadow_proj * glm::lookAt(light.pos, light.pos + glm::vec3(1.0f, 0.0f, 0.0f),
+                                                             glm::vec3(0.0f, -1.0f, 0.0f));
+            shadow_transforms[1] = shadow_proj * glm::lookAt(light.pos, light.pos + glm::vec3(-1.0f, 0.0f, 0.0f),
+                                                             glm::vec3(0.0f, -1.0f, 0.0f));
+            shadow_transforms[2] = shadow_proj * glm::lookAt(light.pos, light.pos + glm::vec3(0.0f, 1.0f, 0.0f),
+                                                             glm::vec3(0.0f, 0.0f, 1.0f));
+            shadow_transforms[3] = shadow_proj * glm::lookAt(light.pos, light.pos + glm::vec3(0.0f, -1.0f, 0.0f),
+                                                             glm::vec3(0.0f, 0.0f, -1.0f));
+            shadow_transforms[4] = shadow_proj * glm::lookAt(light.pos, light.pos + glm::vec3(0.0f, 0.0f, 1.0f),
+                                                             glm::vec3(0.0f, -1.0f, 0.0f));
+            shadow_transforms[5] = shadow_proj * glm::lookAt(light.pos, light.pos + glm::vec3(0.0f, 0.0f, -1.0f),
+                                                             glm::vec3(0.0f, -1.0f, 0.0f));
+
             shaders["shadow"].set_mat4("shadow_mats[0]", shadow_transforms[0]);
             shaders["shadow"].set_mat4("shadow_mats[1]", shadow_transforms[1]);
             shaders["shadow"].set_mat4("shadow_mats[2]", shadow_transforms[2]);
@@ -255,18 +266,18 @@ void WindowGLFW::update() {
             cube.model.reset();
         }
 
-        //for (auto& object : objects) {
-        //    translate(object.model, object.pos);
-        //    scale(object.model, object.scale);
-        //    object.draw(shaders["shadow"], world_state);
-        //    object.model.reset();
-        //}
+        // for (auto& object : objects) {
+        //     translate(object.model, object.pos);
+        //     scale(object.model, object.scale);
+        //     object.draw(shaders["shadow"], world_state);
+        //     object.model.reset();
+        // }
 
         glCullFace(GL_BACK);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        
+
         // render pass ================================================================================================
-        glViewport(0, 0, width, height)    ;
+        glViewport(0, 0, width, height);
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
@@ -320,12 +331,12 @@ void WindowGLFW::update() {
             cube.model.reset();
         }
 
-        //for (auto& object : objects) {
-        //    translate(object.model, object.pos);
-        //    scale(object.model, object.scale);
-        //    object.draw(shaders["object"], world_state);
-        //    object.model.reset();
-        //}
+        // for (auto& object : objects) {
+        //     translate(object.model, object.pos);
+        //     scale(object.model, object.scale);
+        //     object.draw(shaders["object"], world_state);
+        //     object.model.reset();
+        // }
 
         // render the frame buffer to imgui
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
