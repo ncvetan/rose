@@ -315,10 +315,6 @@ void TexturedCube::draw(ShaderGL& shader, const GlobalState& state) const {
     }
     shader.set_float("materials[0].shine", 32.0f);
 
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, state.shadow.tex);
-    shader.set_int("shadow_map", 2);
-
     glDrawArrays(GL_TRIANGLES, 0, verts.size());
     glBindVertexArray(0);
     glActiveTexture(GL_TEXTURE0);

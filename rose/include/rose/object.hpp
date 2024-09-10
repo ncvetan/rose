@@ -31,7 +31,7 @@ struct GlobalState {
         u32 fbo = 0;
         u32 tex = 0;
         float bias = 0.005;
-        u16 res = 2048;
+        u16 resolution = 2048;
     } shadow;
 };
 

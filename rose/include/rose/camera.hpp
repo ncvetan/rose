@@ -8,10 +8,9 @@ namespace rose {
 
 enum class CameraMovement { FORWARD, BACKWARD, LEFT, RIGHT, UP, DOWN };
 
-class CameraGL {
-  public:
-    glm::mat4 view_matrix();
-    glm::mat4 projection_matrix(float aspect_ratio);
+struct CameraGL {
+    glm::mat4 view();
+    glm::mat4 projection(float aspect_ratio);
     void process_keyboard(CameraMovement direction, float delta_time);
     void process_mouse_movement(float xoffset, float yoffset);
     void process_mouse_scroll(float yoffset);

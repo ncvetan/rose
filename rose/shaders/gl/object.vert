@@ -19,17 +19,17 @@ struct DirLight {
 
 layout (std140, binding = 2) uniform globals
 {
-	mat4 projection;     // 64
-	mat4 view;		     // 128
-	vec3 camera_pos;     // 144
-	DirLight dir_light;  // 208
+	mat4 projection;
+	mat4 view;
+	vec3 camera_pos;
+	DirLight dir_light;
 };
 
 uniform mat4 model;
 
 void main() {
 	vs_out.frag_pos = vec3(model * vec4(a_pos, 1.0));
-	vs_out.normal = mat3(transpose(inverse(model))) * a_normal;
+	vs_out.normal = mat3(transpose(inverse(mat3(model)))) * a_normal;
 	vs_out.tex_coords = a_tex_coords;
 	gl_Position = projection * view * vec4(vs_out.frag_pos, 1.0);
 };

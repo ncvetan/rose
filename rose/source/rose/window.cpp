@@ -176,14 +176,15 @@ std::optional<rses> WindowGLFW::init() {
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
     glBindBufferBase(GL_UNIFORM_BUFFER, 2, world_state.ubo);
 
-    // shadow map
+    // omnidirectional shadow map
     glGenFramebuffers(1, &world_state.shadow.fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, world_state.shadow.fbo);
     glGenTextures(1, &world_state.shadow.tex);
     glBindTexture(GL_TEXTURE_CUBE_MAP, world_state.shadow.tex);
 
     for (int i = 0; i < 6; ++i) {
-        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, world_state.shadow.res,
-                     world_state.shadow.res, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, world_state.shadow.resolution,
+                     world_state.shadow.resolution, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
     }
 
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -192,7 +193,6 @@ std::optional<rses> WindowGLFW::init() {
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, world_state.shadow.fbo);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, world_state.shadow.tex, 0);
     glDrawBuffer(GL_NONE);
     glReadBuffer(GL_NONE);
@@ -228,14 +228,17 @@ void WindowGLFW::update() {
 
         // shadow pass ================================================================================================
 
-        glm::mat4 shadow_proj = glm::perspective(glm::radians(89.0f), 1.0f, 1.0f, 25.0f);
+        float ar = width / height;
+
+        glm::mat4 shadow_proj = glm::perspective(glm::radians(89.0f), ar, 1.0f, 25.0f);
         std::array<glm::mat4, 6> shadow_transforms;
 
-        glViewport(0, 0, world_state.shadow.res, world_state.shadow.res);
+        glViewport(0, 0, world_state.shadow.resolution, world_state.shadow.resolution);
         glBindFramebuffer(GL_FRAMEBUFFER, world_state.shadow.fbo);
         glClear(GL_DEPTH_BUFFER_BIT);
         glCullFace(GL_FRONT); // preventing peter panning
 
+        // todo: this will only work for a singular light, we need to have an array to store our light data
         for (auto& light : pnt_lights) {
             shadow_transforms[0] = shadow_proj * glm::lookAt(light.pos, light.pos + glm::vec3(1.0f, 0.0f, 0.0f),
                                                              glm::vec3(0.0f, -1.0f, 0.0f));
@@ -259,6 +262,7 @@ void WindowGLFW::update() {
             shaders["shadow"].set_vec3("light_pos", light.pos);
         }
 
+
         for (auto& cube : tex_cubes) {
             translate(cube.model, cube.pos);
             scale(cube.model, cube.scale);
@@ -273,7 +277,8 @@ void WindowGLFW::update() {
         //     object.model.reset();
         // }
 
-        glCullFace(GL_BACK);
+        // glCullFace(GL_BACK);
+        
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         // render pass ================================================================================================
@@ -281,10 +286,13 @@ void WindowGLFW::update() {
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+        
+        glActiveTexture(GL_TEXTURE12);
         glBindTexture(GL_TEXTURE_CUBE_MAP, world_state.shadow.tex);
+        shaders["object"].set_int("shadow_map", 12);
 
-        glm::mat4 projection = camera.projection_matrix(static_cast<float>(width) / static_cast<float>(height));
-        glm::mat4 view = camera.view_matrix();
+        glm::mat4 projection = camera.projection(static_cast<float>(width) / static_cast<float>(height));
+        glm::mat4 view = camera.view();
 
         // update ubo state
         glBindBuffer(GL_UNIFORM_BUFFER, world_state.ubo);
@@ -307,9 +315,9 @@ void WindowGLFW::update() {
         shaders["object"].set_float("bias", world_state.shadow.bias);
 
         // todo: using an arbitrary texture slot right now, can reserve a texture binding for the shadow map
-        glActiveTexture(GL_TEXTURE12);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, world_state.shadow.tex);
-        shaders["object"].set_int("shadow_map", 12);
+        //glActiveTexture(GL_TEXTURE12);
+        //glBindTexture(GL_TEXTURE_CUBE_MAP, world_state.shadow.tex);
+        //shaders["object"].set_int("shadow_map", 12);
 
         for (int i = 0; auto& light : pnt_lights) {
             translate(light.model, light.pos);

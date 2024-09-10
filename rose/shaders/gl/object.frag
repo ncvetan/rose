@@ -49,12 +49,13 @@ uniform float far_plane;
 
 out vec4 frag_color;
 
-float calc_shadow(vec3 frag, vec3 light_pos) {
+float calc_point_shadow(vec3 frag, vec3 light_pos) {
 	vec3 frag_to_light = frag - light_pos;
 	float closest = texture(shadow_map, frag_to_light).r * far_plane;
 	float depth = length(frag_to_light);
 	float bias = 0.05;
-	return (depth - bias > closest) ? 1.0 : 0.0;
+	float shadow = (depth - bias > closest) ? 1.0 : 0.0;
+	return shadow;
 }
 
 vec3 calc_dir_light(DirLight light, vec3 normal) {
@@ -116,7 +117,7 @@ vec3 calc_point_light(PointLight light, vec3 normal) {
 
 	float d = length(light.pos - fs_in.frag_pos);
 	float attenuation = 1.0 / (1.0 + d * d);
-	float shadow = calc_shadow(fs_in.frag_pos, light.pos);
+	float shadow = calc_point_shadow(fs_in.frag_pos, light.pos);
 
 	return vec3(ambient_rgb + (1.0 - shadow) * (diffuse_rgb + specular_rgb)) * attenuation;
 }
