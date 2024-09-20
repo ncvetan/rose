@@ -7,6 +7,42 @@
 #include <sstream>
 
 namespace err {
+    
+void GLAPIENTRY gl_debug_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei len, const GLchar* msg,
+                                 const void* user_param) {
+    rses err;
+
+    switch (type) {
+    case GL_NO_ERROR:
+        err = rses().gl("GL_NO_ERROR: No error");
+        break;
+    case GL_INVALID_ENUM:
+        err =  rses().gl("GL_INVALID_ENUM: An invalid value has been given for an enumerated argument");
+        break;
+    case GL_INVALID_VALUE:
+        err = rses().gl("GL_INVALID_VALUE: Illegal parameter given to function");
+        break;
+    case GL_INVALID_OPERATION:
+        err = rses().gl("GL_INVALID_OPERATION: Pperation is not allowed in the current state");
+        break;
+    case GL_INVALID_FRAMEBUFFER_OPERATION:
+        err = rses().gl("GL_INVALID_FRAMEBUFFER_OPERATION: Attempting to read from or write/render to a framebuffer");
+        break;
+    case GL_OUT_OF_MEMORY:
+        err = rses().gl("GL_OUT_OF_MEMORY: Ran out of memory");
+        break;
+    case GL_STACK_UNDERFLOW:
+        err = rses().gl("GL_STACK_UNDERFLOW: Operation causes a stack underflow");
+        break;
+    case GL_STACK_OVERFLOW:
+        err = rses().gl("GL_STACK_OVERFLOW: Operation causes a stack overflow");
+        break;
+    default:
+        break;
+    }
+
+    err::print(err);
+}
 
 rses Handle::no_memory() {
     Error err;

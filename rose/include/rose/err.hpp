@@ -1,6 +1,8 @@
 #ifndef ROSE_INCLUDE_ERR
 #define ROSE_INCLUDE_ERR
 
+#include <GL/glew.h>
+
 #include <format>
 #include <string>
 #include <vector>
@@ -12,6 +14,10 @@ struct Handle;
 using rses = err::Handle; // rose error stack
 
 namespace err {
+
+void GLAPIENTRY gl_debug_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei len,
+                                  const GLchar* msg,
+                       const void* user_param);
 
 struct Error;
 
@@ -58,18 +64,20 @@ struct Error {
         IO,
         GL,
         ERROR_CODE,
-    } ty = Type::INVALID;
+    };
+    
+    Type ty = Type::INVALID;
 
     std::string msg;
 
     union {
-        int errcode;
+        int errcode = 0;
         std::string gl_err_msg;
         std::error_code ec;
         std::vector<Error> stack;
     };
 
-    Error() {};
+    Error() = default;
     Error(const Error&);
     Error(Error&&) noexcept;
     Error& operator=(const Error&);

@@ -10,8 +10,8 @@ namespace rose {
 
 struct DirLight {
     glm::vec3 direction = { 0.0f, -0.999848f, -0.0174525f };
-    glm::vec3 ambient = { 0.6f, 0.6f, 0.6f };
-    glm::vec3 diffuse = { 0.3f, 0.3f, 0.3f };
+    glm::vec3 ambient = { 0.025f, 0.025f, 0.025f };
+    glm::vec3 diffuse = { 0.10f, 0.10f, 0.10f };
     glm::vec3 specular = { 1.0f, 1.0f, 1.0f };
 };
 
@@ -32,7 +32,9 @@ struct GlobalState {
         u32 tex = 0;
         float bias = 0.005;
         u16 resolution = 2048;
-    } shadow;
+    };
+    
+    ShadowCtx shadow;
 };
 
 template <typename T>

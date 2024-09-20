@@ -29,8 +29,12 @@ std::optional<rses> WindowGLFW::init() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_SAMPLES, 4); // MSAA
+    glfwWindowHint(GLFW_SAMPLES, 4);
     glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
+
+    #ifdef _DEBUG
+    glfwWindowHint(GLFW_CONTEXT_DEBUG, GL_TRUE);
+    #endif
 
     window = glfwCreateWindow(width, height, name.c_str(), NULL, NULL);
 
@@ -78,7 +82,13 @@ std::optional<rses> WindowGLFW::init() {
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_STENCIL_TEST);
     glEnable(GL_MULTISAMPLE);
+    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    #ifdef _DEBUG
+    glEnable(GL_DEBUG_OUTPUT);
+    glDebugMessageCallback(err::gl_debug_callback, nullptr);
+    #endif
 
     std::optional<rses> es;
     if (es = shaders["quad"].init({ { SOURCE_DIR "/rose/shaders/gl/quad.vert", GL_VERTEX_SHADER },
@@ -115,14 +125,6 @@ std::optional<rses> WindowGLFW::init() {
                                        SOURCE_DIR "/assets/skybox/front.jpg", SOURCE_DIR "/assets/skybox/back.jpg" })) {
         err::print(*es);
     }
-
-    // sponza
-    // objects.push_back(Object<Model>({ 0.0f, 0.0f, 0.0f }));
-    // es = objects.back().model.load("C:\\Programs\\CRYENGINE
-    // Launcher\\Assets\\crytek\\sponza-sample-scene\\1.0.0\\gamesdk\\Assets\\Objects\\sponzaScene\\sponzaStructureMAT.mtl");
-    // if (es) {
-    //     err::print(*es);
-    // }
 
     // floor
     tex_cubes.push_back(Object<TexturedCube>({ 0.0f, -1.0f, 0.0f }, { 20.0f, 1.0f, 20.0f }));
@@ -198,20 +200,12 @@ std::optional<rses> WindowGLFW::init() {
     glReadBuffer(GL_NONE);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    // note: we switched to using cube maps for our shadow mapping, this code was from when we were only doing
-    // directional shadows
-    //
-    // glBindFramebuffer(GL_FRAMEBUFFER, world_state.shadow.shadow_map_fbo);
-    // glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, world_state.shadow.shadow_map_tex, 0);
-    // glDrawBuffer(GL_NONE);
-    // glReadBuffer(GL_NONE);
-    // glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
     return std::nullopt;
 };
 
 void WindowGLFW::update() {
 
+    // shader state that doesn't change between frames
     shaders["shadow"].set_float("far_plane", camera.far_plane);
     shaders["object"].set_float("far_plane", camera.far_plane);
 
@@ -228,9 +222,7 @@ void WindowGLFW::update() {
 
         // shadow pass ================================================================================================
 
-        float ar = width / height;
-
-        glm::mat4 shadow_proj = glm::perspective(glm::radians(89.0f), ar, 1.0f, 25.0f);
+        glm::mat4 shadow_proj = glm::perspective(glm::radians(90.0f), (float)world_state.shadow.resolution / (float)world_state.shadow.resolution, camera.near_plane, camera.far_plane);
         std::array<glm::mat4, 6> shadow_transforms;
 
         glViewport(0, 0, world_state.shadow.resolution, world_state.shadow.resolution);
@@ -270,20 +262,13 @@ void WindowGLFW::update() {
             cube.model.reset();
         }
 
-        // for (auto& object : objects) {
-        //     translate(object.model, object.pos);
-        //     scale(object.model, object.scale);
-        //     object.draw(shaders["shadow"], world_state);
-        //     object.model.reset();
-        // }
-
-        // glCullFace(GL_BACK);
+        glCullFace(GL_BACK);
         
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         // render pass ================================================================================================
-        glViewport(0, 0, width, height);
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        glViewport(0, 0, width, height);
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
         
@@ -291,7 +276,7 @@ void WindowGLFW::update() {
         glBindTexture(GL_TEXTURE_CUBE_MAP, world_state.shadow.tex);
         shaders["object"].set_int("shadow_map", 12);
 
-        glm::mat4 projection = camera.projection(static_cast<float>(width) / static_cast<float>(height));
+        glm::mat4 projection = camera.projection((float)width / (float)height);
         glm::mat4 view = camera.view();
 
         // update ubo state
@@ -314,11 +299,6 @@ void WindowGLFW::update() {
         shaders["object"].set_float("gamma_co", gamma);
         shaders["object"].set_float("bias", world_state.shadow.bias);
 
-        // todo: using an arbitrary texture slot right now, can reserve a texture binding for the shadow map
-        //glActiveTexture(GL_TEXTURE12);
-        //glBindTexture(GL_TEXTURE_CUBE_MAP, world_state.shadow.tex);
-        //shaders["object"].set_int("shadow_map", 12);
-
         for (int i = 0; auto& light : pnt_lights) {
             translate(light.model, light.pos);
             scale(light.model, light.scale);
@@ -339,15 +319,10 @@ void WindowGLFW::update() {
             cube.model.reset();
         }
 
-        // for (auto& object : objects) {
-        //     translate(object.model, object.pos);
-        //     scale(object.model, object.scale);
-        //     object.draw(shaders["object"], world_state);
-        //     object.model.reset();
-        // }
-
         // render the frame buffer to imgui
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glViewport(0, 0, width, height);
+
         glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         glDisable(GL_DEPTH_TEST);
@@ -383,21 +358,21 @@ void WindowGLFW::destroy() {
 void WindowGLFW::enable_vsync(bool enable) { (enable) ? glfwSwapInterval(1) : glfwSwapInterval(0); };
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
-    WindowGLFW* window_state = (WindowGLFW*)glfwGetWindowUserPointer(window);
-    // handle window resizing
-    glBindTexture(GL_TEXTURE_2D, window_state->fbo_tex->id);
-    glBindFramebuffer(1, window_state->fbo);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, window_state->fbo_tex->id, 0);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glBindRenderbuffer(GL_RENDERBUFFER, window_state->rbo);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, window_state->rbo);
-    glBindRenderbuffer(GL_RENDERBUFFER, 0);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glViewport(0, 0, width, height);
+    //WindowGLFW* window_state = (WindowGLFW*)glfwGetWindowUserPointer(window);
+    //// handle window resizing
+    //glBindTexture(GL_TEXTURE_2D, window_state->fbo_tex->id);
+    //glBindFramebuffer(1, window_state->fbo);
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    //glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, window_state->fbo_tex->id, 0);
+    //glBindTexture(GL_TEXTURE_2D, 0);
+    //glBindRenderbuffer(GL_RENDERBUFFER, window_state->rbo);
+    //glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+    //glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, window_state->rbo);
+    //glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    //glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    //glViewport(0, 0, width, height);
 }
 
 void mouse_callback(GLFWwindow* window, double xpos_in, double ypos_in) {

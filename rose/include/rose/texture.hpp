@@ -2,7 +2,9 @@
 #define ROSE_INCLUDE_TEXTURE
 
 #include <rose/alias.hpp>
+#include <rose/err.hpp>
 
+#include <expected>
 #include <filesystem>
 #include <optional>
 #include <unordered_map>
@@ -32,7 +34,7 @@ struct TextureRef {
     TextureGL* ref = nullptr;
 };
 
-std::optional<TextureRef> load_texture(const fs::path& path, TextureType ty);
+std::expected<TextureRef, rses> load_texture(const fs::path& path, TextureType ty);
 std::optional<TextureRef> load_cubemap(const std::vector<fs::path>& paths);
 std::optional<TextureRef> generate_texture(int w, int h);
 std::optional<TextureRef> generate_cubemap(int w, int h);

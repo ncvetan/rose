@@ -13,12 +13,11 @@
 
 namespace rose {
 
-// todo: bad id system, will want something better
 namespace globals {
 u32 id_counter = 1;
 } // namespace globals
 
-static u32 new_id() {
+static u32 gen_id() {
     u32 tmp = globals::id_counter;
     globals::id_counter++;
     return tmp;
@@ -47,6 +46,9 @@ Mesh& Mesh::operator=(Mesh&& other) noexcept {
 }
 
 void Mesh::init() {
+
+    // todo: convert to direct state access
+
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
     glGenBuffers(1, &EBO);
@@ -62,7 +64,7 @@ void Mesh::init() {
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, tex));
     glBindVertexArray(0);
-    id = new_id();
+    id = gen_id();
 }
 
 void Mesh::draw(ShaderGL& shader, const GlobalState& state) const {
@@ -139,7 +141,7 @@ static std::vector<TextureRef> load_mat_textures(aiMaterial* mat, aiTextureType 
         aiString ai_str;
         mat->GetTexture(ty, i, &ai_str);
         fs::path texture_path = root_path / std::string(ai_str.C_Str());
-        std::optional<TextureRef> texture = std::nullopt;
+        std::expected<TextureRef, rses> texture;
         switch (ty) {
         case aiTextureType_DIFFUSE:
             texture = load_texture(texture_path, TextureType::DIFFUSE);
@@ -148,8 +150,8 @@ static std::vector<TextureRef> load_mat_textures(aiMaterial* mat, aiTextureType 
             texture = load_texture(texture_path, TextureType::SPECULAR);
             break;
         }
-        if (!texture) {
-            LOG_ERROR("Unable to load texture at path: {}", texture_path.generic_string());
+        if (!texture.has_value()) {
+            err::print(texture.error());
             continue;        
         }
         textures.push_back(texture.value());
@@ -222,17 +224,18 @@ Cube& Cube::operator=(Cube&& other) noexcept {
 }
 
 void Cube::init() {
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    glBindVertexArray(VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(Vertex), verts.data(), GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, pos));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, norm));
-    glBindVertexArray(0);
-    id = new_id();
+    glCreateVertexArrays(1, &VAO);
+    glCreateBuffers(1, &VBO);
+    glNamedBufferStorage(VBO, verts.size() * sizeof(Vertex), verts.data(), GL_DYNAMIC_STORAGE_BIT);
+    glVertexArrayVertexBuffer(VAO, 0, VBO, 0, sizeof(Vertex));
+    
+    glEnableVertexArrayAttrib(VAO, 0);
+    glEnableVertexArrayAttrib(VAO, 1);
+
+    glVertexArrayAttribFormat(VAO, 0, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, pos));
+    glVertexArrayAttribFormat(VAO, 1, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, norm));
+    
+    id = gen_id();
 }
 
 void Cube::draw(ShaderGL& shader, const GlobalState& state) const {
@@ -268,29 +271,34 @@ TexturedCube& TexturedCube::operator=(TexturedCube&& other) noexcept {
 }
 
 void TexturedCube::init() {
-    glGenVertexArrays(1, &VAO);
-    glBindVertexArray(VAO);
-    glGenBuffers(1, &VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(Vertex), verts.data(), GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, pos));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, norm));
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, tex));
-    glBindVertexArray(0);
-    id = new_id();
+    glCreateVertexArrays(1, &VAO);
+    glCreateBuffers(1, &VBO);
+    glNamedBufferStorage(VBO, verts.size() * sizeof(Vertex), verts.data(), GL_DYNAMIC_STORAGE_BIT);
+    glVertexArrayVertexBuffer(VAO, 0, VBO, 0, sizeof(Vertex));
+
+    glEnableVertexArrayAttrib(VAO, 0);
+    glEnableVertexArrayAttrib(VAO, 1);
+    glEnableVertexArrayAttrib(VAO, 2);
+
+    glVertexArrayAttribFormat(VAO, 0, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, pos));
+    glVertexArrayAttribFormat(VAO, 1, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, norm));
+    glVertexArrayAttribFormat(VAO, 2, 2, GL_FLOAT, GL_FALSE, offsetof(Vertex, tex));
+
+    glVertexArrayAttribBinding(VAO, 0, 0);
+    glVertexArrayAttribBinding(VAO, 1, 0);
+    glVertexArrayAttribBinding(VAO, 2, 0);
+
+    id = gen_id();
 }
 
 std::optional<rses> TexturedCube::load(const fs::path& diff_path, const fs::path& spec_path) {
-    std::optional<TextureRef> diff = load_texture(diff_path, TextureType::DIFFUSE);
+    std::expected<TextureRef, rses> diff = load_texture(diff_path, TextureType::DIFFUSE);
     if (!diff) {
-        return rses().io("unable to load texture: {}", diff_path.generic_string());
+        return diff.error();
     }
-    std::optional<TextureRef> spec = load_texture(diff_path, TextureType::SPECULAR);
+    std::expected<TextureRef, rses> spec = load_texture(diff_path, TextureType::SPECULAR);
     if (!spec) {
-        return rses().io("unable to load texture: {}", diff_path.generic_string());
+        return spec.error();
     }
     
     this->diff = diff.value();
@@ -302,22 +310,21 @@ void TexturedCube::draw(ShaderGL& shader, const GlobalState& state) const {
     shader.use();
     shader.set_mat4("model", model_mat);
     glBindVertexArray(VAO);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, diff.ref->id);
+    glBindTextureUnit(0, diff.ref->id);
     shader.set_int("materials[0].diffuse", 0);
+    
     // todo: check if cube doesn't have a spec map, fix this
     if (spec.ref) {
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, spec.ref->id);
+        glBindTextureUnit(1, spec.ref->id);
         shader.set_int("materials[0].specular", 1);
-    } else {
+    } 
+    else {
         shader.set_int("materials[0].specular", 0);
     }
     shader.set_float("materials[0].shine", 32.0f);
 
     glDrawArrays(GL_TRIANGLES, 0, verts.size());
     glBindVertexArray(0);
-    glActiveTexture(GL_TEXTURE0);
 }
 
 TexturedCube::~TexturedCube() {
@@ -345,25 +352,29 @@ TexturedQuad& TexturedQuad::operator=(TexturedQuad&& other) noexcept {
 }
 
 void TexturedQuad::init() {
-    glGenVertexArrays(1, &VAO);
-    glBindVertexArray(VAO);
-    glGenBuffers(1, &VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(Vertex), verts.data(), GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, pos));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, tex));
-    glBindVertexArray(0);
-    id = new_id();
+    glCreateVertexArrays(1, &VAO);
+    glCreateBuffers(1, &VBO);
+    glNamedBufferStorage(VBO, verts.size() * sizeof(Vertex), verts.data(), GL_DYNAMIC_STORAGE_BIT);
+    glVertexArrayVertexBuffer(VAO, 0, VBO, 0, sizeof(Vertex));
+
+    glEnableVertexArrayAttrib(VAO, 0);
+    glEnableVertexArrayAttrib(VAO, 1);
+
+    glVertexArrayAttribFormat(VAO, 0, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, pos));
+    glVertexArrayAttribFormat(VAO, 1, 2, GL_FLOAT, GL_FALSE, offsetof(Vertex, tex));
+
+    glVertexArrayAttribBinding(VAO, 0, 0);
+    glVertexArrayAttribBinding(VAO, 1, 0);
+
+    id = gen_id();
 }
 
 std::optional<rses> TexturedQuad::load(const fs::path& path) {
-    std::optional<TextureRef> t = load_texture(path, TextureType::DIFFUSE);
-    if (!t) {
-        return rses().io("unable to load texture: {}", path.generic_string());
+    std::expected<TextureRef, rses> tex = load_texture(path, TextureType::DIFFUSE);
+    if (!tex) {
+        return tex.error();
     }
-    texture = t.value();
+    texture = tex.value();
     return std::nullopt;
 }
 
@@ -383,7 +394,6 @@ TexturedQuad::~TexturedQuad() {
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
 }
-
 
 SkyBox::SkyBox(SkyBox&& other) noexcept {
     VAO = other.VAO;
@@ -410,23 +420,22 @@ SkyBox::~SkyBox() {
 }
 
 void SkyBox::init() {
-    glGenVertexArrays(1, &VAO);
-    glBindVertexArray(VAO);
-    glGenBuffers(1, &VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(Vertex), verts.data(), GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, pos));
-    glBindVertexArray(0);
-    id = new_id();
+    glCreateVertexArrays(1, &VAO);
+    glCreateBuffers(1, &VBO);
+    glNamedBufferStorage(VBO, verts.size() * sizeof(Vertex), verts.data(), GL_DYNAMIC_STORAGE_BIT);
+    glVertexArrayVertexBuffer(VAO, 0, VBO, 0, sizeof(Vertex));
+    glEnableVertexArrayAttrib(VAO, 0);
+    glVertexArrayAttribFormat(VAO, 0, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, pos));
+    glVertexArrayAttribBinding(VAO, 0, 0);
+    id = gen_id();
 }
 
 std::optional<rses> SkyBox::load(const std::vector<fs::path>& paths) {
-    std::optional<TextureRef> t = load_cubemap(paths);
-    if (!t) {
+    std::optional<TextureRef> tex = load_cubemap(paths);
+    if (!tex) {
         return rses().io("unable to load skybox");
     }
-    texture = t.value();
+    texture = tex.value();
     return std::nullopt;
 }
 
@@ -434,8 +443,7 @@ void SkyBox::draw(ShaderGL& shader, const GlobalState& state) const {
     glDepthMask(GL_FALSE);
     shader.use();
     glBindVertexArray(VAO);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, texture.ref->id);
+    glBindTextureUnit(0, texture.ref->id);
     glDrawArrays(GL_TRIANGLES, 0, 36);
     glBindVertexArray(0);
     glDepthMask(GL_TRUE);

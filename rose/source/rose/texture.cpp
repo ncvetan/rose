@@ -60,7 +60,7 @@ static std::optional<TextureRef> get_texture_ref(const fs::path& path) {
             globals::loaded_textures[val].refcnt++;
             return ref;
         } else {
-            // Stale index
+            // stale index
             globals::textures_index.erase(path);
         }
     }
@@ -77,53 +77,35 @@ static std::optional<TextureRef> get_texture_ref(u32 id) {
     return std::nullopt;
 }
 
-std::optional<TextureRef> load_texture(const fs::path& path, TextureType ty) {
+std::expected<TextureRef, rses> load_texture(const fs::path& path, TextureType ty) {
 
     // First check to see if the texture has already been loaded
     std::optional<TextureRef> opt_ref = get_texture_ref(path);
     if (opt_ref) {
-        return opt_ref;
+        return opt_ref.value();
     }
 
     TextureGL texture;
     texture.ty = ty;
-    glGenTextures(1, &texture.id);
     i32 width = 0, height = 0, n_channels = 0;
-    unsigned char* texture_data = stbi_load(path.generic_string().c_str(), &width, &height, &n_channels, 0);
+    unsigned char* texture_data = stbi_load(path.generic_string().c_str(), &width, &height, &n_channels, STBI_rgb_alpha);
+
     if (texture_data) {
-        GLenum fmt;
-        switch (n_channels) {
-        case 1:
-            fmt = GL_RED;
-            break;
-        case 2:
-            fmt = GL_RG;
-            break;
-        case 3:
-            fmt = GL_RGB;
-            break;
-        case 4:
-            fmt = GL_RGBA;
-            break;
-        default:
-            assert(false);
-            break;
-        }
-        glBindTexture(GL_TEXTURE_2D, texture.id);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, fmt, GL_UNSIGNED_BYTE, texture_data);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glGenerateMipmap(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, 0);
+        glCreateTextures(GL_TEXTURE_2D, 1, &texture.id);
+        glTextureParameteri(texture.id, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTextureParameteri(texture.id, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTextureParameteri(texture.id, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTextureParameteri(texture.id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTextureStorage2D(texture.id, 1, GL_RGBA8, width, height);
+        glTextureSubImage2D(texture.id, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, texture_data);
+        glGenerateTextureMipmap(texture.id);
         stbi_image_free(texture_data);
     } else {
         LOG_ERROR("Failed to load texture");
         stbi_image_free(texture_data);
-        glDeleteTextures(1, &texture.id);
-        glBindTexture(GL_TEXTURE_2D, 0);
-        return std::nullopt;
+        const char* err_msg = stbi_failure_reason();
+        texture.free();
+        return std::unexpected(rses().io("failed to load image: {}", err_msg));
     }
 
     globals::loaded_textures[texture.id] = { texture, 1 };
@@ -141,69 +123,47 @@ std::optional<TextureRef> load_cubemap(const std::vector<fs::path>& paths) {
     unsigned char* texture_data = nullptr;
     TextureGL texture;
     texture.ty = TextureType::CUBE_MAP;
-    glGenTextures(1, &texture.id);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, texture.id);
-    
-    for (const auto& path : paths) {
-        texture_data = stbi_load(path.generic_string().c_str(), &width, &height, &n_channels, 0);
+
+    for (int face = 0; face < 6; face++) {
+        
+        const fs::path& path = paths[face];
+        texture_data = stbi_load(path.generic_string().c_str(), &width, &height, &n_channels, STBI_rgb_alpha);
+        
+        // initialize the cube map based off the first texture in the list
+        if (texture.id == 0) {
+            glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &texture.id);
+            glTextureStorage2D(texture.id, 1, GL_RGBA8, width, height);
+        }
+        
         if (!texture_data) {
             stbi_image_free(texture_data);
             texture.free();
-            glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
             return std::nullopt;
         }
-        GLenum fmt;
-        switch (n_channels) {
-        case 1:
-            fmt = GL_RED;
-            break;
-        case 2:
-            fmt = GL_RG;
-            break;
-        case 3:
-            fmt = GL_RGB;
-            break;
-        case 4:
-            fmt = GL_RGBA;
-            break;
-        default:
-            assert(false);
-            break;
-        }
 
-        GLenum target = 0;
         fs::path name = path.stem();
 
-        if (name == "right") {
-            target = GL_TEXTURE_CUBE_MAP_POSITIVE_X;
-        } else if (name == "left") {
-            target = GL_TEXTURE_CUBE_MAP_NEGATIVE_X;
-        } else if (name == "top") {
-            target = GL_TEXTURE_CUBE_MAP_POSITIVE_Y;
-        } else if (name == "bottom") {
-            target = GL_TEXTURE_CUBE_MAP_NEGATIVE_Y;
-        } else if (name == "front") {
-            target = GL_TEXTURE_CUBE_MAP_POSITIVE_Z;
-        } else if (name == "back") {
-            target = GL_TEXTURE_CUBE_MAP_NEGATIVE_Z;
-        } else {
+        if ((face == 0 && name != "right")  || 
+            (face == 1 && name != "left")   ||
+            (face == 2 && name != "top")    || 
+            (face == 3 && name != "bottom") || 
+            (face == 4 && name != "front")  || 
+            (face == 5 && name != "back")) {
             stbi_image_free(texture_data);
             texture.free();
-            glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
             return std::nullopt;
         }
 
-        glTexImage2D(target, 0, GL_RGB, width, height, 0, fmt, GL_UNSIGNED_BYTE,
-                     texture_data);
+        glTextureSubImage3D(texture.id, 0, 0, 0, face, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, texture_data);
         stbi_image_free(texture_data);
     }
 
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    glTextureParameteri(texture.id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTextureParameteri(texture.id, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(texture.id, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(texture.id, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(texture.id, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
     globals::loaded_textures[texture.id] = { texture, 1 };
     return TextureRef(&globals::loaded_textures[texture.id].texture);
 }

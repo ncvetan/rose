@@ -11,7 +11,7 @@
 namespace rose {
 namespace gui {
 
-// TODO: The GUI code is pretty rough right now andd is primarily used for debugging, I'd like to clean this up
+// TODO: The GUI code is pretty rough right now and is primarily used for debugging, I'd like to clean this up
 
 static float dir_angle = std::numbers::pi / 2;
 static bool first_frame = true;
