@@ -8,11 +8,12 @@
 
 namespace rose {
 
-TextureRef::TextureRef(TextureGL* ref) : ref(ref) {}
+TextureRef::TextureRef(TextureGL* ref, TextureManager* manager) : ref(ref), manager(manager) {}
 
 TextureRef::TextureRef(const TextureRef& other) {
     ref = other.ref;
-    globals::loaded_textures[ref->id].refcnt++;
+    manager = other.manager;
+    manager->loaded_textures[ref->id].refcnt++;
 }
 
 TextureRef& TextureRef::operator=(const TextureRef& other) {
@@ -24,7 +25,9 @@ TextureRef& TextureRef::operator=(const TextureRef& other) {
 
 TextureRef::TextureRef(TextureRef&& other) noexcept {
     ref = other.ref;
+    manager = other.manager;
     other.ref = nullptr;
+    other.manager = nullptr;
 }
 
 TextureRef& TextureRef::operator=(TextureRef&& other) noexcept {
@@ -39,48 +42,47 @@ TextureGL* TextureRef::operator->() {
 }
 
 TextureRef::~TextureRef() {
-    if (ref && globals::loaded_textures.contains(ref->id)) {
-        auto& [texture, refcnt] = globals::loaded_textures[ref->id];
+    if (ref && manager->loaded_textures.contains(ref->id)) {
+        auto& [texture, refcnt] = manager->loaded_textures[ref->id];
         refcnt -= 1;
         if (refcnt == 0) {
             texture.free();
-            globals::loaded_textures.erase(ref->id);
+            manager->loaded_textures.erase(ref->id);
         }
         ref = nullptr;
+        manager = nullptr;
     }
 }
 
-// if the texture at the given path has been loaded, return a reference to it
-static std::optional<TextureRef> get_texture_ref(const fs::path& path) {
-    if (globals::textures_index.contains(path)) {
-        u32 val = globals::textures_index[path];
-        if (globals::loaded_textures.contains(val)) {
-            TextureRef ref;
-            ref.ref = &globals::loaded_textures[val].texture;
-            globals::loaded_textures[val].refcnt++;
+std::optional<TextureRef> TextureManager::get_ref(const fs::path& path) {
+    if (textures_index.contains(path)) {
+        u32 val = textures_index[path];
+        if (loaded_textures.contains(val)) {
+            TextureRef ref = TextureRef(&loaded_textures[val].texture, this);
+            loaded_textures[val].refcnt++;
             return ref;
-        } else {
+        } 
+        else {
             // stale index
-            globals::textures_index.erase(path);
+            textures_index.erase(path);
         }
     }
     return std::nullopt;
 }
 
-static std::optional<TextureRef> get_texture_ref(u32 id) {
-    if (globals::loaded_textures.contains(id)) {
-        TextureRef ref;
-        ref.ref = &globals::loaded_textures[id].texture;
-        globals::loaded_textures[id].refcnt++;
+std::optional<TextureRef> TextureManager::get_ref(u32 id) {
+    if (loaded_textures.contains(id)) {
+        TextureRef ref = TextureRef(&loaded_textures[id].texture, this);
+        loaded_textures[id].refcnt++;
         return ref;
     }
     return std::nullopt;
 }
 
-std::expected<TextureRef, rses> load_texture(const fs::path& path, TextureType ty) {
+std::expected<TextureRef, rses> TextureManager::load_texture(const fs::path& path, TextureType ty) {
 
     // First check to see if the texture has already been loaded
-    std::optional<TextureRef> opt_ref = get_texture_ref(path);
+    std::optional<TextureRef> opt_ref = get_ref(path);
     if (opt_ref) {
         return opt_ref.value();
     }
@@ -100,7 +102,8 @@ std::expected<TextureRef, rses> load_texture(const fs::path& path, TextureType t
         glTextureSubImage2D(texture.id, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, texture_data);
         glGenerateTextureMipmap(texture.id);
         stbi_image_free(texture_data);
-    } else {
+    } 
+    else {
         LOG_ERROR("Failed to load texture");
         stbi_image_free(texture_data);
         const char* err_msg = stbi_failure_reason();
@@ -108,12 +111,12 @@ std::expected<TextureRef, rses> load_texture(const fs::path& path, TextureType t
         return std::unexpected(rses().io("failed to load image: {}", err_msg));
     }
 
-    globals::loaded_textures[texture.id] = { texture, 1 };
-    globals::textures_index[path] = texture.id;
-    return TextureRef(&globals::loaded_textures[texture.id].texture);
+    loaded_textures[texture.id] = { texture, 1 };
+    textures_index[path] = texture.id;
+    return TextureRef(&loaded_textures[texture.id].texture, this);
 }
 
-std::optional<TextureRef> load_cubemap(const std::vector<fs::path>& paths) {
+std::optional<TextureRef> TextureManager::load_cubemap(const std::vector<fs::path>& paths) {
     
     if (paths.size() != 6) {
         return std::nullopt; // todo: improve err handling here. arg can be a std::array
@@ -121,8 +124,10 @@ std::optional<TextureRef> load_cubemap(const std::vector<fs::path>& paths) {
 
     i32 width = 0, height = 0, n_channels = 0;
     unsigned char* texture_data = nullptr;
-    TextureGL texture;
-    texture.ty = TextureType::CUBE_MAP;
+    TextureGL texture = {
+        .id = 0,
+        .ty = TextureType::CUBE_MAP
+    };
 
     for (int face = 0; face < 6; face++) {
         
@@ -164,11 +169,11 @@ std::optional<TextureRef> load_cubemap(const std::vector<fs::path>& paths) {
     glTextureParameteri(texture.id, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTextureParameteri(texture.id, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
-    globals::loaded_textures[texture.id] = { texture, 1 };
-    return TextureRef(&globals::loaded_textures[texture.id].texture);
+    loaded_textures[texture.id] = { texture, 1 };
+    return TextureRef(&loaded_textures[texture.id].texture, this);
 }
 
-std::optional<TextureRef> generate_texture(int w, int h) {
+std::optional<TextureRef> TextureManager::generate_texture(int w, int h) {
     TextureGL texture = { 0, TextureType::INTERNAL };
     glGenTextures(1, &texture.id);
     glBindTexture(GL_TEXTURE_2D, texture.id);
@@ -177,11 +182,11 @@ std::optional<TextureRef> generate_texture(int w, int h) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    globals::loaded_textures[texture.id] = { texture, 1 };
-    return TextureRef(&globals::loaded_textures[texture.id].texture);
+    loaded_textures[texture.id] = { texture, 1 };
+    return TextureRef(&loaded_textures[texture.id].texture, this);
 };
 
-std::optional<TextureRef> generate_cubemap(int w, int h) {
+std::optional<TextureRef> TextureManager::generate_cubemap(int w, int h) {
     TextureGL cubemap = { 0, TextureType::CUBE_MAP };
     glGenTextures(1, &cubemap.id);
     glBindTexture(GL_TEXTURE_CUBE_MAP, cubemap.id);
@@ -197,8 +202,8 @@ std::optional<TextureRef> generate_cubemap(int w, int h) {
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 
-    globals::loaded_textures[cubemap.id] = { cubemap, 1 };
-    return TextureRef(&globals::loaded_textures[cubemap.id].texture);
+    loaded_textures[cubemap.id] = { cubemap, 1 };
+    return TextureRef(&loaded_textures[cubemap.id].texture, this);
 };
 
 } // namespace rose

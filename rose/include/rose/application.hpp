@@ -21,7 +21,7 @@ class RoseApp {
   public:
     RoseApp() = default;
 
-    std::optional<rses> init() {
+    inline std::optional<rses> init() {
         std::optional<rses> err = window.init();
         if (err) {
             return err.value().general("Unable to initialize application");
@@ -29,9 +29,9 @@ class RoseApp {
         return std::nullopt;
     }
 
-    void run() { window.update(); }
+    inline void run() { window.update(); }
 
-    void shutdown() { window.destroy(); }
+    inline void shutdown() { window.destroy(); }
 
   private:
     T window;

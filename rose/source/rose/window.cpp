@@ -17,9 +17,7 @@
 
 namespace rose {
 
-std::optional<rses> WindowGLFW::init() {
-
-    // GLFW initialization
+std::optional<rses> WindowGLFW::init_glfw() {
     if (glfwInit() == GLFW_FALSE) {
         return rses().gl("GLFW failed to initialize");
     }
@@ -32,9 +30,9 @@ std::optional<rses> WindowGLFW::init() {
     glfwWindowHint(GLFW_SAMPLES, 4);
     glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
 
-    #ifdef _DEBUG
+#ifdef _DEBUG
     glfwWindowHint(GLFW_CONTEXT_DEBUG, GL_TRUE);
-    #endif
+#endif
 
     window = glfwCreateWindow(width, height, name.c_str(), NULL, NULL);
 
@@ -53,7 +51,10 @@ std::optional<rses> WindowGLFW::init() {
     glfwSetScrollCallback(window, scroll_callback);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
-    // ImGui initialization
+    return std::nullopt;
+}
+
+std::optional<rses> WindowGLFW::init_imgui(GLFWwindow* window) {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     (void)io;
@@ -71,7 +72,10 @@ std::optional<rses> WindowGLFW::init() {
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 460");
 
-    // GLEW initialization
+    return std::nullopt;
+}
+
+std::optional<rses> WindowGLFW::init_opengl() {
     if (GLenum glew_success = glewInit(); glew_success != GLEW_OK) {
         return rses().gl(std::format("Glew failed to initialize: {}", (const char*)glewGetErrorString(glew_success)));
     }
@@ -85,18 +89,37 @@ std::optional<rses> WindowGLFW::init() {
     glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    #ifdef _DEBUG
+#ifdef _DEBUG
     glEnable(GL_DEBUG_OUTPUT);
     glDebugMessageCallback(err::gl_debug_callback, nullptr);
-    #endif
+#endif
+
+    return std::nullopt;
+}
+
+std::optional<rses> WindowGLFW::init() {
+
+    std::optional<rses> err = init_glfw();
+
+    if (err) {
+        return err.value().general("Unable to initialize GLFW");
+    }
+
+    err = init_imgui(window);
+
+    if (err) {
+        return err.value().general("Unable to initialize Dear Imgui");
+    }
+
+    err = init_opengl();
+
+    if (err) {
+        return err.value().general("Unable to initialize GLEW and OpenGL");
+    }
 
     std::optional<rses> es;
     if (es = shaders["quad"].init({ { SOURCE_DIR "/rose/shaders/gl/quad.vert", GL_VERTEX_SHADER },
                                     { SOURCE_DIR "/rose/shaders/gl/quad.frag", GL_FRAGMENT_SHADER } })) {
-        err::print(*es);
-    }
-    if (es = shaders["texture"].init({ { SOURCE_DIR "/rose/shaders/gl/texture.vert", GL_VERTEX_SHADER },
-                                       { SOURCE_DIR "/rose/shaders/gl/texture.frag", GL_FRAGMENT_SHADER } })) {
         err::print(*es);
     }
     if (es = shaders["skybox"].init({ { SOURCE_DIR "/rose/shaders/gl/skybox.vert", GL_VERTEX_SHADER },
@@ -120,7 +143,7 @@ std::optional<rses> WindowGLFW::init() {
     // skybox
     world_state.sky_box.init();
     if (es =
-            world_state.sky_box.load({ SOURCE_DIR "/assets/skybox/right.jpg", SOURCE_DIR "/assets/skybox/left.jpg",
+            world_state.sky_box.load(texture_manager, { SOURCE_DIR "/assets/skybox/right.jpg", SOURCE_DIR "/assets/skybox/left.jpg",
                                        SOURCE_DIR "/assets/skybox/top.jpg", SOURCE_DIR "/assets/skybox/bottom.jpg",
                                        SOURCE_DIR "/assets/skybox/front.jpg", SOURCE_DIR "/assets/skybox/back.jpg" })) {
         err::print(*es);
@@ -129,20 +152,20 @@ std::optional<rses> WindowGLFW::init() {
     // floor
     tex_cubes.push_back(Object<TexturedCube>({ 0.0f, -1.0f, 0.0f }, { 20.0f, 1.0f, 20.0f }));
     tex_cubes.back().model.init();
-    if (es = tex_cubes.back().model.load(SOURCE_DIR "/assets/texture1.png", SOURCE_DIR "/assets/texture1.png")) {
+    if (es = tex_cubes.back().model.load(texture_manager, SOURCE_DIR "/assets/texture1.png", SOURCE_DIR "/assets/texture1.png")) {
         err::print(*es);
     }
 
     // cubes
     tex_cubes.push_back(Object<TexturedCube>({ 2.0f, 1.0f, 5.0f }));
     tex_cubes.back().model.init();
-    if (es = tex_cubes.back().model.load(SOURCE_DIR "/assets/texture2.jpg", SOURCE_DIR "/assets/texture2.jpg")) {
+    if (es = tex_cubes.back().model.load(texture_manager, SOURCE_DIR "/assets/texture2.jpg", SOURCE_DIR "/assets/texture2.jpg")) {
         err::print(*es);
     }
 
     tex_cubes.push_back(Object<TexturedCube>({ -3.0f, 1.0f, -4.0f }));
     tex_cubes.back().model.init();
-    if (es = tex_cubes.back().model.load(SOURCE_DIR "/assets/texture2.jpg", SOURCE_DIR "/assets/texture2.jpg")) {
+    if (es = tex_cubes.back().model.load(texture_manager, SOURCE_DIR "/assets/texture2.jpg", SOURCE_DIR "/assets/texture2.jpg")) {
         err::print(*es);
     }
 
@@ -156,7 +179,7 @@ std::optional<rses> WindowGLFW::init() {
     // framebuffer
     glGenFramebuffers(1, &fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-    fbo_tex = *generate_texture(width, height);
+    fbo_tex = *texture_manager.generate_texture(width, height);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo_tex->id, 0);
     glGenRenderbuffers(1, &rbo);
     glBindRenderbuffer(GL_RENDERBUFFER, rbo);
@@ -230,7 +253,6 @@ void WindowGLFW::update() {
         glClear(GL_DEPTH_BUFFER_BIT);
         glCullFace(GL_FRONT); // preventing peter panning
 
-        // todo: this will only work for a singular light, we need to have an array to store our light data
         for (auto& light : pnt_lights) {
             shadow_transforms[0] = shadow_proj * glm::lookAt(light.pos, light.pos + glm::vec3(1.0f, 0.0f, 0.0f),
                                                              glm::vec3(0.0f, -1.0f, 0.0f));
@@ -252,18 +274,16 @@ void WindowGLFW::update() {
             shaders["shadow"].set_mat4("shadow_mats[4]", shadow_transforms[4]);
             shaders["shadow"].set_mat4("shadow_mats[5]", shadow_transforms[5]);
             shaders["shadow"].set_vec3("light_pos", light.pos);
-        }
 
-
-        for (auto& cube : tex_cubes) {
-            translate(cube.model, cube.pos);
-            scale(cube.model, cube.scale);
-            cube.draw(shaders["shadow"], world_state);
-            cube.model.reset();
+            for (auto& cube : tex_cubes) {
+                translate(cube.model, cube.pos);
+                scale(cube.model, cube.scale);
+                cube.draw(shaders["shadow"], world_state);
+                cube.model.reset();
+            }
         }
 
         glCullFace(GL_BACK);
-        
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         // render pass ================================================================================================

@@ -49,7 +49,7 @@ uniform float far_plane;
 
 out vec4 frag_color;
 
-float calc_point_shadow(vec3 frag, vec3 light_pos) {
+float calc_point_shadow(vec3 frag, vec3 light_pos, samplerCube shadow_map, float far_plane) {
 	vec3 frag_to_light = frag - light_pos;
 	float closest = texture(shadow_map, frag_to_light).r * far_plane;
 	float depth = length(frag_to_light);
@@ -58,11 +58,15 @@ float calc_point_shadow(vec3 frag, vec3 light_pos) {
 	return shadow;
 }
 
-vec3 calc_dir_light(DirLight light, vec3 normal) {
+float calc_directional_shadow(vec3 frag, vec3 light_dir, samplerCube shadow_map, float far_plane) {
+	return 1.0;
+}
+
+vec3 calc_dir_light(DirLight light, vec3 frag_pos, vec2 tex_coords, vec3 normal) {
 	// ambient
 	vec3 ambient_rgb = vec3(0.0);
 	for (int i = 0; i < N_MATS; ++i) {
-		ambient_rgb += texture(materials[i].diffuse, fs_in.tex_coords).rgb;
+		ambient_rgb += texture(materials[i].diffuse, tex_coords).rgb;
 	}
 	ambient_rgb *= light.ambient;
 
@@ -70,64 +74,66 @@ vec3 calc_dir_light(DirLight light, vec3 normal) {
 	vec3 diffuse_rgb = vec3(0.0);
 	float diffuse_strength = max(dot(-normalize(light.direction), normal), 0.0);
 	for (int i = 0; i < N_MATS; ++i) {
-		diffuse_rgb += texture(materials[i].diffuse, fs_in.tex_coords).rgb;
+		diffuse_rgb += texture(materials[i].diffuse, tex_coords).rgb;
 	}
 	diffuse_rgb *= light.diffuse * diffuse_strength;
 	
 	// specular
 	vec3 specular_rgb = vec3(0.0);
-	vec3 view_dir = normalize(camera_pos - fs_in.frag_pos);
+	vec3 view_dir = normalize(camera_pos - frag_pos);
 	vec3 half_dir = normalize(light.direction + view_dir);
 	for (int i = 0; i < N_MATS; ++i) {
 		float specular_strength = pow(max(dot(view_dir, half_dir), 0.0), materials[i].shine);
-		specular_rgb += texture(materials[i].specular, fs_in.tex_coords).rgb * specular_strength;
+		specular_rgb += texture(materials[i].specular, tex_coords).rgb * specular_strength;
 	}
 	specular_rgb *= light.specular;
 
 	return (ambient_rgb + diffuse_rgb + specular_rgb);
 }
 
-vec3 calc_point_light(PointLight light, vec3 normal) {
+vec3 calc_point_light(PointLight light, vec3 frag_pos, vec2 tex_coords, vec3 normal) {
 	// ambient
 	vec3 ambient_rgb = vec3(0.0);
 	for (int i = 0; i < N_MATS; ++i){
-		ambient_rgb += texture(materials[i].diffuse, fs_in.tex_coords).rgb;
+		ambient_rgb += texture(materials[i].diffuse, tex_coords).rgb;
 	}
 	ambient_rgb *= light.ambient;
 
 	// diffuse
-	vec3 light_dir = normalize(light.pos - fs_in.frag_pos);
+	vec3 light_dir = normalize(light.pos - frag_pos);
 	light_dir.z = -light_dir.z;
 	vec3 diffuse_rgb = vec3(0.0);
 	float diffuse_strength = max(dot(light_dir, normal), 0.0);
 	for (int i = 0; i < N_MATS; ++i) {
-		diffuse_rgb += texture(materials[i].diffuse, fs_in.tex_coords).rgb;
+		diffuse_rgb += texture(materials[i].diffuse, tex_coords).rgb;
 	}
 	diffuse_rgb *= light.diffuse * diffuse_strength;
 
 	// specular
 	vec3 specular_rgb = vec3(0.0);
-	vec3 view_dir = normalize(camera_pos - fs_in.frag_pos);
+	vec3 view_dir = normalize(camera_pos - frag_pos);
 	vec3 half_dir = normalize(-light_dir + view_dir);
 	for (int i = 0; i < N_MATS; ++i) {
 		float specular_strength = pow(max(dot(view_dir, half_dir), 0.0), materials[i].shine);
-		specular_rgb += texture(materials[i].specular, fs_in.tex_coords).rgb * specular_strength;
+		specular_rgb += texture(materials[i].specular, tex_coords).rgb * specular_strength;
 	}
 	specular_rgb *= light.specular;
 
-	float d = length(light.pos - fs_in.frag_pos);
+	float d = length(light.pos - frag_pos);
 	float attenuation = 1.0 / (1.0 + d * d);
-	float shadow = calc_point_shadow(fs_in.frag_pos, light.pos);
+	float shadow = calc_point_shadow(frag_pos, light.pos, shadow_map, far_plane);
 
 	return vec3(ambient_rgb + (1.0 - shadow) * (diffuse_rgb + specular_rgb)) * attenuation;
 }
 
 void main() {
 	vec3 normal = normalize(fs_in.normal);
-	vec3 result = calc_dir_light(dir_light, normal);
+	vec3 result = calc_dir_light(dir_light, fs_in.frag_pos, fs_in.tex_coords, normal);
+	
 	for (int i = 0; i < N_POINT_LIGHTS; ++i) {
-		result += calc_point_light(point_lights[i], normal);
+		result += calc_point_light(point_lights[i], fs_in.frag_pos, fs_in.tex_coords, normal);
 	}
+
 	result = pow(result, vec3(1.0 / gamma_co));  // gamma correction
 	frag_color = vec4(result, 1.0);
 }

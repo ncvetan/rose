@@ -1,8 +1,8 @@
 #version 460 core
 
-layout (location = 0) in vec3 a_pos;
-layout (location = 1) in vec3 a_normal;
-layout (location = 2) in vec2 a_tex_coords;
+layout (location = 0) in vec3 pos;
+layout (location = 1) in vec3 normal;
+layout (location = 2) in vec2 tex_coords;
 
 out vs_data {
 	vec3 frag_pos;
@@ -28,8 +28,8 @@ layout (std140, binding = 2) uniform globals
 uniform mat4 model;
 
 void main() {
-	vs_out.frag_pos = vec3(model * vec4(a_pos, 1.0));
-	vs_out.normal = mat3(transpose(inverse(mat3(model)))) * a_normal;
-	vs_out.tex_coords = a_tex_coords;
+	vs_out.frag_pos = vec3(model * vec4(pos, 1.0));
+	vs_out.normal = mat3(transpose(inverse(mat3(model)))) * normal;
+	vs_out.tex_coords = tex_coords;
 	gl_Position = projection * view * vec4(vs_out.frag_pos, 1.0);
 };

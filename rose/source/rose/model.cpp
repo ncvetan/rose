@@ -111,28 +111,7 @@ void Model::draw(ShaderGL& shader, const GlobalState& state) const {
     }
 }
 
-static void process_assimp_node(aiNode* ai_node, const aiScene* ai_scene, std::vector<Mesh>& meshes,
-                                const fs::path& root_path);
-
-std::optional<rses> Model::load(const fs::path& path) {
-    Assimp::Importer import;
-
-    // note: for dx12 this will need the aiProcess_MakeLeftHanded flag set
-    const aiScene* scene =
-        import.ReadFile(path.generic_string(), aiProcess_GenNormals | aiProcess_Triangulate | aiProcess_FlipUVs);
-
-    fs::path root_path = path.parent_path();
-
-    if (!scene) {
-        return rses().io("Error importing scene : {}", import.GetErrorString());
-    }
-
-    process_assimp_node(scene->mRootNode, scene, meshes, root_path);
-
-    return std::nullopt;
-}
-
-static std::vector<TextureRef> load_mat_textures(aiMaterial* mat, aiTextureType ty, const fs::path& root_path) {
+static std::vector<TextureRef> load_mat_textures(TextureManager& manager, aiMaterial* mat, aiTextureType ty, const fs::path& root_path) {
 
     std::vector<TextureRef> textures;
     textures.reserve(mat->GetTextureCount(ty));
@@ -144,10 +123,10 @@ static std::vector<TextureRef> load_mat_textures(aiMaterial* mat, aiTextureType 
         std::expected<TextureRef, rses> texture;
         switch (ty) {
         case aiTextureType_DIFFUSE:
-            texture = load_texture(texture_path, TextureType::DIFFUSE);
+            texture = manager.load_texture(texture_path, TextureType::DIFFUSE);
             break;
         case aiTextureType_SPECULAR:
-            texture = load_texture(texture_path, TextureType::SPECULAR);
+            texture = manager.load_texture(texture_path, TextureType::SPECULAR);
             break;
         }
         if (!texture.has_value()) {
@@ -159,7 +138,7 @@ static std::vector<TextureRef> load_mat_textures(aiMaterial* mat, aiTextureType 
     return textures;
 }
 
-static void process_assimp_node(aiNode* ai_node, const aiScene* ai_scene, std::vector<Mesh>& meshes,
+static void process_assimp_node(TextureManager& manager, aiNode* ai_node, const aiScene* ai_scene, std::vector<Mesh>& meshes,
                                 const fs::path& root_path) {
     for (int i = 0; i < ai_node->mNumMeshes; ++i) {
         aiMesh* ai_mesh = ai_scene->mMeshes[ai_node->mMeshes[i]];
@@ -188,8 +167,8 @@ static void process_assimp_node(aiNode* ai_node, const aiScene* ai_scene, std::v
         // Loading material textures
         if (ai_mesh->mMaterialIndex >= 0) {
             aiMaterial* material = ai_scene->mMaterials[ai_mesh->mMaterialIndex];
-            std::vector<TextureRef> diff_maps = load_mat_textures(material, aiTextureType_DIFFUSE, root_path);
-            std::vector<TextureRef> spec_maps = load_mat_textures(material, aiTextureType_SPECULAR, root_path);
+            std::vector<TextureRef> diff_maps = load_mat_textures(manager, material, aiTextureType_DIFFUSE, root_path);
+            std::vector<TextureRef> spec_maps = load_mat_textures(manager, material, aiTextureType_SPECULAR, root_path);
             textures.reserve(diff_maps.size() + spec_maps.size());
 
             textures.insert(textures.end(), std::make_move_iterator(diff_maps.begin()),
@@ -203,8 +182,26 @@ static void process_assimp_node(aiNode* ai_node, const aiScene* ai_scene, std::v
     }
 
     for (int i = 0; i < ai_node->mNumChildren; ++i) {
-        process_assimp_node(ai_node->mChildren[i], ai_scene, meshes, root_path);
+        process_assimp_node(manager, ai_node->mChildren[i], ai_scene, meshes, root_path);
     }
+}
+
+std::optional<rses> Model::load(TextureManager& manager, const fs::path& path) {
+    Assimp::Importer import;
+
+    // note: for dx12 this will need the aiProcess_MakeLeftHanded flag set
+    const aiScene* scene =
+        import.ReadFile(path.generic_string(), aiProcess_GenNormals | aiProcess_Triangulate | aiProcess_FlipUVs);
+
+    fs::path root_path = path.parent_path();
+
+    if (!scene) {
+        return rses().io("Error importing scene : {}", import.GetErrorString());
+    }
+
+    process_assimp_node(manager, scene->mRootNode, scene, meshes, root_path);
+
+    return std::nullopt;
 }
 
 Cube::Cube(Cube&& other) noexcept {
@@ -291,12 +288,13 @@ void TexturedCube::init() {
     id = gen_id();
 }
 
-std::optional<rses> TexturedCube::load(const fs::path& diff_path, const fs::path& spec_path) {
-    std::expected<TextureRef, rses> diff = load_texture(diff_path, TextureType::DIFFUSE);
+std::optional<rses> TexturedCube::load(TextureManager& manager, const fs::path& diff_path,
+                                       const fs::path& spec_path) {
+    std::expected<TextureRef, rses> diff = manager.load_texture(diff_path, TextureType::DIFFUSE);
     if (!diff) {
         return diff.error();
     }
-    std::expected<TextureRef, rses> spec = load_texture(diff_path, TextureType::SPECULAR);
+    std::expected<TextureRef, rses> spec = manager.load_texture(diff_path, TextureType::SPECULAR);
     if (!spec) {
         return spec.error();
     }
@@ -369,8 +367,8 @@ void TexturedQuad::init() {
     id = gen_id();
 }
 
-std::optional<rses> TexturedQuad::load(const fs::path& path) {
-    std::expected<TextureRef, rses> tex = load_texture(path, TextureType::DIFFUSE);
+std::optional<rses> TexturedQuad::load(TextureManager& manager, const fs::path& path) {
+    std::expected<TextureRef, rses> tex = manager.load_texture(path, TextureType::DIFFUSE);
     if (!tex) {
         return tex.error();
     }
@@ -430,8 +428,8 @@ void SkyBox::init() {
     id = gen_id();
 }
 
-std::optional<rses> SkyBox::load(const std::vector<fs::path>& paths) {
-    std::optional<TextureRef> tex = load_cubemap(paths);
+std::optional<rses> SkyBox::load(TextureManager& manager, const std::vector<fs::path>& paths) {
+    std::optional<TextureRef> tex = manager.load_cubemap(paths);
     if (!tex) {
         return rses().io("unable to load skybox");
     }

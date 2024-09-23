@@ -71,7 +71,7 @@ struct Mesh {
 
 struct Model {
     void draw(ShaderGL& shader, const GlobalState& state) const;
-    std::optional<rses> load(const std::filesystem::path& path);
+    std::optional<rses> load(TextureManager& manager, const std::filesystem::path& path);
     inline void reset() { model_mat = glm::mat4(1.0f); }
 
     glm::mat4 model_mat = glm::mat4(1.0f);
@@ -139,7 +139,7 @@ struct TexturedCube {
     TexturedCube& operator=(TexturedCube&& other) noexcept;
 
     void init();
-    std::optional<rses> load(const fs::path& diff_path, const fs::path& spec_path);
+    std::optional<rses> load(TextureManager& manager, const fs::path& diff_path, const fs::path& spec_path);
     void draw(ShaderGL& shader, const GlobalState& state) const;
     inline void reset() { model_mat = glm::mat4(1.0f); }
 
@@ -210,7 +210,7 @@ struct TexturedQuad {
     TexturedQuad& operator=(TexturedQuad&& other) noexcept;
 
     void init();
-    std::optional<rses> load(const fs::path& path);
+    std::optional<rses> load(TextureManager& manager, const fs::path& path);
     void draw(ShaderGL& shader, const GlobalState& state) const;
     inline void reset() { model_mat = glm::mat4(1.0f); }
 
@@ -242,7 +242,7 @@ struct SkyBox {
     SkyBox& operator=(SkyBox&& other) noexcept;
 
     void init();
-    std::optional<rses> load(const std::vector<fs::path>& paths);
+    std::optional<rses> load(TextureManager& manager, const std::vector<fs::path>& paths);
     void draw(ShaderGL& shader, const GlobalState& state) const;
     inline void reset() { model_mat = glm::mat4(1.0f); }
 

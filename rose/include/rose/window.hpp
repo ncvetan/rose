@@ -27,7 +27,9 @@ class WindowGLFW {
     void destroy();
 
     GLFWwindow* window = nullptr;
+
     CameraGL camera;
+    TextureManager texture_manager;
     std::unordered_map<std::string, ShaderGL> shaders;
 
     GlobalState world_state;
@@ -49,6 +51,11 @@ class WindowGLFW {
     Rectf vp_rect;
     bool vp_focused = false;
     bool glfw_captured = true;
+
+  private:
+    std::optional<rses> init_glfw();
+    std::optional<rses> init_imgui(GLFWwindow* window);
+    std::optional<rses> init_opengl();
 };
 
 void resize_callback(GLFWwindow* window, int width, int height);
