@@ -2,11 +2,14 @@
 
 layout (location = 0) in vec3 pos;
 layout (location = 1) in vec3 normal;
-layout (location = 2) in vec2 tex_coords;
+layout (location = 2) in vec3 tangent;
+layout (location = 3) in vec2 tex_coords;
 
 out vs_data {
-	vec3 frag_pos;
-	vec3 normal;
+	vec3 frag_pos;		// tangent space
+	vec3 normal;		// tangent space
+	vec3 view_pos;		// tangent space
+	vec3 light_pos;		// tangent space
 	vec2 tex_coords;
 } vs_out;
 
@@ -17,19 +20,42 @@ struct DirLight {
 	vec3 specular;
 };
 
-layout (std140, binding = 2) uniform globals
-{
+layout (std140, binding = 2) uniform globals {
 	mat4 projection;
 	mat4 view;
 	vec3 camera_pos;
 	DirLight dir_light;
 };
 
+struct PointLight {
+	vec3 pos;
+	vec3 ambient;
+	vec3 diffuse;
+	vec3 specular;
+	float attn_const;
+	float attn_lin;
+	float attn_quad;
+};
+
+#define N_POINT_LIGHTS 1
+uniform PointLight point_lights[N_POINT_LIGHTS]; // only 1 temporarily before setting up for multiple light sources...
+
 uniform mat4 model;
 
 void main() {
-	vs_out.frag_pos = vec3(model * vec4(pos, 1.0));
-	vs_out.normal = mat3(transpose(inverse(mat3(model)))) * normal;
+	
+	mat3 normal_mat = mat3(transpose(inverse(mat3(model))));
+
+	vec3 t = normalize(normal_mat * tangent);
+	vec3 n = normalize(normal_mat * normal);
+	vec3 b = cross(n, t);
+	mat3 tbn = transpose(mat3(t, b, n));	// ortho transpose = inverse
+	
+	vs_out.frag_pos = tbn * vec3(model * vec4(pos, 1.0));
+	vs_out.normal = normal_mat * normal;
+	vs_out.view_pos = tbn * camera_pos;
+	vs_out.light_pos = tbn * point_lights[0].pos;
 	vs_out.tex_coords = tex_coords;
-	gl_Position = projection * view * vec4(vs_out.frag_pos, 1.0);
+
+	gl_Position = projection * view * vec4(model * vec4(pos, 1.0));
 };

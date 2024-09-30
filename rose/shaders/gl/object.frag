@@ -1,8 +1,10 @@
 #version 460 core
 
 in vs_data {
-	vec3 frag_pos;
-	vec3 normal;
+	vec3 frag_pos;		// tangent space
+	vec3 normal;		// tangent space
+	vec3 view_pos;		// tangent space
+	vec3 light_pos;		// tangent space
 	vec2 tex_coords;
 } fs_in;
 
@@ -21,8 +23,9 @@ layout (std140, binding = 2) uniform globals {
 };
 
 struct Material {
-	sampler2D	diffuse;
-	sampler2D	specular;
+	sampler2D	diffuse_map;
+	sampler2D	specular_map;
+	sampler2D	normal_map;
 	float		shine;
 };
 
@@ -66,7 +69,7 @@ vec3 calc_dir_light(DirLight light, vec3 frag_pos, vec2 tex_coords, vec3 normal)
 	// ambient
 	vec3 ambient_rgb = vec3(0.0);
 	for (int i = 0; i < N_MATS; ++i) {
-		ambient_rgb += texture(materials[i].diffuse, tex_coords).rgb;
+		ambient_rgb += texture(materials[i].diffuse_map, tex_coords).rgb;
 	}
 	ambient_rgb *= light.ambient;
 
@@ -74,7 +77,7 @@ vec3 calc_dir_light(DirLight light, vec3 frag_pos, vec2 tex_coords, vec3 normal)
 	vec3 diffuse_rgb = vec3(0.0);
 	float diffuse_strength = max(dot(-normalize(light.direction), normal), 0.0);
 	for (int i = 0; i < N_MATS; ++i) {
-		diffuse_rgb += texture(materials[i].diffuse, tex_coords).rgb;
+		diffuse_rgb += texture(materials[i].diffuse_map, tex_coords).rgb;
 	}
 	diffuse_rgb *= light.diffuse * diffuse_strength;
 	
@@ -84,7 +87,7 @@ vec3 calc_dir_light(DirLight light, vec3 frag_pos, vec2 tex_coords, vec3 normal)
 	vec3 half_dir = normalize(light.direction + view_dir);
 	for (int i = 0; i < N_MATS; ++i) {
 		float specular_strength = pow(max(dot(view_dir, half_dir), 0.0), materials[i].shine);
-		specular_rgb += texture(materials[i].specular, tex_coords).rgb * specular_strength;
+		specular_rgb += texture(materials[i].specular_map, tex_coords).rgb * specular_strength;
 	}
 	specular_rgb *= light.specular;
 
@@ -95,7 +98,7 @@ vec3 calc_point_light(PointLight light, vec3 frag_pos, vec2 tex_coords, vec3 nor
 	// ambient
 	vec3 ambient_rgb = vec3(0.0);
 	for (int i = 0; i < N_MATS; ++i){
-		ambient_rgb += texture(materials[i].diffuse, tex_coords).rgb;
+		ambient_rgb += texture(materials[i].diffuse_map, tex_coords).rgb;
 	}
 	ambient_rgb *= light.ambient;
 
@@ -105,7 +108,7 @@ vec3 calc_point_light(PointLight light, vec3 frag_pos, vec2 tex_coords, vec3 nor
 	vec3 diffuse_rgb = vec3(0.0);
 	float diffuse_strength = max(dot(light_dir, normal), 0.0);
 	for (int i = 0; i < N_MATS; ++i) {
-		diffuse_rgb += texture(materials[i].diffuse, tex_coords).rgb;
+		diffuse_rgb += texture(materials[i].diffuse_map, tex_coords).rgb;
 	}
 	diffuse_rgb *= light.diffuse * diffuse_strength;
 
@@ -115,7 +118,7 @@ vec3 calc_point_light(PointLight light, vec3 frag_pos, vec2 tex_coords, vec3 nor
 	vec3 half_dir = normalize(-light_dir + view_dir);
 	for (int i = 0; i < N_MATS; ++i) {
 		float specular_strength = pow(max(dot(view_dir, half_dir), 0.0), materials[i].shine);
-		specular_rgb += texture(materials[i].specular, tex_coords).rgb * specular_strength;
+		specular_rgb += texture(materials[i].specular_map, tex_coords).rgb * specular_strength;
 	}
 	specular_rgb *= light.specular;
 
@@ -127,7 +130,10 @@ vec3 calc_point_light(PointLight light, vec3 frag_pos, vec2 tex_coords, vec3 nor
 }
 
 void main() {
-	vec3 normal = normalize(fs_in.normal);
+	
+	vec3 normal = texture(materials[0].normal_map, fs_in.tex_coords).rgb;
+	normal = normalize(normal * 2.0 - 1.0);
+	
 	vec3 result = calc_dir_light(dir_light, fs_in.frag_pos, fs_in.tex_coords, normal);
 	
 	for (int i = 0; i < N_POINT_LIGHTS; ++i) {

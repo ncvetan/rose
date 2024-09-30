@@ -11,7 +11,14 @@
 
 namespace rose {
 
-enum class TextureType { NONE, DIFFUSE, SPECULAR, CUBE_MAP, INTERNAL };
+enum class TextureType { 
+    NONE = 0, 
+    DIFFUSE, 
+    SPECULAR, 
+    NORMAL, 
+    CUBE_MAP, 
+    INTERNAL 
+};
 
 struct TextureGL {
     u32 id = 0;
@@ -42,8 +49,8 @@ struct TextureManager {
 struct TextureRef {
     TextureRef() = default;
     TextureRef(TextureGL* ref, TextureManager* manager);
-    TextureRef(const TextureRef& other);
-    TextureRef(TextureRef&& other) noexcept;
+    TextureRef(const TextureRef& other);        // increases ref count
+    TextureRef(TextureRef&& other) noexcept;    // does not increase ref count
     ~TextureRef();
 
     TextureRef& operator=(const TextureRef& other);

@@ -49,12 +49,14 @@ TextureRef::~TextureRef() {
             texture.free();
             manager->loaded_textures.erase(ref->id);
         }
-        ref = nullptr;
-        manager = nullptr;
     }
+    ref = nullptr;
+    manager = nullptr;
 }
 
 std::optional<TextureRef> TextureManager::get_ref(const fs::path& path) {
+    // if a path is reused as another texture type, this will not work
+    
     if (textures_index.contains(path)) {
         u32 val = textures_index[path];
         if (loaded_textures.contains(val)) {
