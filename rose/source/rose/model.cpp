@@ -298,8 +298,13 @@ TexturedCube& TexturedCube::operator=(TexturedCube&& other) noexcept {
 void TexturedCube::init() {
     glCreateVertexArrays(1, &VAO);
     glCreateBuffers(1, &VBO);
+    glCreateBuffers(1, &EBO);
+
     glNamedBufferStorage(VBO, verts.size() * sizeof(Vertex), verts.data(), GL_DYNAMIC_STORAGE_BIT);
+    glNamedBufferStorage(EBO, indices.size() * sizeof(uint32_t), indices.data(), GL_DYNAMIC_STORAGE_BIT);
+
     glVertexArrayVertexBuffer(VAO, 0, VBO, 0, sizeof(Vertex));
+    glVertexArrayElementBuffer(VAO, EBO);
 
     glEnableVertexArrayAttrib(VAO, 0);
     glEnableVertexArrayAttrib(VAO, 1);
@@ -363,7 +368,7 @@ void TexturedCube::draw(ShaderGL& shader, const GlobalState& state) const {
 
     shader.set_float("materials[0].shine", 32.0f);
 
-    glDrawArrays(GL_TRIANGLES, 0, verts.size());
+    glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 }
 

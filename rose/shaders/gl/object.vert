@@ -6,10 +6,11 @@ layout (location = 2) in vec3 tangent;
 layout (location = 3) in vec2 tex_coords;
 
 out vs_data {
-	vec3 frag_pos;		// tangent space
+	vec3 frag_pos;
+	vec3 frag_pos_tan;		// tangent space
 	vec3 normal;		// tangent space
-	vec3 view_pos;		// tangent space
-	vec3 light_pos;		// tangent space
+	vec3 view_pos_tan;		// tangent space
+	vec3 light_pos_tan;		// tangent space
 	vec2 tex_coords;
 } vs_out;
 
@@ -48,13 +49,15 @@ void main() {
 
 	vec3 t = normalize(normal_mat * tangent);
 	vec3 n = normalize(normal_mat * normal);
+	t = normalize(t - dot(t, n) * n);		// re-orthogonalize
 	vec3 b = cross(n, t);
 	mat3 tbn = transpose(mat3(t, b, n));	// ortho transpose = inverse
 	
-	vs_out.frag_pos = tbn * vec3(model * vec4(pos, 1.0));
+	vs_out.frag_pos = vec3(model * vec4(pos, 1.0));
+	vs_out.frag_pos_tan = tbn * vec3(model * vec4(pos, 1.0));
 	vs_out.normal = normal_mat * normal;
-	vs_out.view_pos = tbn * camera_pos;
-	vs_out.light_pos = tbn * point_lights[0].pos;
+	vs_out.view_pos_tan = tbn * camera_pos;
+	vs_out.light_pos_tan = tbn * point_lights[0].pos;	// todo: temporary
 	vs_out.tex_coords = tex_coords;
 
 	gl_Position = projection * view * vec4(model * vec4(pos, 1.0));
