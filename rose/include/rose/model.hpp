@@ -142,7 +142,7 @@ struct TexturedCube {
 
     void init();
     std::optional<rses> load(TextureManager& manager, const fs::path& diff_path, 
-        const fs::path& spec_path, const fs::path& norm_path);
+        const fs::path& spec_path, const fs::path& norm_path, const fs::path& disp_path);
     void draw(ShaderGL& shader, const GlobalState& state) const;
     inline void reset() { model_mat = glm::mat4(1.0f); }
 
@@ -150,6 +150,7 @@ struct TexturedCube {
     TextureRef diffuse_map;
     TextureRef specular_map;
     TextureRef normal_map;
+    TextureRef displace_map;
     glm::mat4 model_mat = glm::mat4(1.0f);
     u32 VAO = 0;
     u32 VBO = 0;

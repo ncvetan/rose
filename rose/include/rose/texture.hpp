@@ -16,6 +16,7 @@ enum class TextureType {
     DIFFUSE, 
     SPECULAR, 
     NORMAL, 
+    DISPLACE, 
     CUBE_MAP, 
     INTERNAL 
 };

@@ -152,20 +152,20 @@ std::optional<rses> WindowGLFW::init() {
     // floor
     tex_cubes.push_back(Object<TexturedCube>({ 0.0f, -1.0f, 0.0f }, { 20.0f, 1.0f, 20.0f }));
     tex_cubes.back().model.init();
-    if (es = tex_cubes.back().model.load(texture_manager, SOURCE_DIR "/assets/texture3.jpg", SOURCE_DIR "/assets/texture3_spec.jpg", SOURCE_DIR "/assets/normal.png")) {
+    if (es = tex_cubes.back().model.load(texture_manager, SOURCE_DIR "/assets/texture4_diffuse.jpg", SOURCE_DIR "/assets/texture4_spec.jpg", SOURCE_DIR "/assets/texture4_normal.jpg", SOURCE_DIR "/assets/texture4_displace.jpg")) {
         err::print(*es);
     }
 
     // cubes
     tex_cubes.push_back(Object<TexturedCube>({ 2.0f, 1.0f, 5.0f }));
     tex_cubes.back().model.init();
-    if (es = tex_cubes.back().model.load(texture_manager, SOURCE_DIR "/assets/texture3.jpg", SOURCE_DIR "/assets/texture3_spec.jpg", SOURCE_DIR "/assets/normal.png")) {
+    if (es = tex_cubes.back().model.load(texture_manager, SOURCE_DIR "/assets/texture4_diffuse.jpg", SOURCE_DIR "/assets/texture4_spec.jpg", SOURCE_DIR "/assets/texture4_normal.jpg", SOURCE_DIR "/assets/texture4_displace.jpg")) {
         err::print(*es);
     }
 
     tex_cubes.push_back(Object<TexturedCube>({ -3.0f, 1.0f, -4.0f }));
     tex_cubes.back().model.init();
-    if (es = tex_cubes.back().model.load(texture_manager, SOURCE_DIR "/assets/texture3.jpg", SOURCE_DIR "/assets/texture3_spec.jpg", SOURCE_DIR "/assets/normal.png")) {
+    if (es = tex_cubes.back().model.load(texture_manager, SOURCE_DIR "/assets/texture4_diffuse.jpg", SOURCE_DIR "/assets/texture4_spec.jpg", SOURCE_DIR "/assets/texture4_normal.jpg", SOURCE_DIR "/assets/texture4_displace.jpg")) {
         err::print(*es);
     }
 

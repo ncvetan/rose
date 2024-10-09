@@ -81,27 +81,32 @@ void Mesh::draw(ShaderGL& shader, const GlobalState& state) const {
     u32 diff_n = 0;
     u32 spec_n = 0;
     u32 norm_n = 0;
+    u32 disp_n = 0;
 
-    for (u32 i = 0; i < textures.size(); ++i) {
-        glActiveTexture(GL_TEXTURE0 + i);
-        switch (textures[i].ref->ty) {
+    for (u32 tex_unit = 0; tex_unit < textures.size(); ++tex_unit) {
+        glActiveTexture(GL_TEXTURE0 + tex_unit);
+        switch (textures[tex_unit].ref->ty) {
         case TextureType::DIFFUSE:
-            shader.set_int(std::format("materials[{}].diffuse_map", diff_n), i);
+            shader.set_int(std::format("materials[{}].diffuse_map", diff_n), tex_unit);
             diff_n++;
             break;
         case TextureType::SPECULAR:
-            shader.set_int(std::format("materials[{}].specular_map", spec_n), i);
+            shader.set_int(std::format("materials[{}].specular_map", spec_n), tex_unit);
             spec_n++;
             break;
         case TextureType::NORMAL:
-            shader.set_int(std::format("materials[{}].normal_map", diff_n), i);
+            shader.set_int(std::format("materials[{}].normal_map", norm_n), tex_unit);
             norm_n++;
+            break;
+        case TextureType::DISPLACE:
+            shader.set_int(std::format("materials[{}].displace_map", disp_n), tex_unit);
+            disp_n++;
             break;
         default:
             assert(false);
             break;
         }
-        glBindTexture(GL_TEXTURE_2D, textures[i].ref->id);
+        glBindTexture(GL_TEXTURE_2D, textures[tex_unit].ref->id);
     }
 
     glBindVertexArray(VAO);
@@ -282,6 +287,7 @@ TexturedCube::TexturedCube(TexturedCube&& other) noexcept {
     diffuse_map = std::move(other.diffuse_map);
     specular_map = std::move(other.specular_map);
     normal_map = std::move(other.normal_map);
+    displace_map = std::move(other.displace_map);
     verts = std::move(other.verts);
     model_mat = std::move(other.model_mat);
     id = other.id;
@@ -325,7 +331,7 @@ void TexturedCube::init() {
 }
 
 std::optional<rses> TexturedCube::load(TextureManager& manager, const fs::path& diff_path,
-                                       const fs::path& spec_path, const fs::path& norm_path) {
+                                       const fs::path& spec_path, const fs::path& norm_path, const fs::path& disp_path) {
     
     std::expected<TextureRef, rses> diff = manager.load_texture(diff_path, TextureType::DIFFUSE);
     if (!diff) {
@@ -339,10 +345,15 @@ std::optional<rses> TexturedCube::load(TextureManager& manager, const fs::path& 
     if (!norm) {
         return norm.error();
     }
+    std::expected<TextureRef, rses> disp = manager.load_texture(disp_path, TextureType::DISPLACE);
+    if (!disp) {
+        return disp.error();
+    }
     
     this->diffuse_map = std::move(diff.value());
     this->specular_map = std::move(spec.value());
     this->normal_map = std::move(norm.value());
+    this->displace_map = std::move(disp.value());
     return std::nullopt;
 }
 
@@ -365,6 +376,9 @@ void TexturedCube::draw(ShaderGL& shader, const GlobalState& state) const {
 
     glBindTextureUnit(2, normal_map.ref->id);
     shader.set_int("materials[0].normal_map", 2);
+
+    glBindTextureUnit(3, displace_map.ref->id);
+    shader.set_int("materials[0].displace_map", 3);
 
     shader.set_float("materials[0].shine", 32.0f);
 
