@@ -428,6 +428,16 @@ void TexturedQuad::init() {
     id = gen_id();
 }
 
+void TexturedQuad::gen_tex(TextureManager& manager, int w, int h, GLenum intern_format, GLenum format, GLenum type){ 
+    auto ret = manager.generate_texture(w, h, intern_format, format, type); 
+    
+    if (!ret) {
+        assert(false);
+    }
+
+    texture = std::move(ret.value());
+}
+
 std::optional<rses> TexturedQuad::load(TextureManager& manager, const fs::path& path) {
     std::expected<TextureRef, rses> tex = manager.load_texture(path, TextureType::DIFFUSE);
     if (!tex) {
@@ -441,12 +451,10 @@ void TexturedQuad::draw(ShaderGL& shader, const GlobalState& state) const {
     shader.use();
     shader.set_mat4("model", model_mat);
     glBindVertexArray(VAO);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture.ref->id);
+    glBindTextureUnit(0, texture.ref->id);
     shader.set_int("tex", 0);
     glDrawArrays(GL_TRIANGLES, 0, verts.size());
     glBindVertexArray(0);
-    glActiveTexture(GL_TEXTURE0);
 }
 
 TexturedQuad::~TexturedQuad() {

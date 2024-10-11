@@ -209,6 +209,7 @@ struct TexturedQuad {
     TexturedQuad& operator=(TexturedQuad&& other) noexcept;
 
     void init();
+    void gen_tex(TextureManager& manager, int w, int h, GLenum internal_format, GLenum format, GLenum type);
     std::optional<rses> load(TextureManager& manager, const fs::path& path);
     void draw(ShaderGL& shader, const GlobalState& state) const;
     inline void reset() { model_mat = glm::mat4(1.0f); }

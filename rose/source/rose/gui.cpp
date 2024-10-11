@@ -70,7 +70,7 @@ void imgui(WindowGLFW& state) {
     ImGui::SetCursorPos({ offset_x, offset_y });
 
     // resize the image based on the size of the viewport
-    ImGui::Image((void*)state.fbo_tex->id, { scale * (float)state.width, scale * (float)state.height }, { 0, 1 }, { 1, 0 });
+    ImGui::Image((void*)state.fbuf.color_buf, { scale * (float)state.width, scale * (float)state.height }, { 0, 1 }, { 1, 0 });
     ImGui::End();
 
     // setting an initial docking layout

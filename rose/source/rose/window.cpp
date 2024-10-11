@@ -17,6 +17,62 @@
 
 namespace rose {
 
+std::optional<rses> FrameBuf::init(int w, int h) {
+    
+    glCreateFramebuffers(1, &frame_buf);
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &color_buf);
+    glTextureStorage2D(color_buf, 1, GL_RGBA8, w, h);
+    glTextureSubImage2D(color_buf, 0, 0, 0, w, h, GL_RGBA16F, GL_FLOAT, nullptr);
+    glTextureParameteri(color_buf, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(color_buf, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glCreateRenderbuffers(1, &render_buf);
+    glNamedRenderbufferStorage(render_buf, GL_DEPTH_COMPONENT, w, h);
+
+    glNamedFramebufferTexture(frame_buf, GL_COLOR_ATTACHMENT0, color_buf, 0);
+    glNamedFramebufferRenderbuffer(frame_buf, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, render_buf);
+
+    if (glCheckNamedFramebufferStatus(frame_buf, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        return rses().gl("framebuffer is incomplete");
+    }
+
+    glCreateVertexArrays(1, &vertex_arr);
+    glCreateBuffers(1, &vertex_buf);
+    glNamedBufferStorage(vertex_buf, verts.size() * sizeof(Vertex), verts.data(), GL_DYNAMIC_STORAGE_BIT);
+    glVertexArrayVertexBuffer(vertex_arr, 0, vertex_buf, 0, sizeof(Vertex));
+
+    glEnableVertexArrayAttrib(vertex_arr, 0);
+    glEnableVertexArrayAttrib(vertex_arr, 1);
+
+    glVertexArrayAttribFormat(vertex_arr, 0, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, pos));
+    glVertexArrayAttribFormat(vertex_arr, 1, 2, GL_FLOAT, GL_FALSE, offsetof(Vertex, tex));
+
+    glVertexArrayAttribBinding(vertex_arr, 0, 0);
+    glVertexArrayAttribBinding(vertex_arr, 1, 0);
+
+    return std::nullopt;
+}
+
+void FrameBuf::draw(ShaderGL& shader) { 
+    shader.use();
+
+    glBindVertexArray(vertex_arr);
+    glBindTextureUnit(0, color_buf);
+
+    float exposure = 1.0;
+    shader.set_float("exposure", exposure);
+    shader.set_int("tex", 0);
+
+    glDrawArrays(GL_TRIANGLES, 0, verts.size());
+}
+
+FrameBuf::~FrameBuf() {
+    glDeleteFramebuffers(1, &frame_buf);
+    glDeleteRenderbuffers(1, &render_buf);
+    glDeleteTextures(1, &color_buf);
+};
+
 std::optional<rses> WindowGLFW::init_glfw() {
     if (glfwInit() == GLFW_FALSE) {
         return rses().gl("GLFW failed to initialize");
@@ -118,10 +174,7 @@ std::optional<rses> WindowGLFW::init() {
     }
 
     std::optional<rses> es;
-    if (es = shaders["quad"].init({ { SOURCE_DIR "/rose/shaders/gl/quad.vert", GL_VERTEX_SHADER },
-                                    { SOURCE_DIR "/rose/shaders/gl/quad.frag", GL_FRAGMENT_SHADER } })) {
-        err::print(*es);
-    }
+
     if (es = shaders["skybox"].init({ { SOURCE_DIR "/rose/shaders/gl/skybox.vert", GL_VERTEX_SHADER },
                                       { SOURCE_DIR "/rose/shaders/gl/skybox.frag", GL_FRAGMENT_SHADER } })) {
         err::print(*es);
@@ -139,6 +192,10 @@ std::optional<rses> WindowGLFW::init() {
                                       { SOURCE_DIR "/rose/shaders/gl/shadow.geom", GL_GEOMETRY_SHADER } })) {
         err::print(*es);
     }
+    if (es = shaders["hdr"].init({ { SOURCE_DIR "/rose/shaders/gl/hdr.vert", GL_VERTEX_SHADER },
+                                      { SOURCE_DIR "/rose/shaders/gl/hdr.frag", GL_FRAGMENT_SHADER }})) {
+        err::print(*es);
+    }
 
     // skybox
     world_state.sky_box.init();
@@ -150,55 +207,40 @@ std::optional<rses> WindowGLFW::init() {
     }
 
     // floor
-    tex_cubes.push_back(Object<TexturedCube>({ 0.0f, -1.0f, 0.0f }, { 20.0f, 1.0f, 20.0f }));
+    tex_cubes.push_back(Object<TexturedCube>({ 0.0f, 0.0f, 0.0f }, { 8.0f, 8.0f, 50.0f }));
     tex_cubes.back().model.init();
     if (es = tex_cubes.back().model.load(texture_manager, SOURCE_DIR "/assets/texture4_diffuse.jpg", SOURCE_DIR "/assets/texture4_spec.jpg", SOURCE_DIR "/assets/texture4_normal.jpg", SOURCE_DIR "/assets/texture4_displace.jpg")) {
         err::print(*es);
     }
 
-    // cubes
-    tex_cubes.push_back(Object<TexturedCube>({ 2.0f, 1.0f, 5.0f }));
-    tex_cubes.back().model.init();
-    if (es = tex_cubes.back().model.load(texture_manager, SOURCE_DIR "/assets/texture4_diffuse.jpg", SOURCE_DIR "/assets/texture4_spec.jpg", SOURCE_DIR "/assets/texture4_normal.jpg", SOURCE_DIR "/assets/texture4_displace.jpg")) {
-        err::print(*es);
-    }
+    //// cubes
+    //tex_cubes.push_back(Object<TexturedCube>({ 2.0f, 1.0f, 5.0f }));
+    //tex_cubes.back().model.init();
+    //if (es = tex_cubes.back().model.load(texture_manager, SOURCE_DIR "/assets/texture4_diffuse.jpg", SOURCE_DIR "/assets/texture4_spec.jpg", SOURCE_DIR "/assets/texture4_normal.jpg", SOURCE_DIR "/assets/texture4_displace.jpg")) {
+    //    err::print(*es);
+    //}
 
-    tex_cubes.push_back(Object<TexturedCube>({ -3.0f, 1.0f, -4.0f }));
-    tex_cubes.back().model.init();
-    if (es = tex_cubes.back().model.load(texture_manager, SOURCE_DIR "/assets/texture4_diffuse.jpg", SOURCE_DIR "/assets/texture4_spec.jpg", SOURCE_DIR "/assets/texture4_normal.jpg", SOURCE_DIR "/assets/texture4_displace.jpg")) {
-        err::print(*es);
-    }
+    //tex_cubes.push_back(Object<TexturedCube>({ -3.0f, 1.0f, -4.0f }));
+    //tex_cubes.back().model.init();
+    //if (es = tex_cubes.back().model.load(texture_manager, SOURCE_DIR "/assets/texture4_diffuse.jpg", SOURCE_DIR "/assets/texture4_spec.jpg", SOURCE_DIR "/assets/texture4_normal.jpg", SOURCE_DIR "/assets/texture4_displace.jpg")) {
+    //    err::print(*es);
+    //}
 
     // point lights
-    pnt_lights.push_back(Object<Cube>({ 2.0f, 2.0f, 5.0f }, { 0.2f, 0.2f, 0.2f }, (u8)ObjectFlags::EMIT_LIGHT));
+    pnt_lights.push_back(Object<Cube>({ 0.0f, 0.0f, 19.5f }, { 1.0f, 1.0f, 1.0f }, (u8)ObjectFlags::EMIT_LIGHT));
     pnt_lights.back().model.init();
-    pnt_lights.back().light_props.ambient = { 0.02f, 0.02f, 0.02f };
+    pnt_lights.back().light_props.ambient = { 200.0f, 200.0f, 200.0f };
     pnt_lights.back().light_props.diffuse = { 0.3f, 0.3f, 0.3f };
     pnt_lights.back().light_props.specular = { 0.0f, 0.0f, 0.0f };
 
-    // framebuffer
-    glGenFramebuffers(1, &fbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-    fbo_tex = *texture_manager.generate_texture(width, height);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo_tex->id, 0);
-    glGenRenderbuffers(1, &rbo);
-    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
-    glBindRenderbuffer(GL_RENDERBUFFER, 0);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
-    
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        return rses().gl("framebuffer is incomplete");
+
+    if (es = fbuf.init(width, height)) {
+        return es;
     }
-    
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     // uniform buffer
-    glGenBuffers(1, &world_state.ubo);
-    glBindBuffer(GL_UNIFORM_BUFFER, world_state.ubo);
-    glBufferData(GL_UNIFORM_BUFFER, 208, nullptr, GL_STATIC_DRAW);
-    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    glCreateBuffers(1, &world_state.ubo);
+    glNamedBufferStorage(world_state.ubo, 208, nullptr, GL_DYNAMIC_STORAGE_BIT);
     glBindBufferBase(GL_UNIFORM_BUFFER, 2, world_state.ubo);
 
     // omnidirectional shadow map
@@ -284,10 +326,9 @@ void WindowGLFW::update() {
         }
 
         glCullFace(GL_BACK);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         // render pass ================================================================================================
-        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        glBindFramebuffer(GL_FRAMEBUFFER, fbuf.frame_buf);
         glViewport(0, 0, width, height);
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
@@ -300,21 +341,19 @@ void WindowGLFW::update() {
         glm::mat4 view = camera.view();
 
         // update ubo state
-        glBindBuffer(GL_UNIFORM_BUFFER, world_state.ubo);
-        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::mat4), glm::value_ptr(projection));
-        glBufferSubData(GL_UNIFORM_BUFFER, 128, 16, glm::value_ptr(camera.position));
-        glBufferSubData(GL_UNIFORM_BUFFER, 144, 16, glm::value_ptr(world_state.dir_light.direction));
-        glBufferSubData(GL_UNIFORM_BUFFER, 160, 16, glm::value_ptr(world_state.dir_light.ambient));
-        glBufferSubData(GL_UNIFORM_BUFFER, 176, 16, glm::value_ptr(world_state.dir_light.diffuse));
-        glBufferSubData(GL_UNIFORM_BUFFER, 192, 16, glm::value_ptr(world_state.dir_light.specular));
+        glNamedBufferSubData(world_state.ubo, 0, sizeof(glm::mat4), glm::value_ptr(projection));
+        glNamedBufferSubData(world_state.ubo, 128, 16, glm::value_ptr(camera.position));
+        glNamedBufferSubData(world_state.ubo, 144, 16, glm::value_ptr(world_state.dir_light.direction));
+        glNamedBufferSubData(world_state.ubo, 160, 16, glm::value_ptr(world_state.dir_light.ambient));
+        glNamedBufferSubData(world_state.ubo, 176, 16, glm::value_ptr(world_state.dir_light.diffuse));
+        glNamedBufferSubData(world_state.ubo, 192, 16, glm::value_ptr(world_state.dir_light.specular));
 
         // draw calls
         glm::mat4 static_view = view;
-        static_view[3] = glm::vec4(0, 0, 0, 1); // removing translation component
-        glBufferSubData(GL_UNIFORM_BUFFER, 64, sizeof(glm::mat4), glm::value_ptr(static_view));
+        static_view[3] = { 0, 0, 0, 1 }; // removing translation component
+        glNamedBufferSubData(world_state.ubo, 64, sizeof(glm::mat4), glm::value_ptr(static_view));
         world_state.sky_box.draw(shaders["skybox"], world_state);
-        glBufferSubData(GL_UNIFORM_BUFFER, 64, sizeof(glm::mat4), glm::value_ptr(view));
-        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+        glNamedBufferSubData(world_state.ubo, 64, sizeof(glm::mat4), glm::value_ptr(view));
 
         shaders["object"].set_float("gamma_co", gamma);
         shaders["object"].set_float("bias", world_state.shadow.bias);
@@ -341,12 +380,13 @@ void WindowGLFW::update() {
 
         // render the frame buffer to imgui
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glViewport(0, 0, width, height);
 
+        glViewport(0, 0, width, height);
         glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         glDisable(GL_DEPTH_TEST);
-        glBindTexture(GL_TEXTURE_2D, fbo_tex->id);
+
+        fbuf.draw(shaders["hdr"]);
 
         gui::imgui(*this);
         ImGui::Render();
@@ -365,8 +405,6 @@ void WindowGLFW::update() {
 };
 
 void WindowGLFW::destroy() {
-    glDeleteBuffers(1, &fbo);
-    glDeleteBuffers(1, &rbo);
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();

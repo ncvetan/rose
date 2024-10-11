@@ -175,14 +175,17 @@ std::optional<TextureRef> TextureManager::load_cubemap(const std::vector<fs::pat
     return TextureRef(&loaded_textures[texture.id].texture, this);
 }
 
-std::optional<TextureRef> TextureManager::generate_texture(int w, int h) {
+std::optional<TextureRef> TextureManager::generate_texture(int w, int h, GLenum intern_format, GLenum format, GLenum type) {
+    
     TextureGL texture = { 0, TextureType::INTERNAL };
-    glGenTextures(1, &texture.id);
-    glBindTexture(GL_TEXTURE_2D, texture.id);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    
+    glCreateTextures(GL_TEXTURE_2D, 1, &texture.id);
+    
+    glTextureParameteri(texture.id, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(texture.id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glTextureStorage2D(texture.id, 1, intern_format, w, h);
+    glTextureSubImage2D(texture.id, 0, 0, 0, w, h, format, type, nullptr);
 
     loaded_textures[texture.id] = { texture, 1 };
     return TextureRef(&loaded_textures[texture.id].texture, this);

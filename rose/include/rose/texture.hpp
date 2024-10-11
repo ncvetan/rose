@@ -35,10 +35,12 @@ struct TextureCtx {
 
 struct TextureRef;
 
+// This class manages textures within the program. It can provide references to textures that will be used
+// perform shared memory management
 struct TextureManager {
     std::expected<TextureRef, rses> load_texture(const fs::path& path, TextureType ty);
     std::optional<TextureRef> load_cubemap(const std::vector<fs::path>& paths);
-    std::optional<TextureRef> generate_texture(int w, int h);
+    std::optional<TextureRef> generate_texture(int w, int h, GLenum intern_format, GLenum format, GLenum type);
     std::optional<TextureRef> generate_cubemap(int w, int h);
     std::optional<TextureRef> get_ref(const fs::path& path);
     std::optional<TextureRef> get_ref(u32 id);
@@ -47,6 +49,7 @@ struct TextureManager {
     std::unordered_map<fs::path, u32> textures_index;
 };
 
+// reference to a texture, will reduce reference count on destruction
 struct TextureRef {
     TextureRef() = default;
     TextureRef(TextureGL* ref, TextureManager* manager);

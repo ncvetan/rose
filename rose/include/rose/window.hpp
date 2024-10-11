@@ -17,11 +17,37 @@
 
 namespace rose {
 
+struct FrameBuf {
+    
+    struct Vertex {
+        glm::vec3 pos;
+        glm::vec2 tex;
+    };
+    
+    ~FrameBuf();
+
+    u32 frame_buf = 0;
+    u32 render_buf = 0;
+    u32 color_buf = 0;
+
+    u32 vertex_arr = 0;
+    u32 vertex_buf = 0;
+
+    std::vector<Vertex> verts = {
+        { { 1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },   { { -1.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } },
+        { { -1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } }, { { 1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
+        { { -1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } }, { { 1.0f, -1.0f, 0.0f }, { 1.0f, 0.0f } }
+    };
+
+    [[nodiscard]] std::optional<rses> init(int w, int h);
+    void draw(ShaderGL& shader);
+};
+
 class WindowGLFW {
   public:
     WindowGLFW() = default;
 
-    std::optional<rses> init();
+    [[nodiscard]] std::optional<rses> init();
     void enable_vsync(bool enable);
     void update();
     void destroy();
@@ -37,9 +63,8 @@ class WindowGLFW {
     std::vector<Object<TexturedCube>> tex_cubes;
     std::vector<Object<Cube>> pnt_lights;
 
-    u32 fbo = 0;
-    u32 rbo = 0;
-    TextureRef fbo_tex;
+    FrameBuf fbuf;
+
     u16 width = 1920;
     u16 height = 1080;
     ImGuiID dock_id = 0;
