@@ -26,6 +26,9 @@ struct FrameBuf {
     
     ~FrameBuf();
 
+    [[nodiscard]] std::optional<rses> init(int w, int h, GLenum intern_format, GLenum format, GLenum type);
+    void draw(ShaderGL& shader, const GlobalState& state);
+
     u32 frame_buf = 0;
     u32 render_buf = 0;
     u32 color_buf = 0;
@@ -39,8 +42,6 @@ struct FrameBuf {
         { { -1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } }, { { 1.0f, -1.0f, 0.0f }, { 1.0f, 0.0f } }
     };
 
-    [[nodiscard]] std::optional<rses> init(int w, int h);
-    void draw(ShaderGL& shader);
 };
 
 class WindowGLFW {
@@ -64,13 +65,13 @@ class WindowGLFW {
     std::vector<Object<Cube>> pnt_lights;
 
     FrameBuf fbuf;
+    FrameBuf fbuf_out;
 
     u16 width = 1920;
     u16 height = 1080;
     ImGuiID dock_id = 0;
     std::string name = "Rose";
     glm::vec2 last_xy;
-    float gamma = 2.2;
 
     vec2f mouse_xy;
     Rectf vp_rect;

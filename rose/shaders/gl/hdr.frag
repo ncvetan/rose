@@ -8,20 +8,19 @@ in vs_data {
 
 out vec4 frag_color;
 
-uniform sampler2D tex;
+uniform sampler2D color_buf;
 uniform float exposure;
+uniform float gamma;
 
 void main() {
 	
-	const float gamma = 2.2;
+	vec3 hdr_color = texture(color_buf, fs_in.tex_coords).rgb;
+
+	// tone mapping
+	vec3 mapped_color = vec3(1.0) - exp(-hdr_color * exposure);
 	
-	vec3 hdr_color = texture(tex, fs_in.tex_coords).rgb;
-
-	// reinhard tone mapping
-	vec3 mapped_color = hdr_color / (hdr_color + vec3(1.0));
-
 	// gamma correction
 	mapped_color = pow(mapped_color, vec3(1.0 / gamma));
-
+	
 	frag_color = vec4(mapped_color, 1.0);
 }

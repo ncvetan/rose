@@ -6,6 +6,7 @@ in vs_data {
 	vec3 normal;
 	vec3 view_pos_ts;
 	vec3 light_pos_ts;
+	vec3 light_pos_ts2;
 	vec2 tex_coords;
 } fs_in;
 
@@ -37,20 +38,19 @@ struct PointLight {
 	vec3 diffuse;
 	vec3 specular;
 	float attn_const;
-	float attn_lin;
-	float attn_quad;
 };
 
 #define N_MATS 1			// todo: variable support
 uniform Material materials[N_MATS];
 
-#define N_POINT_LIGHTS 1	// todo: variable support
+#define N_POINT_LIGHTS 2	// todo: variable support
 uniform PointLight point_lights[N_POINT_LIGHTS];
 
 uniform samplerCube shadow_map;
-uniform float gamma_co;
 uniform float bias;
 uniform float far_plane;
+uniform float gamma;
+uniform float exposure;
 
 out vec4 frag_color;
 
@@ -126,7 +126,7 @@ vec3 calc_dir_light(DirLight light, vec3 frag_pos, vec2 tex_coords, vec3 normal)
 	return (ambient_rgb + diffuse_rgb + specular_rgb);
 }
 
-vec3 calc_point_light(PointLight light, vec3 frag_pos, vec2 tex_coords, vec3 normal) {
+vec3 calc_point_light(PointLight light, vec3 light_pos, vec3 frag_pos, vec2 tex_coords, vec3 normal) {
 	// ambient
 	vec3 ambient_rgb = vec3(0.0);
 	for (int i = 0; i < N_MATS; ++i){
@@ -136,7 +136,7 @@ vec3 calc_point_light(PointLight light, vec3 frag_pos, vec2 tex_coords, vec3 nor
 
 	// diffuse
 	// TODO: Temporarily using tangest space light pos here, change to support multiple lights
-	vec3 light_dir = normalize(fs_in.light_pos_ts - frag_pos);
+	vec3 light_dir = normalize(light_pos - frag_pos);
 	vec3 diffuse_rgb = vec3(0.0);
 	float diffuse_strength = max(dot(light_dir, normal), 0.0);
 	for (int i = 0; i < N_MATS; ++i) {
@@ -154,8 +154,8 @@ vec3 calc_point_light(PointLight light, vec3 frag_pos, vec2 tex_coords, vec3 nor
 	}
 	specular_rgb *= light.specular;
 
-	float d = length(fs_in.light_pos_ts - frag_pos);
-	float attenuation = 1.0 / (1.0 + d * d);
+	float d = length(light_pos - frag_pos);
+	float attenuation = 1.0 / (1.0 + light.attn_const * d * d);
 	float shadow = calc_point_shadow(fs_in.frag_pos_ws, point_lights[0].pos, shadow_map, far_plane);
 
 	return vec3(ambient_rgb + (1.0 - shadow) * (diffuse_rgb + specular_rgb)) * attenuation;
@@ -178,11 +178,12 @@ void main() {
 	normal = normalize(normal * 2.0 - 1.0);
 
 	vec3 result = calc_dir_light(dir_light, fs_in.frag_pos_ts, tex_coords, normal);
-	
-	for (int i = 0; i < N_POINT_LIGHTS; ++i) {
-		result += calc_point_light(point_lights[i], fs_in.frag_pos_ts, tex_coords, normal);
-	}
 
-	result = pow(result, vec3(1.0 / gamma_co));  // gamma correction
+	// Todo: reimplement multiple light support to work with normal mapping	
+	//	for (int i = 0; i < N_POINT_LIGHTS; ++i) {
+	//	}
+	result += calc_point_light(point_lights[0], fs_in.light_pos_ts, fs_in.frag_pos_ts, tex_coords, normal);
+	result += calc_point_light(point_lights[1], fs_in.light_pos_ts2, fs_in.frag_pos_ts, tex_coords, normal);
+
 	frag_color = vec4(result, 1.0);
 }

@@ -17,13 +17,13 @@
 
 namespace rose {
 
-std::optional<rses> FrameBuf::init(int w, int h) {
+std::optional<rses> FrameBuf::init(int w, int h, GLenum intern_format, GLenum format, GLenum type) {
     
     glCreateFramebuffers(1, &frame_buf);
 
     glCreateTextures(GL_TEXTURE_2D, 1, &color_buf);
-    glTextureStorage2D(color_buf, 1, GL_RGBA8, w, h);
-    glTextureSubImage2D(color_buf, 0, 0, 0, w, h, GL_RGBA16F, GL_FLOAT, nullptr);
+    glTextureStorage2D(color_buf, 1, intern_format, w, h);
+    glTextureSubImage2D(color_buf, 0, 0, 0, w, h, format, type, nullptr);
     glTextureParameteri(color_buf, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTextureParameteri(color_buf, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
@@ -54,16 +54,9 @@ std::optional<rses> FrameBuf::init(int w, int h) {
     return std::nullopt;
 }
 
-void FrameBuf::draw(ShaderGL& shader) { 
+void FrameBuf::draw(ShaderGL& shader, const GlobalState& state) { 
     shader.use();
-
     glBindVertexArray(vertex_arr);
-    glBindTextureUnit(0, color_buf);
-
-    float exposure = 1.0;
-    shader.set_float("exposure", exposure);
-    shader.set_int("tex", 0);
-
     glDrawArrays(GL_TRIANGLES, 0, verts.size());
 }
 
@@ -227,17 +220,26 @@ std::optional<rses> WindowGLFW::init() {
     //}
 
     // point lights
-    pnt_lights.push_back(Object<Cube>({ 0.0f, 0.0f, 19.5f }, { 1.0f, 1.0f, 1.0f }, (u8)ObjectFlags::EMIT_LIGHT));
+    pnt_lights.push_back(Object<Cube>({ 0.0f, 0.0f, 24.5f }, { 1.0f, 1.0f, 1.0f }, (u8)ObjectFlags::EMIT_LIGHT));
     pnt_lights.back().model.init();
-    pnt_lights.back().light_props.ambient = { 200.0f, 200.0f, 200.0f };
+    pnt_lights.back().light_props.ambient = { 100.0f, 100.0f, 100.0f };
     pnt_lights.back().light_props.diffuse = { 0.3f, 0.3f, 0.3f };
     pnt_lights.back().light_props.specular = { 0.0f, 0.0f, 0.0f };
 
+    pnt_lights.push_back(Object<Cube>({ 0.0f, 0.0f, 2.5f }, { 1.0f, 1.0f, 1.0f }, (u8)ObjectFlags::EMIT_LIGHT));
+    pnt_lights.back().model.init();
+    pnt_lights.back().light_props.ambient = { 0.1f, 0.0f, 0.0f };
+    pnt_lights.back().light_props.diffuse = { 0.1f, 0.0f, 0.0f };
+    pnt_lights.back().light_props.specular = { 0.1f, 0.0f, 0.0f };
 
-    if (es = fbuf.init(width, height)) {
+    if (es = fbuf.init(width, height, GL_RGBA16F, GL_RGBA8, GL_FLOAT)) {
         return es;
     }
 
+    if (es = fbuf_out.init(width, height, GL_RGBA8, GL_RGBA8, GL_UNSIGNED_BYTE)) {
+        return es;
+    }
+    
     // uniform buffer
     glCreateBuffers(1, &world_state.ubo);
     glNamedBufferStorage(world_state.ubo, 208, nullptr, GL_DYNAMIC_STORAGE_BIT);
@@ -272,9 +274,17 @@ void WindowGLFW::update() {
 
     // shader state that doesn't change between frames
     shaders["shadow"].set_float("far_plane", camera.far_plane);
-    shaders["object"].set_float("far_plane", camera.far_plane);
+    shaders["object"].set_float("far_plane", camera.far_plane);    
+    shaders["object"].set_float("gamma", world_state.gamma);
+    
+    // todo: remove this
+    world_state.dir_light.ambient = {};
+    world_state.dir_light.diffuse = {};
+    world_state.dir_light.specular = {};
 
     while (!glfwWindowShouldClose(window)) {
+
+        shaders["object"].set_float("exposure", world_state.exposure);
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
@@ -355,7 +365,6 @@ void WindowGLFW::update() {
         world_state.sky_box.draw(shaders["skybox"], world_state);
         glNamedBufferSubData(world_state.ubo, 64, sizeof(glm::mat4), glm::value_ptr(view));
 
-        shaders["object"].set_float("gamma_co", gamma);
         shaders["object"].set_float("bias", world_state.shadow.bias);
 
         for (int i = 0; auto& light : pnt_lights) {
@@ -368,6 +377,7 @@ void WindowGLFW::update() {
             shaders["object"].set_vec3(std::format("point_lights[{}].ambient", i), light.light_props.ambient);
             shaders["object"].set_vec3(std::format("point_lights[{}].diffuse", i), light.light_props.diffuse);
             shaders["object"].set_vec3(std::format("point_lights[{}].specular", i), light.light_props.specular);
+            shaders["object"].set_float(std::format("point_lights[{}].attn_const", i), light.light_props.attenuation);
             ++i;
         }
 
@@ -378,16 +388,18 @@ void WindowGLFW::update() {
             cube.model.reset();
         }
 
-        // render the frame buffer to imgui
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-        glViewport(0, 0, width, height);
-        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glBindFramebuffer(GL_FRAMEBUFFER, fbuf_out.frame_buf);
+        glClear(GL_DEPTH_BUFFER_BIT);
         glDisable(GL_DEPTH_TEST);
 
-        fbuf.draw(shaders["hdr"]);
+        glBindTextureUnit(1, fbuf.color_buf);
+        shaders["hdr"].set_float("gamma", world_state.gamma);
+        shaders["hdr"].set_float("exposure", world_state.exposure);
+        shaders["hdr"].set_int("color_buf", 1);
+        fbuf_out.draw(shaders["hdr"], world_state);
 
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        
         gui::imgui(*this);
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

@@ -26,6 +26,15 @@ Some features that Rose supports includes...
 - Phong illumination
 - Skyboxes
 - Shadow maps
+- normal & parallax mapping
+- HDR
+
+## Todo
+
+Some known bugs as well as future features...
+
+- fix GUI bugs, especially within the viewport window
+- automatic exposure adjustment
 
 ## Resources
 

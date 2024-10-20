@@ -19,6 +19,7 @@ struct PointLight {
     glm::vec3 ambient = { 0.02f, 0.02f, 0.02f };
     glm::vec3 diffuse = { 0.05f, 0.05f, 0.05f };
     glm::vec3 specular = { 0.2f, 0.2f, 0.2f };
+    float attenuation = 1.0f;
 };
 
 // TODO: This probably shouldn't be here but I'm not sure where I want to put it yet
@@ -26,6 +27,8 @@ struct GlobalState {
     SkyBox sky_box;
     DirLight dir_light;
     u32 ubo;
+    float gamma = 2.2f;
+    float exposure = 1.0f;
 
     struct ShadowCtx {
         u32 fbo = 0;
