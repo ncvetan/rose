@@ -28,6 +28,12 @@ void imgui(WindowGLFW& state) {
     ImGui::Text("global controls");
     ImGui::Separator();
     ImGui::SliderFloat("exposure", &state.world_state.exposure, 0.1f, 5.0f);
+    ImGui::Checkbox("enable bloom", &state.world_state.bloom);
+
+    ImGui::BeginDisabled(!state.world_state.bloom);
+    ImGui::SliderInt("num passes", &state.world_state.n_bloom_passes, 1, 10);
+    ImGui::EndDisabled();
+
     ImGui::SeparatorText("global light");
     if (ImGui::SliderAngle("angle", &dir_angle, 0.0f, 180.0f)) {
         state.world_state.dir_light.direction.y = -std::sin(dir_angle) * 1.0f;
@@ -46,8 +52,8 @@ void imgui(WindowGLFW& state) {
                 ImGui::ColorEdit3("ambient", glm::value_ptr(state.pnt_lights[i].light_props.ambient));
                 ImGui::ColorEdit3("diffuse", glm::value_ptr(state.pnt_lights[i].light_props.diffuse));
                 ImGui::ColorEdit3("specular", glm::value_ptr(state.pnt_lights[i].light_props.specular));
-                ImGui::ColorEdit3("specular", glm::value_ptr(state.pnt_lights[i].light_props.specular));
                 ImGui::SliderFloat("attenuation", &state.pnt_lights[i].light_props.attenuation, 0.1f, 10.0f);
+                ImGui::SliderFloat("intensity", &state.pnt_lights[i].light_props.intensity, 1.0f, 10.0f);
                 ImGui::TreePop();
             }
         }
@@ -71,7 +77,8 @@ void imgui(WindowGLFW& state) {
     ImGui::SetCursorPos({ offset_x, offset_y });
 
     // resize the image based on the size of the viewport
-    ImGui::Image((void*)state.fbuf_out.color_buf, { scale * (float)state.width, scale * (float)state.height }, { 0, 1 }, { 1, 0 });
+    ImGui::Image((void*)state.fbuf_out.tex_bufs[0], { scale * (float)state.width, scale * (float)state.height },
+                 { 0, 1 }, { 1, 0 });
     ImGui::End();
 
     // setting an initial docking layout

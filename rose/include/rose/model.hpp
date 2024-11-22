@@ -49,7 +49,7 @@ struct Mesh {
     };
 
     Mesh() = delete;
-    Mesh(std::vector<Vertex> verts, std::vector<u32> indices, std::vector<TextureRef> textures);
+    Mesh(const std::vector<Vertex>& verts, const std::vector<u32>& indices, const std::vector<TextureRef>& textures);
     Mesh(const Mesh& other) = delete;
     Mesh(Mesh&& other) noexcept;
     ~Mesh();

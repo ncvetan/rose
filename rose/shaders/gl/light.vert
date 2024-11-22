@@ -1,5 +1,7 @@
 #version 460 core
-layout (location = 0) in vec3 a_pos;
+
+layout (location = 0) in vec3 pos;
+layout (location = 1) in vec3 norm;
 
 struct DirLight {
 	vec3 direction;
@@ -19,5 +21,5 @@ layout (std140, binding = 2) uniform globals
 uniform mat4 model;
 
 void main() {
-	gl_Position = projection * view * model * vec4(a_pos, 1.0);
+	gl_Position = projection * view * model * vec4(pos, 1.0);
 }

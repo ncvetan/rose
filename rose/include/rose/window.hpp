@@ -17,6 +17,12 @@
 
 namespace rose {
 
+struct FrameBufTexCtx {
+    GLenum intern_format = 0;
+    GLenum format = 0;
+    GLenum type = 0;
+};
+
 struct FrameBuf {
     
     struct Vertex {
@@ -26,12 +32,13 @@ struct FrameBuf {
     
     ~FrameBuf();
 
-    [[nodiscard]] std::optional<rses> init(int w, int h, GLenum intern_format, GLenum format, GLenum type);
+    [[nodiscard]] std::optional<rses> init(int w, int h, const std::vector<FrameBufTexCtx>& texs);
     void draw(ShaderGL& shader, const GlobalState& state);
 
     u32 frame_buf = 0;
     u32 render_buf = 0;
-    u32 color_buf = 0;
+    std::vector<u32> tex_bufs;
+    std::vector<GLenum> attachments;
 
     u32 vertex_arr = 0;
     u32 vertex_buf = 0;
@@ -64,7 +71,9 @@ class WindowGLFW {
     std::vector<Object<TexturedCube>> tex_cubes;
     std::vector<Object<Cube>> pnt_lights;
 
-    FrameBuf fbuf;
+    FrameBuf gbuf;
+    FrameBuf pp1;
+    FrameBuf pp2;
     FrameBuf fbuf_out;
 
     u16 width = 1920;

@@ -20,6 +20,7 @@ struct PointLight {
     glm::vec3 diffuse = { 0.05f, 0.05f, 0.05f };
     glm::vec3 specular = { 0.2f, 0.2f, 0.2f };
     float attenuation = 1.0f;
+    float intensity = 1.0f;
 };
 
 // TODO: This probably shouldn't be here but I'm not sure where I want to put it yet
@@ -29,6 +30,9 @@ struct GlobalState {
     u32 ubo;
     float gamma = 2.2f;
     float exposure = 1.0f;
+
+    bool bloom = true;
+    int n_bloom_passes = 5;
 
     struct ShadowCtx {
         u32 fbo = 0;

@@ -23,7 +23,7 @@ static u32 gen_id() {
     return tmp;
 }
 
-Mesh::Mesh(std::vector<Vertex> verts, std::vector<u32> indices, std::vector<TextureRef> textures)
+Mesh::Mesh(const std::vector<Vertex>& verts, const std::vector<u32>& indices, const std::vector<TextureRef>& textures)
     : verts(verts), indices(indices), textures(textures) {}
 
 Mesh::Mesh(Mesh&& other) noexcept {
@@ -46,7 +46,7 @@ Mesh& Mesh::operator=(Mesh&& other) noexcept {
 }
 
 void Mesh::init() {
-    // todo: convert to direct state access
+    // TODO: convert to direct state access
     
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
@@ -103,7 +103,6 @@ void Mesh::draw(ShaderGL& shader, const GlobalState& state) const {
             disp_n++;
             break;
         default:
-            assert(false);
             break;
         }
         glBindTexture(GL_TEXTURE_2D, textures[tex_unit].ref->id);
@@ -124,6 +123,7 @@ Mesh::~Mesh() {
 void Model::draw(ShaderGL& shader, const GlobalState& state) const {
     shader.use();
     shader.set_mat4("model", model_mat);
+
     for (auto& mesh : meshes) {
         mesh.draw(shader, state);
     }
@@ -144,12 +144,19 @@ static std::vector<TextureRef> load_mat_textures(TextureManager& manager, aiMate
         switch (ty) {
         case aiTextureType_DIFFUSE:
             texture = manager.load_texture(texture_path, TextureType::DIFFUSE);
+            textures.push_back(texture.value());
             break;
         case aiTextureType_SPECULAR:
             texture = manager.load_texture(texture_path, TextureType::SPECULAR);
+            textures.push_back(texture.value());
             break;
         case aiTextureType_HEIGHT:
             texture = manager.load_texture(texture_path, TextureType::NORMAL);
+            textures.push_back(texture.value());
+            break;
+        case aiTextureType_DISPLACEMENT:
+            texture = manager.load_texture(texture_path, TextureType::DISPLACE);
+            textures.push_back(texture.value());
             break;
         }
         if (!texture.has_value()) {
@@ -157,7 +164,6 @@ static std::vector<TextureRef> load_mat_textures(TextureManager& manager, aiMate
             continue;        
         }
         
-        textures.push_back(texture.value());
     }
     return textures;
 }
@@ -198,7 +204,8 @@ static void process_assimp_node(TextureManager& manager, aiNode* ai_node, const 
             std::vector<TextureRef> diff_maps = load_mat_textures(manager, material, aiTextureType_DIFFUSE, root_path);
             std::vector<TextureRef> spec_maps = load_mat_textures(manager, material, aiTextureType_SPECULAR, root_path);
             std::vector<TextureRef> norm_maps = load_mat_textures(manager, material, aiTextureType_HEIGHT, root_path);
-            textures.reserve(diff_maps.size() + spec_maps.size() + norm_maps.size());
+            std::vector<TextureRef> disp_maps = load_mat_textures(manager, material, aiTextureType_DISPLACEMENT, root_path);
+            textures.reserve(diff_maps.size() + spec_maps.size() + norm_maps.size() + disp_maps.size());
 
             textures.insert(textures.end(), std::make_move_iterator(diff_maps.begin()),
                             std::make_move_iterator(diff_maps.end()));
@@ -206,6 +213,8 @@ static void process_assimp_node(TextureManager& manager, aiNode* ai_node, const 
                             std::make_move_iterator(spec_maps.end()));
             textures.insert(textures.end(), std::make_move_iterator(norm_maps.begin()),
                             std::make_move_iterator(norm_maps.end()));
+            textures.insert(textures.end(), std::make_move_iterator(disp_maps.begin()),
+                            std::make_move_iterator(disp_maps.end()));
         }
 
         Mesh mesh = { verts, indices, textures };
@@ -222,7 +231,7 @@ std::optional<rses> Model::load(TextureManager& manager, const fs::path& path) {
 
     // note: for dx12 this will need the aiProcess_MakeLeftHanded flag set
     const aiScene* scene =
-        import.ReadFile(path.generic_string(), aiProcess_GenNormals | aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
+        import.ReadFile(path.generic_string(), aiProcess_GenNormals | aiProcess_Triangulate | aiProcess_CalcTangentSpace);
 
     fs::path root_path = path.parent_path();
 

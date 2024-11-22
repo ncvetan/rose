@@ -38,6 +38,7 @@ struct PointLight {
 	vec3 diffuse;
 	vec3 specular;
 	float attn_const;
+	float intensity;
 };
 
 #define N_MATS 1			// todo: variable support
@@ -52,7 +53,8 @@ uniform float far_plane;
 uniform float gamma;
 uniform float exposure;
 
-out vec4 frag_color;
+layout (location = 0) out vec4 frag_color;
+layout (location = 1) out vec4 brightness_color;
 
 vec2 parallax_mapping(vec3 view_dir, float num_layers, sampler2D displace_map) { 
 	
@@ -115,13 +117,16 @@ vec3 calc_dir_light(DirLight light, vec3 frag_pos, vec2 tex_coords, vec3 normal)
 	
 	// specular
 	vec3 specular_rgb = vec3(0.0);
-	vec3 view_dir = normalize(fs_in.view_pos_ts - frag_pos);
-	vec3 half_dir = normalize(light.direction + view_dir);
-	for (int i = 0; i < N_MATS; ++i) {
-		float specular_strength = pow(max(dot(view_dir, half_dir), 0.0), materials[i].shine);
-		specular_rgb += texture(materials[i].specular_map, tex_coords).rgb * specular_strength;
+
+	if (diffuse_strength != 0.0) {
+		vec3 view_dir = normalize(fs_in.view_pos_ts - frag_pos);
+		vec3 half_dir = normalize(light.direction + view_dir);
+		for (int i = 0; i < N_MATS; ++i) {
+			float specular_strength = pow(max(dot(view_dir, half_dir), 0.0), materials[i].shine);
+			specular_rgb += texture(materials[i].specular_map, tex_coords).rgb * specular_strength;
+		}
+		specular_rgb *= light.specular;
 	}
-	specular_rgb *= light.specular;
 
 	return (ambient_rgb + diffuse_rgb + specular_rgb);
 }
@@ -146,19 +151,21 @@ vec3 calc_point_light(PointLight light, vec3 light_pos, vec3 frag_pos, vec2 tex_
 
 	// specular
 	vec3 specular_rgb = vec3(0.0);
-	vec3 view_dir = normalize(fs_in.view_pos_ts - frag_pos);
-	vec3 half_dir = normalize(light_dir + view_dir);
-	for (int i = 0; i < N_MATS; ++i) {
-		float specular_strength = pow(max(dot(view_dir, half_dir), 0.0), materials[i].shine);
-		specular_rgb += texture(materials[i].specular_map, tex_coords).rgb * specular_strength;
+	if (diffuse_strength != 0.0) {
+		vec3 view_dir = normalize(fs_in.view_pos_ts - frag_pos);
+		vec3 half_dir = normalize(light_dir + view_dir);
+		for (int i = 0; i < N_MATS; ++i) {
+			float specular_strength = pow(max(dot(view_dir, half_dir), 0.0), materials[i].shine);
+			specular_rgb += texture(materials[i].specular_map, tex_coords).rgb * specular_strength;
+		}
+		specular_rgb *= light.specular;
 	}
-	specular_rgb *= light.specular;
 
 	float d = length(light_pos - frag_pos);
 	float attenuation = 1.0 / (1.0 + light.attn_const * d * d);
 	float shadow = calc_point_shadow(fs_in.frag_pos_ws, point_lights[0].pos, shadow_map, far_plane);
 
-	return vec3(ambient_rgb + (1.0 - shadow) * (diffuse_rgb + specular_rgb)) * attenuation;
+	return vec3(ambient_rgb + (1.0 - shadow) * (diffuse_rgb + specular_rgb)) * attenuation * light.intensity;
 }
 
 void main() {
@@ -186,4 +193,13 @@ void main() {
 	result += calc_point_light(point_lights[1], fs_in.light_pos_ts2, fs_in.frag_pos_ts, tex_coords, normal);
 
 	frag_color = vec4(result, 1.0);
+
+	float brightness = dot(frag_color.rgb, vec3(0.2126, 0.7152, 0.0722));	// rgb -> luminance
+
+	if (brightness > 1.0) {
+		brightness_color = vec4(frag_color.rgb, 0.0);
+	}
+	else {
+		brightness_color = vec4(0.0, 0.0, 0.0, 0.0);
+	}
 }
