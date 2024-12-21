@@ -9,7 +9,7 @@
 
 namespace rose {
 
-std::optional<rses> ShaderGL::init(const std::vector<ShaderInfo>& shaders_info) {
+std::optional<rses> ShaderGL::init(const std::vector<ShaderCtx>& shaders_info) {
     
     int success = 0;
     char info_log[512];
@@ -105,6 +105,10 @@ void ShaderGL::set_float(const std::string& name, float value) const {
 
 void ShaderGL::set_mat4(const std::string& name, const glm::mat4& value) const {
     glProgramUniformMatrix4fv(prg, glGetUniformLocation(prg, name.c_str()), 1, GL_FALSE, glm::value_ptr(value));
+}
+
+void ShaderGL::set_vec2(const std::string& name, const glm::vec2& value) const {
+    glProgramUniform2f(prg, glGetUniformLocation(prg, name.c_str()), value.x, value.y);
 }
 
 void ShaderGL::set_vec3(const std::string& name, const glm::vec3& value) const {

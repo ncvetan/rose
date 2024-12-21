@@ -25,9 +25,11 @@ Some features that Rose supports includes...
 
 - Phong illumination
 - Skyboxes
-- Shadow maps
+- Shadow mapping
 - normal & parallax mapping
 - HDR
+
+Rose uses a mix of deferred and forward rendering techniques
 
 ## Todo
 

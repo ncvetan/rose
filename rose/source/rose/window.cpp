@@ -17,7 +17,6 @@
 
 namespace rose {
 
-
 std::optional<rses> FrameBuf::init(int w, int h, const std::vector<FrameBufTexCtx>& texs) {
     
     glCreateFramebuffers(1, &frame_buf);
@@ -37,8 +36,8 @@ std::optional<rses> FrameBuf::init(int w, int h, const std::vector<FrameBufTexCt
         attachments[i] = GL_COLOR_ATTACHMENT0 + i;
     }
 
+    // todo (nc): make having a depth buf optional, unnecessary memory alloc
     glCreateRenderbuffers(1, &render_buf);
-    // TODO: Customization options here -> make optional, type of buffer
     glNamedRenderbufferStorage(render_buf, GL_DEPTH24_STENCIL8, w, h);
     glNamedFramebufferRenderbuffer(frame_buf, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, render_buf);
 
@@ -173,6 +172,8 @@ std::optional<rses> WindowGLFW::init() {
         return err.value().general("Unable to initialize GLEW and OpenGL");
     }
 
+    // todo (nc): computing a hash on every shader reference is extremely dumb and needs to be changed.
+    // it is temporary for ease-of-use
     if (err = shaders["skybox"].init({ { SOURCE_DIR "/rose/shaders/gl/skybox.vert", GL_VERTEX_SHADER },
                                        { SOURCE_DIR "/rose/shaders/gl/skybox.frag", GL_FRAGMENT_SHADER } })) {
         err::print(*err);
@@ -206,6 +207,12 @@ std::optional<rses> WindowGLFW::init() {
                                          { SOURCE_DIR "/rose/shaders/gl/lighting.frag", GL_FRAGMENT_SHADER } })) {
         err::print(*err);
     }
+    if (err = shaders["clusters_aabb"].init({ { SOURCE_DIR "/rose/shaders/gl/compute/clustered.comp", GL_COMPUTE_SHADER } })) {
+        err::print(*err);
+    }
+    if (err = shaders["clusters_cull"].init({ { SOURCE_DIR "/rose/shaders/gl/compute/light_cull.comp", GL_COMPUTE_SHADER } })) {
+        err::print(*err);
+    }
 
     // skybox
     world_state.sky_box.init();
@@ -218,7 +225,17 @@ std::optional<rses> WindowGLFW::init() {
 
     tex_cubes.push_back(Object<TexturedCube>({ 0.0f, 0.0f, 0.0f }, { 2.0f, 2.0f, 2.0f }));
     tex_cubes.back().model.init();
-    if (err = tex_cubes.back().model.load(texture_manager, SOURCE_DIR "/assets/texture4_diffuse.jpg", SOURCE_DIR "/assets/texture4_spec.jpg", SOURCE_DIR "/assets/texture4_normal.jpg", SOURCE_DIR "/assets/texture4_displace.jpg")) {
+    if (err = tex_cubes.back().model.load(
+            texture_manager, SOURCE_DIR "/assets/texture4_diffuse.jpg", SOURCE_DIR "/assets/texture4_spec.jpg", 
+                             SOURCE_DIR "/assets/texture4_normal.jpg", SOURCE_DIR "/assets/texture4_displace.jpg")) {
+        err::print(*err);
+    }
+
+    tex_cubes.push_back(Object<TexturedCube>({ 0.0f, -5.0f, 0.0f }, { 20.0f, 2.0f, 20.0f }));
+    tex_cubes.back().model.init();
+    if (err = tex_cubes.back().model.load(
+            texture_manager, SOURCE_DIR "/assets/texture4_diffuse.jpg", SOURCE_DIR "/assets/texture4_spec.jpg",
+                             SOURCE_DIR "/assets/texture4_normal.jpg", SOURCE_DIR "/assets/texture4_displace.jpg")) {
         err::print(*err);
     }
 
@@ -232,17 +249,13 @@ std::optional<rses> WindowGLFW::init() {
     }
 
     // point lights
-    pnt_lights.push_back(Object<Cube>({ 0.0f, 0.0f, 24.5f }, { 1.0f, 1.0f, 1.0f }, (u8)ObjectFlags::EMIT_LIGHT));
+    pnt_lights.push_back(Object<Cube>({ 0.0f, 3.0f, 0.0f }, { 1.0f, 1.0f, 1.0f }, (u8)ObjectFlags::EMIT_LIGHT));
     pnt_lights.back().model.init();
-    pnt_lights.back().light_props.ambient = { 1.0f, 1.0f, 1.0f };
-    pnt_lights.back().light_props.diffuse = { 0.3f, 0.3f, 0.3f };
-    pnt_lights.back().light_props.specular = { 0.0f, 0.0f, 0.0f };
+    pnt_lights.back().light_props.color = { 1.0f, 1.0f, 1.0f };
 
-    pnt_lights.push_back(Object<Cube>({ 0.0f, 0.0f, 2.5f }, { 1.0f, 1.0f, 1.0f }, (u8)ObjectFlags::EMIT_LIGHT));
+    pnt_lights.push_back(Object<Cube>({ 0.0f, 3.0f, 2.5f }, { 1.0f, 1.0f, 1.0f }, (u8)ObjectFlags::EMIT_LIGHT));
     pnt_lights.back().model.init();
-    pnt_lights.back().light_props.ambient = { 0.1f, 0.0f, 0.0f };
-    pnt_lights.back().light_props.diffuse = { 0.1f, 0.0f, 0.0f };
-    pnt_lights.back().light_props.specular = { 0.1f, 0.0f, 0.0f };
+    pnt_lights.back().light_props.color = { 0.35f, 0.1f, 0.1f };
 
     if (err = gbuf.init(width, height,
                         { { GL_RGBA16F, GL_RGBA8, GL_FLOAT },
@@ -263,12 +276,50 @@ std::optional<rses> WindowGLFW::init() {
         return err;
     }
     
-    // uniform buffer
+    // uniform buffer initialization
     glCreateBuffers(1, &world_state.ubo);
     glNamedBufferStorage(world_state.ubo, 208, nullptr, GL_DYNAMIC_STORAGE_BIT);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 2, world_state.ubo);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 1, world_state.ubo);
 
-    // omnidirectional shadow map
+    // ssbo initialization
+    glCreateBuffers(1, &clusters.clusters_aabb_ssbo);
+    glNamedBufferData(clusters.clusters_aabb_ssbo, clusters.n_clusters * sizeof(glm::vec4) * 2, nullptr, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, clusters.clusters_aabb_ssbo);
+
+    glCreateBuffers(1, &clusters.light_grid_ssbo);
+    glNamedBufferData(clusters.light_grid_ssbo, clusters.n_clusters * sizeof(int) * 2, nullptr, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, clusters.light_grid_ssbo);
+
+    glCreateBuffers(1, &clusters.clusters_indices_ssbo);
+    glNamedBufferData(clusters.clusters_indices_ssbo, clusters.max_lights_in_cluster * sizeof(int), nullptr, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, clusters.clusters_indices_ssbo);
+    
+    // TODO: Get rid of this and come up with a better solution
+    std::vector<PointLight> pnt_lights_props;
+    std::vector<glm::vec4> pnt_lights_pos;
+    
+    pnt_lights_props.reserve(pnt_lights.size());
+    pnt_lights_pos.reserve(pnt_lights.size());
+
+    for (auto& light : pnt_lights) {
+        pnt_lights_props.push_back(light.light_props);
+        // padding so it plays nicely with std430
+        pnt_lights_pos.push_back({ light.pos.x, light.pos.y, light.pos.z, 0.0f });
+    }
+
+    glCreateBuffers(1, &clusters.lights_ssbo);
+    glNamedBufferData(clusters.lights_ssbo, pnt_lights.size() * sizeof(PointLight), pnt_lights_props.data(), GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, clusters.lights_ssbo);
+
+    glCreateBuffers(1, &clusters.lights_pos_ssbo);
+    glNamedBufferData(clusters.lights_pos_ssbo, pnt_lights.size() * sizeof(glm::vec4), pnt_lights_pos.data(), GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, clusters.lights_pos_ssbo);
+
+    glCreateBuffers(1, &clusters.light_idx_ssbo);
+    glNamedBufferData(clusters.light_idx_ssbo, sizeof(u32), nullptr, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 7, clusters.light_idx_ssbo);
+
+    // shadow map
     glGenFramebuffers(1, &world_state.shadow.fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, world_state.shadow.fbo);
     glGenTextures(1, &world_state.shadow.tex);
@@ -297,13 +348,9 @@ void WindowGLFW::update() {
 
     // shader state that doesn't change between frames
     shaders["shadow"].set_float("far_plane", camera.far_plane);
-    shaders["object"].set_float("far_plane", camera.far_plane);    
-    shaders["object"].set_float("gamma", world_state.gamma);
+    shaders["lighting"].set_float("far_plane", camera.far_plane);    
     
     while (!glfwWindowShouldClose(window)) {
-
-        shaders["object"].set_float("exposure", world_state.exposure);
-
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
@@ -320,51 +367,70 @@ void WindowGLFW::update() {
         glNamedBufferSubData(world_state.ubo, 0, sizeof(glm::mat4), glm::value_ptr(projection));
         glNamedBufferSubData(world_state.ubo, 128, 16, glm::value_ptr(camera.position));
         glNamedBufferSubData(world_state.ubo, 144, 16, glm::value_ptr(world_state.dir_light.direction));
-        glNamedBufferSubData(world_state.ubo, 160, 16, glm::value_ptr(world_state.dir_light.ambient));
-        glNamedBufferSubData(world_state.ubo, 176, 16, glm::value_ptr(world_state.dir_light.diffuse));
-        glNamedBufferSubData(world_state.ubo, 192, 16, glm::value_ptr(world_state.dir_light.specular));
+        glNamedBufferSubData(world_state.ubo, 160, 16, glm::value_ptr(world_state.dir_light.color));
 
         // shadow pass ================================================================================================
 
-        //glm::mat4 shadow_proj = glm::perspective(glm::radians(90.0f), (float)world_state.shadow.resolution / (float)world_state.shadow.resolution, camera.near_plane, camera.far_plane);
-        //std::array<glm::mat4, 6> shadow_transforms;
+        glm::mat4 shadow_proj = glm::perspective(glm::radians(90.0f), (float)world_state.shadow.resolution / (float)world_state.shadow.resolution, camera.near_plane, camera.far_plane);
+        std::array<glm::mat4, 6> shadow_transforms;
 
-        //glViewport(0, 0, world_state.shadow.resolution, world_state.shadow.resolution);
-        //glBindFramebuffer(GL_FRAMEBUFFER, world_state.shadow.fbo);
-        //glClear(GL_DEPTH_BUFFER_BIT);
-        //glCullFace(GL_FRONT);           // preventing peter panning
+        glViewport(0, 0, world_state.shadow.resolution, world_state.shadow.resolution);
+        glBindFramebuffer(GL_FRAMEBUFFER, world_state.shadow.fbo);
+        glClear(GL_DEPTH_BUFFER_BIT);
+        glCullFace(GL_FRONT);           // preventing peter panning
 
-        //for (auto& light : pnt_lights) {
-        //    shadow_transforms[0] = shadow_proj * glm::lookAt(light.pos, light.pos + glm::vec3(1.0f, 0.0f, 0.0f),
-        //                                                     glm::vec3(0.0f, -1.0f, 0.0f));
-        //    shadow_transforms[1] = shadow_proj * glm::lookAt(light.pos, light.pos + glm::vec3(-1.0f, 0.0f, 0.0f),
-        //                                                     glm::vec3(0.0f, -1.0f, 0.0f));
-        //    shadow_transforms[2] = shadow_proj * glm::lookAt(light.pos, light.pos + glm::vec3(0.0f, 1.0f, 0.0f),
-        //                                                     glm::vec3(0.0f, 0.0f, 1.0f));
-        //    shadow_transforms[3] = shadow_proj * glm::lookAt(light.pos, light.pos + glm::vec3(0.0f, -1.0f, 0.0f),
-        //                                                     glm::vec3(0.0f, 0.0f, -1.0f));
-        //    shadow_transforms[4] = shadow_proj * glm::lookAt(light.pos, light.pos + glm::vec3(0.0f, 0.0f, 1.0f),
-        //                                                     glm::vec3(0.0f, -1.0f, 0.0f));
-        //    shadow_transforms[5] = shadow_proj * glm::lookAt(light.pos, light.pos + glm::vec3(0.0f, 0.0f, -1.0f),
-        //                                                     glm::vec3(0.0f, -1.0f, 0.0f));
+        // todo (nc): currently only supporting point light shadows, need to take global light into account as well
+        for (auto& light : pnt_lights) {
+            shadow_transforms[0] = shadow_proj * glm::lookAt(light.pos, light.pos + glm::vec3(1.0f, 0.0f, 0.0f),
+                                                             glm::vec3(0.0f, -1.0f, 0.0f));
+            shadow_transforms[1] = shadow_proj * glm::lookAt(light.pos, light.pos + glm::vec3(-1.0f, 0.0f, 0.0f),
+                                                             glm::vec3(0.0f, -1.0f, 0.0f));
+            shadow_transforms[2] = shadow_proj * glm::lookAt(light.pos, light.pos + glm::vec3(0.0f, 1.0f, 0.0f),
+                                                             glm::vec3(0.0f, 0.0f, 1.0f));
+            shadow_transforms[3] = shadow_proj * glm::lookAt(light.pos, light.pos + glm::vec3(0.0f, -1.0f, 0.0f),
+                                                             glm::vec3(0.0f, 0.0f, -1.0f));
+            shadow_transforms[4] = shadow_proj * glm::lookAt(light.pos, light.pos + glm::vec3(0.0f, 0.0f, 1.0f),
+                                                             glm::vec3(0.0f, -1.0f, 0.0f));
+            shadow_transforms[5] = shadow_proj * glm::lookAt(light.pos, light.pos + glm::vec3(0.0f, 0.0f, -1.0f),
+                                                             glm::vec3(0.0f, -1.0f, 0.0f));
 
-        //    shaders["shadow"].set_mat4("shadow_mats[0]", shadow_transforms[0]);
-        //    shaders["shadow"].set_mat4("shadow_mats[1]", shadow_transforms[1]);
-        //    shaders["shadow"].set_mat4("shadow_mats[2]", shadow_transforms[2]);
-        //    shaders["shadow"].set_mat4("shadow_mats[3]", shadow_transforms[3]);
-        //    shaders["shadow"].set_mat4("shadow_mats[4]", shadow_transforms[4]);
-        //    shaders["shadow"].set_mat4("shadow_mats[5]", shadow_transforms[5]);
-        //    shaders["shadow"].set_vec3("light_pos", light.pos);
+            shaders["shadow"].set_mat4("shadow_mats[0]", shadow_transforms[0]);
+            shaders["shadow"].set_mat4("shadow_mats[1]", shadow_transforms[1]);
+            shaders["shadow"].set_mat4("shadow_mats[2]", shadow_transforms[2]);
+            shaders["shadow"].set_mat4("shadow_mats[3]", shadow_transforms[3]);
+            shaders["shadow"].set_mat4("shadow_mats[4]", shadow_transforms[4]);
+            shaders["shadow"].set_mat4("shadow_mats[5]", shadow_transforms[5]);
+            shaders["shadow"].set_vec3("light_pos", light.pos);
 
-        //    for (auto& cube : tex_cubes) {
-        //        translate(cube.model, cube.pos);
-        //        scale(cube.model, cube.scale);
-        //        cube.draw(shaders["shadow"], world_state);
-        //        cube.model.reset();
-        //    }
-        //}
+            for (auto& cube : tex_cubes) {
+                translate(cube.model, cube.pos);
+                scale(cube.model, cube.scale);
+                cube.draw(shaders["shadow"], world_state);
+                cube.model.reset();
+            }
+        }
 
-        //glCullFace(GL_BACK);
+        glCullFace(GL_BACK);
+
+        // clustered set-up ======================================================================
+
+        // determine the aabb for each cluster
+        shaders["clusters_aabb"].use();
+        shaders["clusters_aabb"].set_mat4("inverse_proj", glm::inverse(camera.projection((float)width / (float)height)));
+        shaders["clusters_aabb"].set_vec2("screen_dims", { width, height });
+        shaders["clusters_aabb"].set_vec3("grid_sz", clusters.grid_sz);
+        shaders["clusters_aabb"].set_float("far", camera.far_plane);
+        shaders["clusters_aabb"].set_float("near", camera.near_plane);
+
+        glDispatchCompute(16, 9, 24);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+        // build light lists for each cluster
+        shaders["clusters_cull"].use();
+        shaders["clusters_cull"].set_mat4("view", camera.view());
+
+        glDispatchCompute(16, 9, 24);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
         // geometry pass ==========================================================================
         glBindFramebuffer(GL_FRAMEBUFFER, gbuf.frame_buf);
@@ -388,20 +454,17 @@ void WindowGLFW::update() {
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_STENCIL_TEST);
 
-        // bind shadow map
-        // TODO: Reimplement shadow maps with deferred rendering
         glActiveTexture(GL_TEXTURE12);  // this texture unit is arbitrary for now
         glBindTexture(GL_TEXTURE_CUBE_MAP, world_state.shadow.tex);
-        shaders["object"].set_int("shadow_map", 12);
-        shaders["object"].set_float("bias", world_state.shadow.bias);
+        shaders["lighting"].set_int("shadow_map", 12);
 
         for (int i = 0; auto& light : pnt_lights) {
             shaders["lighting"].set_vec3(std::format("point_lights[{}].pos", i), light.pos);
-            shaders["lighting"].set_vec3(std::format("point_lights[{}].ambient", i), light.light_props.ambient);
-            shaders["lighting"].set_vec3(std::format("point_lights[{}].diffuse", i), light.light_props.diffuse);
-            shaders["lighting"].set_vec3(std::format("point_lights[{}].specular", i), light.light_props.specular);
-            shaders["lighting"].set_float(std::format("point_lights[{}].attn_const", i), light.light_props.attenuation);
+            shaders["lighting"].set_vec3(std::format("point_lights[{}].color", i), light.light_props.color);
+            shaders["lighting"].set_float(std::format("point_lights[{}].linear", i), light.light_props.linear);
+            shaders["lighting"].set_float(std::format("point_lights[{}].quad", i), light.light_props.quad);
             shaders["lighting"].set_float(std::format("point_lights[{}].intensity", i), light.light_props.intensity);
+            shaders["lighting"].set_float(std::format("point_lights[{}].radius", i), light.light_props.radius());
             ++i;
         }
 

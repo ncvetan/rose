@@ -40,19 +40,16 @@ void imgui(WindowGLFW& state) {
         state.world_state.dir_light.direction.z = std::cos(dir_angle) * 1.0f;
         state.world_state.dir_light.direction = glm::normalize(state.world_state.dir_light.direction);
     }
-    ImGui::ColorEdit3("ambient", glm::value_ptr(state.world_state.dir_light.ambient));
-    ImGui::ColorEdit3("diffuse", glm::value_ptr(state.world_state.dir_light.diffuse));
-    ImGui::ColorEdit3("specular", glm::value_ptr(state.world_state.dir_light.specular));
+    ImGui::ColorEdit3("color", glm::value_ptr(state.world_state.dir_light.color));
     
     ImGui::SeparatorText("point lights");
     if (ImGui::TreeNode("lights")) {
         for (int i = 0; i < state.pnt_lights.size(); i++) {
             if (ImGui::TreeNode((void*)(intptr_t)i, "light %d", i)) {
                 ImGui::SliderFloat3("position", glm::value_ptr(state.pnt_lights[i].pos), -10.0f, 10.0f);
-                ImGui::ColorEdit3("ambient", glm::value_ptr(state.pnt_lights[i].light_props.ambient));
-                ImGui::ColorEdit3("diffuse", glm::value_ptr(state.pnt_lights[i].light_props.diffuse));
-                ImGui::ColorEdit3("specular", glm::value_ptr(state.pnt_lights[i].light_props.specular));
-                ImGui::SliderFloat("attenuation", &state.pnt_lights[i].light_props.attenuation, 0.1f, 10.0f);
+                ImGui::ColorEdit3("color", glm::value_ptr(state.pnt_lights[i].light_props.color));
+                ImGui::SliderFloat("linear", &state.pnt_lights[i].light_props.linear, 0.1f, 10.0f);
+                ImGui::SliderFloat("quad", &state.pnt_lights[i].light_props.quad, 0.1f, 10.0f);
                 ImGui::SliderFloat("intensity", &state.pnt_lights[i].light_props.intensity, 1.0f, 10.0f);
                 ImGui::TreePop();
             }

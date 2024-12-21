@@ -11,7 +11,7 @@ struct DirLight {
 	vec3 specular;
 };
 
-layout (std140, binding = 2) uniform globals
+layout (std140, binding = 1) uniform globals
 {
 	mat4 projection;     // 64
 	mat4 view;		     // 128

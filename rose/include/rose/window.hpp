@@ -3,6 +3,7 @@
 
 #include <rose/camera.hpp>
 #include <rose/err.hpp>
+#include <rose/lighting.hpp>
 #include <rose/math.hpp>
 #include <rose/model.hpp>
 #include <rose/object.hpp>
@@ -48,9 +49,15 @@ struct FrameBuf {
         { { -1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } }, { { 1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
         { { -1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } }, { { 1.0f, -1.0f, 0.0f }, { 1.0f, 0.0f } }
     };
-
 };
 
+// TODO: Put this somewhere else
+struct AABB {
+    glm::vec4 max_pt;
+    glm::vec4 min_pt;
+};
+
+// TODO: This entire thing is much more than a 'window' at this point and needs to be refactored
 class WindowGLFW {
   public:
     WindowGLFW() = default;
@@ -59,6 +66,11 @@ class WindowGLFW {
     void enable_vsync(bool enable);
     void update();
     void destroy();
+
+    inline std::pair<int, int> n_tiles() {
+        return { (width + world_state.tile_sz - 1) / world_state.tile_sz,
+                 (height + world_state.tile_sz - 1) / world_state.tile_sz };
+    }
 
     GLFWwindow* window = nullptr;
 
@@ -86,6 +98,8 @@ class WindowGLFW {
     Rectf vp_rect;
     bool vp_focused = false;
     bool glfw_captured = true;
+
+    ClusterCtx clusters;
 
   private:
     std::optional<rses> init_glfw();

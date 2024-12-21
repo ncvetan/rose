@@ -1,0 +1,1 @@
+#include <rose/lighting.hpp>

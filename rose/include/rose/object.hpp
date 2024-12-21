@@ -1,27 +1,13 @@
 #ifndef ROSE_INCLUDE_OBJECT
 #define ROSE_INCLUDE_OBJECT
 
+#include <rose/lighting.hpp>
 #include <rose/model.hpp>
 #include <rose/shader.hpp>
 
 #include <glm.hpp>
 
 namespace rose {
-
-struct DirLight {
-    glm::vec3 direction = { 0.0f, -0.999848f, -0.0174525f };
-    glm::vec3 ambient = { 0.025f, 0.025f, 0.025f };
-    glm::vec3 diffuse = { 0.10f, 0.10f, 0.10f };
-    glm::vec3 specular = { 1.0f, 1.0f, 1.0f };
-};
-
-struct PointLight {
-    glm::vec3 ambient = { 0.02f, 0.02f, 0.02f };
-    glm::vec3 diffuse = { 0.05f, 0.05f, 0.05f };
-    glm::vec3 specular = { 0.2f, 0.2f, 0.2f };
-    float attenuation = 1.0f;
-    float intensity = 1.0f;
-};
 
 // TODO: This probably shouldn't be here but I'm not sure where I want to put it yet
 struct GlobalState {
@@ -31,16 +17,11 @@ struct GlobalState {
     float gamma = 2.2f;
     float exposure = 1.0f;
 
-    bool bloom = true;
+    bool bloom = true;              // is bloom enabled
     int n_bloom_passes = 5;
 
-    struct ShadowCtx {
-        u32 fbo = 0;
-        u32 tex = 0;
-        float bias = 0.005;
-        u16 resolution = 2048;
-    };
-    
+    int tile_sz = 32;               // side length of a tile
+
     ShadowCtx shadow;
 };
 
@@ -61,7 +42,7 @@ struct Object {
     inline void draw(ShaderGL& shader, const GlobalState& state) { model.draw(shader, state); }
 
     T model;
-    glm::vec3 pos = { 0.0f, 0.0f, 0.0f };
+    glm::vec3 pos   = { 0.0f, 0.0f, 0.0f };
     glm::vec3 scale = { 1.0f, 1.0f, 1.0f };
     PointLight light_props;
     u8 flags = 0;
