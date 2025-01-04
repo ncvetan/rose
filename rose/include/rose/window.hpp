@@ -51,12 +51,6 @@ struct FrameBuf {
     };
 };
 
-// TODO: Put this somewhere else
-struct AABB {
-    glm::vec4 max_pt;
-    glm::vec4 min_pt;
-};
-
 // TODO: This entire thing is much more than a 'window' at this point and needs to be refactored
 class WindowGLFW {
   public:
@@ -67,16 +61,11 @@ class WindowGLFW {
     void update();
     void destroy();
 
-    inline std::pair<int, int> n_tiles() {
-        return { (width + world_state.tile_sz - 1) / world_state.tile_sz,
-                 (height + world_state.tile_sz - 1) / world_state.tile_sz };
-    }
-
     GLFWwindow* window = nullptr;
 
     CameraGL camera;
+    ShadersGL shaders;
     TextureManager texture_manager;
-    std::unordered_map<std::string, ShaderGL> shaders;
 
     GlobalState world_state;
     std::vector<Object<Model>> objects;
@@ -88,8 +77,8 @@ class WindowGLFW {
     FrameBuf pp2;
     FrameBuf fbuf_out;
 
-    u16 width = 1920;
-    u16 height = 1080;
+    u32 width = 1920;
+    u32 height = 1080;
     ImGuiID dock_id = 0;
     std::string name = "Rose";
     glm::vec2 last_xy;
@@ -98,6 +87,29 @@ class WindowGLFW {
     Rectf vp_rect;
     bool vp_focused = false;
     bool glfw_captured = true;
+
+    bool update_lights = false;
+
+    // TODO: temporary, this is not how lights should be updated to the GPU
+    void update_light_ssbos() {
+        std::vector<PointLight> pnt_lights_props;
+        std::vector<glm::vec4> pnt_lights_pos;
+
+        pnt_lights_props.reserve(pnt_lights.size());
+        pnt_lights_pos.reserve(pnt_lights.size());
+
+        for (auto& light : pnt_lights) {
+            pnt_lights_props.push_back(light.light_props);
+            // padding so it plays nicely with std430
+            pnt_lights_pos.push_back({ light.pos.x, light.pos.y, light.pos.z, 0.0f });
+        }
+
+        glNamedBufferData(clusters.lights_ssbo, pnt_lights.size() * sizeof(PointLight), pnt_lights_props.data(),
+                          GL_DYNAMIC_DRAW);
+
+        glNamedBufferData(clusters.lights_pos_ssbo, pnt_lights.size() * sizeof(glm::vec4), pnt_lights_pos.data(),
+                          GL_DYNAMIC_DRAW);
+    }
 
     ClusterCtx clusters;
 

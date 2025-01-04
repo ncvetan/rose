@@ -91,7 +91,7 @@ std::expected<TextureRef, rses> TextureManager::load_texture(const fs::path& pat
 
     TextureGL texture;
     texture.ty = ty;
-    i32 width = 0, height = 0, n_channels = 0;
+    s32 width = 0, height = 0, n_channels = 0;
     unsigned char* texture_data = stbi_load(path.generic_string().c_str(), &width, &height, &n_channels, STBI_rgb_alpha);
 
     if (texture_data) {
@@ -124,7 +124,7 @@ std::optional<TextureRef> TextureManager::load_cubemap(const std::vector<fs::pat
         return std::nullopt; // todo: improve err handling here. arg can be a std::array
     }
 
-    i32 width = 0, height = 0, n_channels = 0;
+    s32 width = 0, height = 0, n_channels = 0;
     unsigned char* texture_data = nullptr;
     TextureGL texture = {
         .id = 0,

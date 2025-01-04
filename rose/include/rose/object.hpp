@@ -20,8 +20,6 @@ struct GlobalState {
     bool bloom = true;              // is bloom enabled
     int n_bloom_passes = 5;
 
-    int tile_sz = 32;               // side length of a tile
-
     ShadowCtx shadow;
 };
 

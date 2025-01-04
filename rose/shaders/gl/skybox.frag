@@ -6,21 +6,22 @@ out vec4 frag_color;
 
 struct DirLight {
 	vec3 direction;
-	vec3 ambient;
-	vec3 diffuse;
-	vec3 specular;
+	vec3 color;
 };
 
-layout (std140, binding = 1) uniform globals
-{
-	mat4 projection;     // 64
-	mat4 view;		     // 128
-	vec3 camera_pos;     // 144
-	DirLight dir_light;  // 208
+layout (std140, binding = 1) uniform globals {
+	mat4 projection;
+	mat4 view;
+	vec3 camera_pos;
+	DirLight dir_light;
+	uvec3 grid_sz;				// cluster dimensions (xyz)
+	uvec2 screen_dims;			// screen [ width, height ]
+	float far_z;
+	float near_z;
 };
 
 uniform samplerCube cube_map;
 
 void main() {
-	frag_color = texture(cube_map, tex_dir) * vec4(dir_light.ambient, 1.0);
+	frag_color = texture(cube_map, tex_dir) * vec4(dir_light.color, 1.0);
 }

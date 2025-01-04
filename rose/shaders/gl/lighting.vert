@@ -7,20 +7,6 @@ out vs_data {
 	vec2 tex_coords;
 } vs_out;
 
-struct DirLight {
-	vec3 direction;
-	vec3 ambient;
-	vec3 diffuse;
-	vec3 specular;
-};
-
-layout (std140, binding = 1) uniform globals {
-	mat4 projection;
-	mat4 view;
-	vec3 camera_pos;
-	DirLight dir_light;
-};
-
 void main() {
 	gl_Position = vec4(pos.x, pos.y, 0.0, 1.0);
 	vs_out.tex_coords = tex_coords;

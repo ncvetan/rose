@@ -249,6 +249,8 @@ Cube::Cube(Cube&& other) noexcept {
     other.VAO = 0;
     VBO = other.VBO;
     other.VBO = 0;
+    EBO = other.EBO;
+    other.VBO = 0;
     verts = std::move(other.verts);
     model_mat = std::move(other.model_mat);
 }
@@ -266,6 +268,10 @@ void Cube::init() {
     glNamedBufferStorage(VBO, verts.size() * sizeof(Vertex), verts.data(), GL_DYNAMIC_STORAGE_BIT);
     glVertexArrayVertexBuffer(VAO, 0, VBO, 0, sizeof(Vertex));
     
+    glCreateBuffers(1, &EBO);
+    glNamedBufferStorage(EBO, indices.size() * sizeof(int), indices.data(), GL_DYNAMIC_STORAGE_BIT);
+    glVertexArrayElementBuffer(VAO, EBO);
+    
     glEnableVertexArrayAttrib(VAO, 0);
     glEnableVertexArrayAttrib(VAO, 1);
 
@@ -279,7 +285,7 @@ void Cube::draw(ShaderGL& shader, const GlobalState& state) const {
     shader.use();
     shader.set_mat4("model", model_mat);
     glBindVertexArray(VAO);
-    glDrawArrays(GL_TRIANGLES, 0, verts.size());
+    glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, nullptr);
     glBindVertexArray(0);
 }
 
@@ -316,7 +322,7 @@ void TexturedCube::init() {
     glCreateBuffers(1, &EBO);
 
     glNamedBufferStorage(VBO, verts.size() * sizeof(Vertex), verts.data(), GL_DYNAMIC_STORAGE_BIT);
-    glNamedBufferStorage(EBO, indices.size() * sizeof(uint32_t), indices.data(), GL_DYNAMIC_STORAGE_BIT);
+    glNamedBufferStorage(EBO, indices.size() * sizeof(u32), indices.data(), GL_DYNAMIC_STORAGE_BIT);
 
     glVertexArrayVertexBuffer(VAO, 0, VBO, 0, sizeof(Vertex));
     glVertexArrayElementBuffer(VAO, EBO);

@@ -43,14 +43,16 @@ void imgui(WindowGLFW& state) {
     ImGui::ColorEdit3("color", glm::value_ptr(state.world_state.dir_light.color));
     
     ImGui::SeparatorText("point lights");
+    bool light_changed = false;
     if (ImGui::TreeNode("lights")) {
         for (int i = 0; i < state.pnt_lights.size(); i++) {
             if (ImGui::TreeNode((void*)(intptr_t)i, "light %d", i)) {
-                ImGui::SliderFloat3("position", glm::value_ptr(state.pnt_lights[i].pos), -10.0f, 10.0f);
-                ImGui::ColorEdit3("color", glm::value_ptr(state.pnt_lights[i].light_props.color));
-                ImGui::SliderFloat("linear", &state.pnt_lights[i].light_props.linear, 0.1f, 10.0f);
-                ImGui::SliderFloat("quad", &state.pnt_lights[i].light_props.quad, 0.1f, 10.0f);
-                ImGui::SliderFloat("intensity", &state.pnt_lights[i].light_props.intensity, 1.0f, 10.0f);
+                light_changed = 
+                    ImGui::SliderFloat3("position", glm::value_ptr(state.pnt_lights[i].pos), -10.0f, 10.0f) 
+                    || ImGui::ColorEdit3("color", glm::value_ptr(state.pnt_lights[i].light_props.color))
+                    || ImGui::SliderFloat("linear", &state.pnt_lights[i].light_props.linear, 0.1f, 10.0f) 
+                    || ImGui::SliderFloat("quad", &state.pnt_lights[i].light_props.quad, 0.1f, 10.0f)
+                    || ImGui::SliderFloat("intensity", &state.pnt_lights[i].light_props.intensity, 1.0f, 10.0f);
                 ImGui::TreePop();
             }
         }
@@ -89,6 +91,14 @@ void imgui(WindowGLFW& state) {
         ImGui::DockBuilderDockWindow("controls", controls_node);
         ImGui::DockBuilderDockWindow("viewport", viewport_node);
         first_frame = false;
+    }
+
+    // TODO: temporary, update light ssbos when changes are made from the gui
+    if (light_changed) {
+        state.update_light_ssbos();
+        for (auto& light : state.pnt_lights) {
+            light.light_props.radius();
+        }
     }
 }
 

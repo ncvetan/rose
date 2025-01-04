@@ -5,17 +5,18 @@ layout (location = 1) in vec3 norm;
 
 struct DirLight {
 	vec3 direction;
-	vec3 ambient;
-	vec3 diffuse;
-	vec3 specular;
+	vec3 color;
 };
 
-layout (std140, binding = 2) uniform globals
-{
+layout (std140, binding = 1) uniform globals {
 	mat4 projection;
 	mat4 view;
 	vec3 camera_pos;
 	DirLight dir_light;
+	uvec3 grid_sz;				// cluster dimensions (xyz)
+	uvec2 screen_dims;			// screen [ width, height ]
+	float far_z;
+	float near_z;
 };
 
 uniform mat4 model;

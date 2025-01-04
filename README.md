@@ -44,3 +44,4 @@ Some of the resources used that helped me develop Rose...
 
 - LearnOpenGl
 - Real Time Rendering
+- [A Primer of Efficient Rendering Algorithms & Clustered Shading](https://www.aortiz.me/2018/12/21/CG.html)
