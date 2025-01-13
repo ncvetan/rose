@@ -40,8 +40,9 @@ Some known bugs as well as future features...
 
 ## Resources
 
-Some of the resources used that helped me develop Rose...
+Some of the resources used that helped me develop Rose. I want to give a big thank you to the authors for these resources...
 
 - LearnOpenGl
 - Real Time Rendering
 - [A Primer of Efficient Rendering Algorithms & Clustered Shading](https://www.aortiz.me/2018/12/21/CG.html)
+- [Clustered Shading - David Hu](https://github.com/DaveH355/clustered-shading)

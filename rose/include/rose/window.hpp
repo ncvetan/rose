@@ -62,7 +62,6 @@ class WindowGLFW {
     void destroy();
 
     GLFWwindow* window = nullptr;
-
     CameraGL camera;
     ShadersGL shaders;
     TextureManager texture_manager;
@@ -88,8 +87,6 @@ class WindowGLFW {
     bool vp_focused = false;
     bool glfw_captured = true;
 
-    bool update_lights = false;
-
     // TODO: temporary, this is not how lights should be updated to the GPU
     void update_light_ssbos() {
         std::vector<PointLight> pnt_lights_props;
@@ -101,7 +98,7 @@ class WindowGLFW {
         for (auto& light : pnt_lights) {
             pnt_lights_props.push_back(light.light_props);
             // padding so it plays nicely with std430
-            pnt_lights_pos.push_back({ light.pos.x, light.pos.y, light.pos.z, 0.0f });
+            pnt_lights_pos.push_back({ light.pos.x, light.pos.y, light.pos.z, 1.0f });
         }
 
         glNamedBufferData(clusters.lights_ssbo, pnt_lights.size() * sizeof(PointLight), pnt_lights_props.data(),

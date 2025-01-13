@@ -6,3 +6,4 @@ build/
 textures/
 CMakeSettings.json
 TODO.txt
+imgui.ini

@@ -6,8 +6,8 @@ layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 // defines the bounds of a cluster
 struct AABB {
-    vec4 max_pt;
     vec4 min_pt;
+    vec4 max_pt;
 };
 
 struct DirLight {
@@ -26,24 +26,24 @@ layout (std140, binding = 1) uniform globals {
 	float near_z;
 };
 
+uniform mat4 inv_proj;          // inverse projection matrix
+
 layout (std430, binding=2) buffer clusters_ssbo {
     AABB cluster_aabb[];
 };
 
-uniform mat4 inv_proj;      // projection matrix inverse
-
 // convert a point in screen space to view space
-vec4 screen_to_view(vec2 screen_pt) {
-    vec2 coord = screen_pt.xy / screen_dims.xy;                         // [ 0.0, 1.0 ]
-    vec4 clip = { 2 * coord.x - 1.0, 1.0 - 2 * coord.y, -1.0, 1.0 };    // [ -1.0, 1.0 ]
+vec3 screen_to_view(vec2 screen_pt) {
+    vec2 coord = screen_pt / screen_dims;                                   //  -> [ 0.0, 1.0 ]
+    vec4 clip = { 2.0 * coord.x - 1.0, 2.0 * coord.y - 1.0, -1.0, 1.0 };    //  -> [ -1.0, 1.0 ]
     vec4 view = inv_proj * clip;
     view /= view.w;
-    return view;
+    return view.xyz;
 }
 
 // compute intersection point between line defined by v1 and v2 with a plane with given z value
 vec3 line_plane_intersect(vec3 v1, vec3 v2, float z_dist) {
-    vec3 norm = { 0.0, 0.0, -1.0 }; // normal to the plane, always long z-axis in view space
+    vec3 norm = { 0.0, 0.0, -1.0 }; // normal to the plane, along z-axis in view space
     vec3 dir = v2 - v1;
     // solve for line eq
     float t = (z_dist - dot(norm, v1)) / dot(norm, dir);
@@ -53,25 +53,25 @@ vec3 line_plane_intersect(vec3 v1, vec3 v2, float z_dist) {
 void main() {
     const vec3 camera_pos = { 0.0, 0.0, 0.0 };
     
-    uint cluster_idx = gl_WorkGroupID.x + gl_WorkGroupID.y * grid_sz.x + gl_WorkGroupID.z * (grid_sz.x * grid_sz.y);
-    vec2 cluster_sz = screen_dims.xy / grid_sz.xy;          // [ width, height ] of each cluster
+    uint cluster_idx = gl_WorkGroupID.x + (gl_WorkGroupID.y * grid_sz.x) + (gl_WorkGroupID.z * grid_sz.x * grid_sz.y);
+    vec2 cluster_sz = screen_dims / grid_sz.xy;             // [ width, height ] of each cluster
 
-    vec2 max_ss = (gl_WorkGroupID.xy + 1) * cluster_sz;     // max pt of cluster in screen space (br)
     vec2 min_ss = gl_WorkGroupID.xy * cluster_sz;           // min pt of cluster in screen space (tl)
+    vec2 max_ss = (gl_WorkGroupID.xy + 1) * cluster_sz;     // max pt of cluster in screen space (br)
 
     // convert screen space pts to view space pts
-    vec4 max_vs = screen_to_view(max_ss);
-    vec4 min_vs = screen_to_view(min_ss);
+    vec3 min_vs = screen_to_view(min_ss);
+    vec3 max_vs = screen_to_view(max_ss);
     
     // find the near and far z-values for the AABB of this cluster
-    float aabb_z_near = near_z * pow(far_z / near_z, gl_WorkGroupID.z / grid_sz.z);
-    float aabb_z_far = near_z * pow(far_z / near_z, (gl_WorkGroupID.z + 1) / grid_sz.z);
+    float aabb_z_near = near_z * pow(far_z / near_z, gl_WorkGroupID.z / float(grid_sz.z));
+    float aabb_z_far = near_z * pow(far_z / near_z, (gl_WorkGroupID.z + 1) / float(grid_sz.z));
 
     // compute intersection points between line cast from camera and cluster planes
-    vec3 min_near = line_plane_intersect(camera_pos, vec3(min_vs), aabb_z_near);
-    vec3 min_far = line_plane_intersect(camera_pos, vec3(min_vs), aabb_z_far);
-    vec3 max_near = line_plane_intersect(camera_pos, vec3(max_vs), aabb_z_near);
-    vec3 max_far = line_plane_intersect(camera_pos, vec3(max_vs), aabb_z_far);
+    vec3 min_near = line_plane_intersect(camera_pos, min_vs, aabb_z_near);
+    vec3 min_far = line_plane_intersect(camera_pos, min_vs, aabb_z_far);
+    vec3 max_near = line_plane_intersect(camera_pos, max_vs, aabb_z_near);
+    vec3 max_far = line_plane_intersect(camera_pos, max_vs, aabb_z_far);
 
     cluster_aabb[cluster_idx].min_pt = vec4(min(min_near, min_far), 0.0);
     cluster_aabb[cluster_idx].max_pt = vec4(max(max_near, max_far), 0.0);

@@ -135,10 +135,10 @@ std::optional<rses> ShadersGL::init() {
                           { SOURCE_DIR "/rose/shaders/gl/gaussian.frag", GL_FRAGMENT_SHADER } })) {
         return err;
     }
-    if (err = clusters_aabb.init({ { SOURCE_DIR "/rose/shaders/gl/compute/build_aabb.comp", GL_COMPUTE_SHADER } })) {
+    if (err = clusters_build.init({ { SOURCE_DIR "/rose/shaders/gl/compute/clusters_build.comp", GL_COMPUTE_SHADER } })) {
         return err;
     }
-    if (err = clusters_cull.init({ { SOURCE_DIR "/rose/shaders/gl/compute/light_cull.comp", GL_COMPUTE_SHADER } })) {
+    if (err = clusters_cull.init({ { SOURCE_DIR "/rose/shaders/gl/compute/clusters_cull.comp", GL_COMPUTE_SHADER } })) {
         return err;
     }
     if (err = gbuf.init({ { SOURCE_DIR "/rose/shaders/gl/gbuf.vert", GL_VERTEX_SHADER },

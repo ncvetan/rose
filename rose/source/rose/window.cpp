@@ -85,8 +85,10 @@ std::optional<rses> WindowGLFW::init_glfw() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_SAMPLES, 4);
     glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
+    
+    // TODO: reimplement
+    // glfwWindowHint(GLFW_SAMPLES, 4);
 
 #ifdef _DEBUG
     glfwWindowHint(GLFW_CONTEXT_DEBUG, GL_TRUE);
@@ -219,18 +221,19 @@ std::optional<rses> WindowGLFW::init() {
     pnt_lights.push_back(Object<Cube>({ 0.0f, 3.0f, 0.0f }, { 1.0f, 1.0f, 1.0f }, (u8)ObjectFlags::EMIT_LIGHT));
     pnt_lights.back().model.init();
     pnt_lights.back().light_props.color = { 1.0f, 0.1f, 0.1f, 1.0f };
-    pnt_lights.back().light_props.radius();
+    pnt_lights.back().light_props.radius(world_state.exposure);
 
     pnt_lights.push_back(Object<Cube>({ 0.0f, 3.0f, 2.5f }, { 1.0f, 1.0f, 1.0f }, (u8)ObjectFlags::EMIT_LIGHT));
     pnt_lights.back().model.init();
     pnt_lights.back().light_props.color = { 0.35f, 0.1f, 0.1f, 1.0f };
-    pnt_lights.back().light_props.radius();
+    pnt_lights.back().light_props.radius(world_state.exposure);
 
     // frame buf initialization ===================================================================
     if (err = gbuf.init(width, height,
                         { { GL_RGBA16F, GL_RGBA, GL_FLOAT },
                           { GL_RGBA16F, GL_RGBA, GL_FLOAT },
-                          { GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE } })) {
+                          { GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE }
+                        })) {
         return err;
     }
 
@@ -263,45 +266,21 @@ std::optional<rses> WindowGLFW::init() {
     s32 n_clusters = clusters.grid_sz.x * clusters.grid_sz.y * clusters.grid_sz.z;
 
     glCreateBuffers(1, &clusters.clusters_aabb_ssbo);
-    glNamedBufferData(clusters.clusters_aabb_ssbo, n_clusters * sizeof(AABB), nullptr, GL_DYNAMIC_DRAW);
+    glNamedBufferData(clusters.clusters_aabb_ssbo, n_clusters * sizeof(AABB), nullptr, GL_STATIC_COPY);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, clusters.clusters_aabb_ssbo);
 
-    glCreateBuffers(1, &clusters.light_grid_ssbo);
-    glNamedBufferData(clusters.light_grid_ssbo, n_clusters * sizeof(u32) * 2, nullptr, GL_DYNAMIC_DRAW);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, clusters.light_grid_ssbo);
-
-    // intializing to the maximum possible size (each cluster has 100 lights)
-    glCreateBuffers(1, &clusters.clusters_indices_ssbo);
-    glNamedBufferData(clusters.clusters_indices_ssbo, n_clusters * clusters.max_lights_in_cluster * sizeof(u32),
-                      nullptr, GL_DYNAMIC_DRAW);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, clusters.clusters_indices_ssbo);
-    
     glCreateBuffers(1, &clusters.lights_ssbo);
     glCreateBuffers(1, &clusters.lights_pos_ssbo);
    
     // TODO: Get rid of this and come up with a better solution
     update_light_ssbos();
 
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, clusters.lights_ssbo);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, clusters.lights_pos_ssbo);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, clusters.lights_ssbo);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, clusters.lights_pos_ssbo);
 
-    glCreateBuffers(1, &clusters.light_idx_ssbo);
-    glNamedBufferData(clusters.light_idx_ssbo, sizeof(u32), nullptr, GL_DYNAMIC_DRAW);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 7, clusters.light_idx_ssbo);
-
-    std::vector<glm::vec4> clusters_colors(n_clusters);
-
-    for (auto& color : clusters_colors) {
-        color.x = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
-        color.y = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
-        color.z = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
-    }
-
-    glCreateBuffers(1, &clusters.clusters_color_ssbo);
-    glNamedBufferData(clusters.clusters_color_ssbo, n_clusters * sizeof(glm::vec4), clusters_colors.data(),
-                      GL_DYNAMIC_DRAW);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 8, clusters.clusters_color_ssbo);
-
+    glCreateBuffers(1, &clusters.clusters_ssbo);
+    glNamedBufferData(clusters.clusters_ssbo, n_clusters * sizeof(u32) * (1 + clusters.max_lights_in_cluster), nullptr, GL_STATIC_COPY);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, clusters.clusters_ssbo);
 
     // shadow map initialization ==================================================================
     glGenFramebuffers(1, &world_state.shadow.fbo);
@@ -344,36 +323,35 @@ void WindowGLFW::update() {
         s32 n_clusters = clusters.grid_sz.x * clusters.grid_sz.y * clusters.grid_sz.z;
 
         // update ubo state
-        glNamedBufferSubData(world_state.ubo, 0, 64, glm::value_ptr(projection));
+        glNamedBufferSubData(world_state.ubo, 0,   64, glm::value_ptr(projection));
+        glNamedBufferSubData(world_state.ubo, 64,  64, glm::value_ptr(view));
         glNamedBufferSubData(world_state.ubo, 128, 16, glm::value_ptr(camera.position));
         glNamedBufferSubData(world_state.ubo, 144, 16, glm::value_ptr(world_state.dir_light.direction));
         glNamedBufferSubData(world_state.ubo, 160, 16, glm::value_ptr(world_state.dir_light.color));
-
+        
         // clustered set-up ===========================================================================================
 
         // determine the aabb for each cluster
-        glm::mat4 inv_proj = glm::inverse(projection);
-        shaders.clusters_aabb.use();
-        shaders.clusters_aabb.set_mat4("inv_proj", inv_proj);
+        // note: this only needs to be called once if parameters do not change
+        shaders.clusters_build.use();
+        shaders.clusters_build.set_mat4("inv_proj", glm::inverse(projection));
 
-        glDispatchCompute(16, 9, 24);
+        glDispatchCompute(clusters.grid_sz.x, clusters.grid_sz.y, clusters.grid_sz.z);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
         // build light lists for each cluster
         shaders.clusters_cull.use();
 
-        glDispatchCompute(n_clusters / 128, 1, 1);
+        glDispatchCompute(27, 1, 1);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
         // shadow pass ================================================================================================
 
         glm::mat4 shadow_proj = glm::perspective(glm::radians(90.0f), (float)world_state.shadow.resolution / (float)world_state.shadow.resolution, camera.near_plane, camera.far_plane);
         std::array<glm::mat4, 6> shadow_transforms;
-
-        // TODO: only call on resize/move
-        glViewport(0, 0, world_state.shadow.resolution, world_state.shadow.resolution);
         
         glBindFramebuffer(GL_FRAMEBUFFER, world_state.shadow.fbo);
+        glViewport(0, 0, world_state.shadow.resolution, world_state.shadow.resolution);
         glClear(GL_DEPTH_BUFFER_BIT);
         glCullFace(GL_FRONT);           // preventing peter panning
 
@@ -469,14 +447,14 @@ void WindowGLFW::update() {
         glStencilFunc(GL_EQUAL, 1, 0xFF);               // compute lighting for all fragments with stencil value '1'
         glStencilOp(GL_ZERO, GL_REPLACE, GL_REPLACE);
 
-        glBindTextureUnit(0, gbuf.tex_bufs[0]);         // positions
+        glBindTextureUnit(0, gbuf.tex_bufs[0]);         // positions (ws)
         glBindTextureUnit(1, gbuf.tex_bufs[1]);         // normals
         glBindTextureUnit(2, gbuf.tex_bufs[2]);         // colors
 
         shaders.lighting.set_int("gbuf_pos", 0);
         shaders.lighting.set_int("gbuf_norms", 1);
         shaders.lighting.set_int("gbuf_colors", 2);
-        
+
         pp1.draw(shaders.lighting, world_state);
         
         glStencilFunc(GL_EQUAL, 0, 0xFF);               // pass through for all fragments with stencil value '0'

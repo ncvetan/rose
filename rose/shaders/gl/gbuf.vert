@@ -8,6 +8,7 @@ layout (location = 3) in vec2 tex_coords;
 out vs_data {
 	vec3 frag_pos_ws;		// world space
 	vec3 frag_pos_ts;		// tangent space
+	float frag_pos_z_vs;	// view space z coordinate, used for clustered shading
 	vec3 normal;			// tangent space
 	vec3 view_pos_ts;		// tangent space
 	vec2 tex_coords;
@@ -41,8 +42,9 @@ void main() {
 	vec3 b = cross(n, t);
 	mat3 tbn = transpose(mat3(t, b, n));	// ortho transpose = inverse
 	
-	vs_out.frag_pos_ws = vec3(view * model * vec4(pos, 1.0));
+	vs_out.frag_pos_ws = vec3(model * vec4(pos, 1.0));
 	vs_out.frag_pos_ts = tbn * vs_out.frag_pos_ws;
+	vs_out.frag_pos_z_vs = vec4(view * vec4(vs_out.frag_pos_ws, 1.0)).z;
 	vs_out.normal = normal_mat * normal;
 	vs_out.view_pos_ts = tbn * camera_pos;
 	vs_out.tex_coords = tex_coords;

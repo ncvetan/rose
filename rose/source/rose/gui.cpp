@@ -95,10 +95,10 @@ void imgui(WindowGLFW& state) {
 
     // TODO: temporary, update light ssbos when changes are made from the gui
     if (light_changed) {
-        state.update_light_ssbos();
         for (auto& light : state.pnt_lights) {
-            light.light_props.radius();
+            light.light_props.radius(state.world_state.exposure);
         }
+        state.update_light_ssbos();
     }
 }
 

@@ -46,7 +46,7 @@ struct ShadersGL {
     std::optional<rses> init();
     
     ShaderGL blur;
-    ShaderGL clusters_aabb;
+    ShaderGL clusters_build;
     ShaderGL clusters_cull;
     ShaderGL gbuf;
     ShaderGL hdr;
