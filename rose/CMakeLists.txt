@@ -4,6 +4,7 @@ add_library(rose_lib STATIC
     "source/rose/application.cpp"
     "source/rose/camera.cpp"
     "source/rose/err.cpp"
+    "source/rose/glstructs.cpp"
     "source/rose/gui.cpp"
     "source/rose/lighting.cpp"
     "source/rose/logger.cpp"
@@ -18,6 +19,7 @@ add_library(rose_lib STATIC
     "include/rose/application.hpp"
     "include/rose/camera.hpp"
     "include/rose/err.hpp"
+    "include/rose/glstructs.hpp"
     "include/rose/gui.hpp"
     "include/rose/lighting.hpp"
     "include/rose/logger.hpp"
@@ -32,7 +34,7 @@ add_library(rose_lib STATIC
 target_include_directories(rose_lib PUBLIC ${DEPS_INCLUDE_DIRS})
 target_link_libraries(rose_lib PUBLIC ${DEPS_LIBRARIES})
 
-add_executable(rose "main.cpp")
+add_executable(rose "main.cpp" "source/rose/glstructs.cpp")
 target_link_libraries(rose PUBLIC rose_lib)
 
 target_compile_definitions(rose PUBLIC OPENGL)

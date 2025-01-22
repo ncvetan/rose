@@ -7,22 +7,6 @@
 
 namespace rose {
 
- // TODO: Put this somewhere else
-struct AABB {
-    glm::vec4 min_pt;
-    glm::vec4 max_pt;
-};
-
-// data related to cluster shading
-struct ClusterCtx {
-    glm::uvec3 grid_sz = { 16, 9, 24 }; // size of cluster grid (xyz)
-    s32 max_lights_in_cluster = 100;    // number of lights that will be considered for a single cluster
-    u32 clusters_aabb_ssbo;             // AABBs for each cluster
-    u32 lights_ssbo;                    // light parameters for each light in the scene
-    u32 lights_pos_ssbo;                // light positions for each light in the scene
-    u32 clusters_ssbo;                  // light for each cluster
-};
-
 struct DirLight {
     glm::vec3 direction = { 0.0f, -0.999848f, -0.0174525f };
     glm::vec3 color = { 0.025f, 0.025f, 0.025f };

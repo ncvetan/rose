@@ -3,10 +3,9 @@
 
 #include <rose/camera.hpp>
 #include <rose/err.hpp>
-#include <rose/lighting.hpp>
+#include <rose/glstructs.hpp>
 #include <rose/math.hpp>
 #include <rose/model.hpp>
-#include <rose/object.hpp>
 #include <rose/shader.hpp>
 
 #include <GL/glew.h>
@@ -17,39 +16,6 @@
 #include <unordered_map>
 
 namespace rose {
-
-struct FrameBufTexCtx {
-    GLenum intern_format = 0;
-    GLenum format = 0;
-    GLenum type = 0;
-};
-
-struct FrameBuf {
-    
-    struct Vertex {
-        glm::vec3 pos;
-        glm::vec2 tex;
-    };
-    
-    ~FrameBuf();
-
-    [[nodiscard]] std::optional<rses> init(int w, int h, const std::vector<FrameBufTexCtx>& texs);
-    void draw(ShaderGL& shader, const GlobalState& state);
-
-    u32 frame_buf = 0;
-    u32 render_buf = 0;
-    std::vector<u32> tex_bufs;
-    std::vector<GLenum> attachments;
-
-    u32 vertex_arr = 0;
-    u32 vertex_buf = 0;
-
-    std::vector<Vertex> verts = {
-        { { 1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },   { { -1.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } },
-        { { -1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } }, { { 1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
-        { { -1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } }, { { 1.0f, -1.0f, 0.0f }, { 1.0f, 0.0f } }
-    };
-};
 
 // TODO: This entire thing is much more than a 'window' at this point and needs to be refactored
 class WindowGLFW {
@@ -67,9 +33,7 @@ class WindowGLFW {
     TextureManager texture_manager;
 
     GlobalState world_state;
-    std::vector<Object<Model>> objects;
-    std::vector<Object<TexturedCube>> tex_cubes;
-    std::vector<Object<Cube>> pnt_lights;
+    Objects objects;
 
     FrameBuf gbuf;
     FrameBuf pp1;
@@ -87,25 +51,27 @@ class WindowGLFW {
     bool vp_focused = false;
     bool glfw_captured = true;
 
-    // TODO: temporary, this is not how lights should be updated to the GPU
+    // TODO: move this somewhere else
     void update_light_ssbos() {
         std::vector<PointLight> pnt_lights_props;
         std::vector<glm::vec4> pnt_lights_pos;
+        u32 n_lights = 0;
 
-        pnt_lights_props.reserve(pnt_lights.size());
-        pnt_lights_pos.reserve(pnt_lights.size());
-
-        for (auto& light : pnt_lights) {
-            pnt_lights_props.push_back(light.light_props);
-            // padding so it plays nicely with std430
-            pnt_lights_pos.push_back({ light.pos.x, light.pos.y, light.pos.z, 1.0f });
+        // linear search, probably not a big deal
+        for (size_t idx = 0; idx < objects.size(); ++idx) {
+            if (objects.flags[idx] & ObjectFlags::EMIT_LIGHT) {
+                pnt_lights_pos.push_back(glm::vec4(objects.posns[idx], 1.0f));
+                pnt_lights_props.push_back(objects.light_props[idx]);
+                n_lights++;
+            }
         }
+        
+        clusters.lights_ssbo.update(0, std::span(pnt_lights_props.begin(), pnt_lights_props.end()));
+        clusters.lights_pos_ssbo.update(0, std::span(pnt_lights_pos.begin(), pnt_lights_pos.end()));
 
-        glNamedBufferData(clusters.lights_ssbo, pnt_lights.size() * sizeof(PointLight), pnt_lights_props.data(),
-                          GL_DYNAMIC_DRAW);
-
-        glNamedBufferData(clusters.lights_pos_ssbo, pnt_lights.size() * sizeof(glm::vec4), pnt_lights_pos.data(),
-                          GL_DYNAMIC_DRAW);
+        // zero out the rest of the buffer
+        clusters.lights_ssbo.zero(n_lights);
+        clusters.lights_pos_ssbo.zero(n_lights);
     }
 
     ClusterCtx clusters;

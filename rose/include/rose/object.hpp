@@ -7,6 +7,8 @@
 
 #include <glm.hpp>
 
+#include <vector>
+
 namespace rose {
 
 // TODO: This probably shouldn't be here but I'm not sure where I want to put it yet
@@ -17,33 +19,50 @@ struct GlobalState {
     float gamma = 2.2f;
     float exposure = 1.0f;
 
-    bool bloom = true;              // is bloom enabled
+    bool bloom = true;
     int n_bloom_passes = 5;
 
     ShadowCtx shadow;
 };
 
-template <typename T>
-concept drawable = requires(T d, ShaderGL& shader, const GlobalState& state) {
-    { d.draw(shader, state) } -> std::same_as<void>;
+enum class ObjectFlags : u32 { NONE = bit1, EMIT_LIGHT = bit2, HIDE = bit3 };
+
+inline bool operator&(ObjectFlags lhs, ObjectFlags rhs) {
+    return (static_cast<u32>(lhs) & static_cast<u32>(rhs)) != 0;
+}
+
+// context used to construct an object
+struct ObjectCtx {
+    fs::path model_pth;
+    glm::vec3 pos;
+    glm::vec3 scale;
+    PointLight light_props;
+    ObjectFlags flags;
 };
 
-enum class ObjectFlags : u8 { NONE = 0x00, EMIT_LIGHT = 0x01, HIDE = 0x02 };
+struct Objects {
 
-template <drawable T>
-struct Object {
-    Object() = default;
-    Object(const glm::vec3& pos) : pos(pos) {};
-    Object(const glm::vec3& pos, const glm::vec3& scale) : pos(pos), scale(scale) {};
-    Object(const glm::vec3& pos, const glm::vec3& scale, u8 flags) : pos(pos), scale(scale), flags(flags) {};
+    inline void draw(ShaderGL& shader, const GlobalState& state) { 
+        for (auto& model : models) {
+            model.draw(shader, state); 
+        }
+    }
 
-    inline void draw(ShaderGL& shader, const GlobalState& state) { model.draw(shader, state); }
+    inline size_t size() { return posns.size(); }
 
-    T model;
-    glm::vec3 pos   = { 0.0f, 0.0f, 0.0f };
-    glm::vec3 scale = { 1.0f, 1.0f, 1.0f };
-    PointLight light_props;
-    u8 flags = 0;
+    std::optional<rses> add_object(TextureManager& manager, const ObjectCtx& obj_def);
+
+    // SoA of program objects, should all be equal length
+    std::vector<Model> models;
+    std::vector<glm::vec3> posns;
+    std::vector<glm::vec3> scales;
+    std::vector<PointLight> light_props;
+    std::vector<ObjectFlags> flags;
+
+    // indices that are set as lights
+    std::vector<u32> light_idxs;
+
+
 };
 
 }

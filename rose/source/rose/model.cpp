@@ -14,6 +14,7 @@
 namespace rose {
 
 namespace globals {
+// start at one and use zero as an unitialized value
 u32 id_counter = 1;
 } // namespace globals
 
@@ -23,17 +24,25 @@ static u32 gen_id() {
     return tmp;
 }
 
-Mesh::Mesh(const std::vector<Vertex>& verts, const std::vector<u32>& indices, const std::vector<TextureRef>& textures)
-    : verts(verts), indices(indices), textures(textures) {}
-
 Mesh::Mesh(Mesh&& other) noexcept {
-    VAO = other.VAO;
-    other.VAO = 0;
-    VBO = other.VBO;
-    other.VBO = 0;
-    EBO = other.EBO;
-    other.EBO = 0;
-    verts = std::move(other.verts);
+    vao = other.vao;
+    other.vao = 0;
+    pos_buf = other.pos_buf;
+    other.pos_buf = 0;
+    norm_buf = other.norm_buf;
+    other.norm_buf = 0;
+    tangent_buf = other.tangent_buf;
+    other.tangent_buf = 0;
+    uv_buf = other.uv_buf;
+    other.uv_buf = 0;
+    indices_buf = other.indices_buf;
+    other.indices_buf = 0;
+    id = other.id;
+    other.id = 0;
+    pos = std::move(other.pos);
+    norm = std::move(other.norm);
+    tangent = std::move(other.tangent);
+    uv = std::move(other.uv);
     indices = std::move(other.indices);
     textures = std::move(other.textures);
 }
@@ -46,32 +55,40 @@ Mesh& Mesh::operator=(Mesh&& other) noexcept {
 }
 
 void Mesh::init() {
-    // TODO: convert to direct state access
-    
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    glGenBuffers(1, &EBO);
+    glCreateVertexArrays(1, &vao);
+    glCreateBuffers(1, &pos_buf);
+    glCreateBuffers(1, &norm_buf);
+    glCreateBuffers(1, &tangent_buf);
+    glCreateBuffers(1, &uv_buf);
+    glCreateBuffers(1, &indices_buf);
 
-    glBindVertexArray(VAO);
-    
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(Vertex), verts.data(), GL_STATIC_DRAW);
-    
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(u32), indices.data(), GL_STATIC_DRAW);
-    
-    glEnableVertexAttribArray(0);
-    glEnableVertexAttribArray(1);
-    glEnableVertexAttribArray(2);
-    glEnableVertexAttribArray(3);
-    
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, pos));
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, norm));
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, tangent));
-    glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, tex));
-    
-    glBindVertexArray(0);
-    
+    glNamedBufferStorage(pos_buf, pos.size() * sizeof(glm::vec3), pos.data(), GL_DYNAMIC_STORAGE_BIT);
+    glNamedBufferStorage(norm_buf, norm.size() * sizeof(glm::vec3), norm.data(), GL_DYNAMIC_STORAGE_BIT);
+    glNamedBufferStorage(tangent_buf, tangent.size() * sizeof(glm::vec3), tangent.data(), GL_DYNAMIC_STORAGE_BIT);
+    glNamedBufferStorage(uv_buf, uv.size() * sizeof(glm::vec2), uv.data(), GL_DYNAMIC_STORAGE_BIT);
+    glNamedBufferStorage(indices_buf, indices.size() * sizeof(u32), indices.data(), GL_DYNAMIC_STORAGE_BIT);
+    glVertexArrayElementBuffer(vao, indices_buf);
+
+    glVertexArrayVertexBuffer(vao, 0, pos_buf, 0, sizeof(glm::vec3));
+    glVertexArrayAttribFormat(vao, 0, 3, GL_FLOAT, GL_FALSE, 0);
+    glVertexArrayAttribBinding(vao, 0, 0);
+    glEnableVertexArrayAttrib(vao, 0);
+
+    glVertexArrayVertexBuffer(vao, 1, norm_buf, 0, sizeof(glm::vec3));
+    glVertexArrayAttribFormat(vao, 1, 3, GL_FLOAT, GL_FALSE, 0);
+    glVertexArrayAttribBinding(vao, 1, 1);
+    glEnableVertexArrayAttrib(vao, 1);
+
+    glVertexArrayVertexBuffer(vao, 2, tangent_buf, 0, sizeof(glm::vec3));
+    glVertexArrayAttribFormat(vao, 2, 3, GL_FLOAT, GL_FALSE, 0);
+    glVertexArrayAttribBinding(vao, 2, 2);
+    glEnableVertexArrayAttrib(vao, 2);
+
+    glVertexArrayVertexBuffer(vao, 3, uv_buf, 0, sizeof(glm::vec2));
+    glVertexArrayAttribFormat(vao, 3, 2, GL_FLOAT, GL_FALSE, 0);
+    glVertexArrayAttribBinding(vao, 3, 3);
+    glEnableVertexArrayAttrib(vao, 3);
+
     id = gen_id();
 }
 
@@ -108,16 +125,18 @@ void Mesh::draw(ShaderGL& shader, const GlobalState& state) const {
         glBindTexture(GL_TEXTURE_2D, textures[tex_unit].ref->id);
     }
 
-    glBindVertexArray(VAO);
+    glBindVertexArray(vao);
     glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
-    glBindVertexArray(0);
     glActiveTexture(GL_TEXTURE0);
 }
 
 Mesh::~Mesh() {
-    glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &VBO);
-    glDeleteBuffers(1, &EBO);
+    glDeleteVertexArrays(1, &vao);
+    glDeleteBuffers(1, &pos_buf);
+    glDeleteBuffers(1, &norm_buf);
+    glDeleteBuffers(1, &tangent_buf);
+    glDeleteBuffers(1, &uv_buf);
+    glDeleteBuffers(1, &indices_buf);
 }
 
 void Model::draw(ShaderGL& shader, const GlobalState& state) const {
@@ -170,54 +189,55 @@ static std::vector<TextureRef> load_mat_textures(TextureManager& manager, aiMate
 
 static void process_assimp_node(TextureManager& manager, aiNode* ai_node, const aiScene* ai_scene, std::vector<Mesh>& meshes,
                                 const fs::path& root_path) {
+    
     for (int i = 0; i < ai_node->mNumMeshes; ++i) {
-        
+        Mesh mesh;
         aiMesh* ai_mesh = ai_scene->mMeshes[ai_node->mMeshes[i]];
-        std::vector<Mesh::Vertex> verts;
-        std::vector<u32> indices;
-        std::vector<TextureRef> textures;
+
+        mesh.pos.reserve(ai_mesh->mNumVertices);
+        mesh.norm.reserve(ai_mesh->mNumVertices);
+        mesh.tangent.reserve(ai_mesh->mNumVertices);
+        mesh.uv.reserve(ai_mesh->mNumVertices);
 
         for (int i = 0; i < ai_mesh->mNumVertices; ++i) {
-            Mesh::Vertex vertex;
-            vertex.pos = { ai_mesh->mVertices[i].x, ai_mesh->mVertices[i].y, ai_mesh->mVertices[i].z };
-            vertex.norm = { ai_mesh->mNormals[i].x, ai_mesh->mNormals[i].y, ai_mesh->mNormals[i].z };
-            vertex.tangent = { ai_mesh->mTangents[i].x, ai_mesh->mTangents[i].y, ai_mesh->mTangents[i].z };
+            mesh.pos.push_back({ ai_mesh->mVertices[i].x, ai_mesh->mVertices[i].y, ai_mesh->mVertices[i].z });
+            mesh.norm.push_back({ ai_mesh->mNormals[i].x, ai_mesh->mNormals[i].y, ai_mesh->mNormals[i].z });
+            mesh.tangent.push_back({ ai_mesh->mTangents[i].x, ai_mesh->mTangents[i].y, ai_mesh->mTangents[i].z });
+            glm::vec2 uv = { 0.0f, 0.0f };
             if (ai_mesh->mTextureCoords) {
-                vertex.tex = { ai_mesh->mTextureCoords[0][i].x, ai_mesh->mTextureCoords[0][i].y };
+                uv = { ai_mesh->mTextureCoords[0][i].x, ai_mesh->mTextureCoords[0][i].y };
             } 
-            else {
-                vertex.tex = { 0.0f, 0.0f };
-            }
-            verts.push_back(std::move(vertex));
+            mesh.uv.push_back(uv);
         }
 
         for (int i = 0; i < ai_mesh->mNumFaces; ++i) {
             aiFace face = ai_mesh->mFaces[i];
             for (int j = 0; j < face.mNumIndices; ++j) {
-                indices.push_back(face.mIndices[j]);
+                mesh.indices.push_back(face.mIndices[j]);
             }
         }
 
         // Loading material textures
         if (ai_mesh->mMaterialIndex >= 0) {
             aiMaterial* material = ai_scene->mMaterials[ai_mesh->mMaterialIndex];
-            std::vector<TextureRef> diff_maps = load_mat_textures(manager, material, aiTextureType_DIFFUSE, root_path);
-            std::vector<TextureRef> spec_maps = load_mat_textures(manager, material, aiTextureType_SPECULAR, root_path);
-            std::vector<TextureRef> norm_maps = load_mat_textures(manager, material, aiTextureType_HEIGHT, root_path);
-            std::vector<TextureRef> disp_maps = load_mat_textures(manager, material, aiTextureType_DISPLACEMENT, root_path);
-            textures.reserve(diff_maps.size() + spec_maps.size() + norm_maps.size() + disp_maps.size());
 
-            textures.insert(textures.end(), std::make_move_iterator(diff_maps.begin()),
-                            std::make_move_iterator(diff_maps.end()));
-            textures.insert(textures.end(), std::make_move_iterator(spec_maps.begin()),
-                            std::make_move_iterator(spec_maps.end()));
-            textures.insert(textures.end(), std::make_move_iterator(norm_maps.begin()),
-                            std::make_move_iterator(norm_maps.end()));
-            textures.insert(textures.end(), std::make_move_iterator(disp_maps.begin()),
-                            std::make_move_iterator(disp_maps.end()));
+            std::vector<TextureRef> diff_maps = load_mat_textures(manager, material, aiTextureType_DIFFUSE,      root_path);
+            std::vector<TextureRef> spec_maps = load_mat_textures(manager, material, aiTextureType_SPECULAR,     root_path);
+            std::vector<TextureRef> norm_maps = load_mat_textures(manager, material, aiTextureType_HEIGHT,       root_path);
+            std::vector<TextureRef> disp_maps = load_mat_textures(manager, material, aiTextureType_DISPLACEMENT, root_path);
+
+            mesh.textures.reserve(diff_maps.size() + spec_maps.size() + norm_maps.size() + disp_maps.size());
+
+            mesh.textures.insert(mesh.textures.end(), std::make_move_iterator(diff_maps.begin()),
+                                 std::make_move_iterator(diff_maps.end()));
+            mesh.textures.insert(mesh.textures.end(), std::make_move_iterator(spec_maps.begin()),
+                                 std::make_move_iterator(spec_maps.end()));
+            mesh.textures.insert(mesh.textures.end(), std::make_move_iterator(norm_maps.begin()),
+                                 std::make_move_iterator(norm_maps.end()));
+            mesh.textures.insert(mesh.textures.end(), std::make_move_iterator(disp_maps.begin()),
+                                 std::make_move_iterator(disp_maps.end()));
         }
 
-        Mesh mesh = { verts, indices, textures };
         meshes.push_back(std::move(mesh));
     }
 
@@ -233,255 +253,26 @@ std::optional<rses> Model::load(TextureManager& manager, const fs::path& path) {
     const aiScene* scene =
         import.ReadFile(path.generic_string(), aiProcess_GenNormals | aiProcess_Triangulate | aiProcess_CalcTangentSpace);
 
-    fs::path root_path = path.parent_path();
-
     if (!scene) {
         return rses().io("Error importing scene : {}", import.GetErrorString());
     }
 
+    fs::path root_path = path.parent_path();
+
     process_assimp_node(manager, scene->mRootNode, scene, meshes, root_path);
 
+    for (auto& mesh : meshes) {
+        mesh.init();
+    }
+
     return std::nullopt;
-}
-
-Cube::Cube(Cube&& other) noexcept {
-    VAO = other.VAO;
-    other.VAO = 0;
-    VBO = other.VBO;
-    other.VBO = 0;
-    EBO = other.EBO;
-    other.VBO = 0;
-    verts = std::move(other.verts);
-    model_mat = std::move(other.model_mat);
-}
-
-Cube& Cube::operator=(Cube&& other) noexcept {
-    if (this == &other) return *this;
-    this->~Cube();
-    new (this) Cube(std::move(other));
-    return *this;
-}
-
-void Cube::init() {
-    glCreateVertexArrays(1, &VAO);
-    glCreateBuffers(1, &VBO);
-    glNamedBufferStorage(VBO, verts.size() * sizeof(Vertex), verts.data(), GL_DYNAMIC_STORAGE_BIT);
-    glVertexArrayVertexBuffer(VAO, 0, VBO, 0, sizeof(Vertex));
-    
-    glCreateBuffers(1, &EBO);
-    glNamedBufferStorage(EBO, indices.size() * sizeof(int), indices.data(), GL_DYNAMIC_STORAGE_BIT);
-    glVertexArrayElementBuffer(VAO, EBO);
-    
-    glEnableVertexArrayAttrib(VAO, 0);
-    glEnableVertexArrayAttrib(VAO, 1);
-
-    glVertexArrayAttribFormat(VAO, 0, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, pos));
-    glVertexArrayAttribFormat(VAO, 1, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, norm));
-    
-    id = gen_id();
-}
-
-void Cube::draw(ShaderGL& shader, const GlobalState& state) const {
-    shader.use();
-    shader.set_mat4("model", model_mat);
-    glBindVertexArray(VAO);
-    glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, nullptr);
-    glBindVertexArray(0);
-}
-
-Cube::~Cube() {
-    glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &VBO);
-}
-
-TexturedCube::TexturedCube(TexturedCube&& other) noexcept {
-    VAO = other.VAO;
-    other.VAO = 0;
-    VBO = other.VBO;
-    other.VBO = 0;
-    diffuse_map = std::move(other.diffuse_map);
-    specular_map = std::move(other.specular_map);
-    normal_map = std::move(other.normal_map);
-    displace_map = std::move(other.displace_map);
-    verts = std::move(other.verts);
-    model_mat = std::move(other.model_mat);
-    id = other.id;
-    other.id = 0;
-}
-
-TexturedCube& TexturedCube::operator=(TexturedCube&& other) noexcept {
-    if (this == &other) return *this;
-    this->~TexturedCube();
-    new (this) TexturedCube(std::move(other));
-    return *this;
-}
-
-void TexturedCube::init() {
-    glCreateVertexArrays(1, &VAO);
-    glCreateBuffers(1, &VBO);
-    glCreateBuffers(1, &EBO);
-
-    glNamedBufferStorage(VBO, verts.size() * sizeof(Vertex), verts.data(), GL_DYNAMIC_STORAGE_BIT);
-    glNamedBufferStorage(EBO, indices.size() * sizeof(u32), indices.data(), GL_DYNAMIC_STORAGE_BIT);
-
-    glVertexArrayVertexBuffer(VAO, 0, VBO, 0, sizeof(Vertex));
-    glVertexArrayElementBuffer(VAO, EBO);
-
-    glEnableVertexArrayAttrib(VAO, 0);
-    glEnableVertexArrayAttrib(VAO, 1);
-    glEnableVertexArrayAttrib(VAO, 2);
-    glEnableVertexArrayAttrib(VAO, 3);
-
-    glVertexArrayAttribFormat(VAO, 0, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, pos));
-    glVertexArrayAttribFormat(VAO, 1, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, norm));
-    glVertexArrayAttribFormat(VAO, 2, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, tangent));
-    glVertexArrayAttribFormat(VAO, 3, 2, GL_FLOAT, GL_FALSE, offsetof(Vertex, tex));
-
-    glVertexArrayAttribBinding(VAO, 0, 0);
-    glVertexArrayAttribBinding(VAO, 1, 0);
-    glVertexArrayAttribBinding(VAO, 2, 0);
-    glVertexArrayAttribBinding(VAO, 3, 0);
-
-    id = gen_id();
-}
-
-std::optional<rses> TexturedCube::load(TextureManager& manager, const fs::path& diff_path,
-                                       const fs::path& spec_path, const fs::path& norm_path, const fs::path& disp_path) {
-    
-    std::expected<TextureRef, rses> diff = manager.load_texture(diff_path, TextureType::DIFFUSE);
-    if (!diff) {
-        return diff.error();
-    }
-    std::expected<TextureRef, rses> spec = manager.load_texture(spec_path, TextureType::SPECULAR);
-    if (!spec) {
-        return spec.error();
-    }
-    std::expected<TextureRef, rses> norm = manager.load_texture(norm_path, TextureType::NORMAL);
-    if (!norm) {
-        return norm.error();
-    }
-    std::expected<TextureRef, rses> disp = manager.load_texture(disp_path, TextureType::DISPLACE);
-    if (!disp) {
-        return disp.error();
-    }
-    
-    this->diffuse_map = std::move(diff.value());
-    this->specular_map = std::move(spec.value());
-    this->normal_map = std::move(norm.value());
-    this->displace_map = std::move(disp.value());
-    return std::nullopt;
-}
-
-void TexturedCube::draw(ShaderGL& shader, const GlobalState& state) const {
-    shader.use();
-    shader.set_mat4("model", model_mat);
-    glBindVertexArray(VAO);
-    
-    glBindTextureUnit(0, diffuse_map.ref->id);
-    shader.set_int("materials[0].diffuse_map", 0);
-    
-    // todo: check if cube doesn't have a spec map, fix this
-    if (specular_map.ref) {
-        glBindTextureUnit(1, specular_map.ref->id);
-        shader.set_int("materials[0].specular_map", 1);
-    } 
-    else {
-        shader.set_int("materials[0].specular_map", 0);
-    }
-
-    glBindTextureUnit(2, normal_map.ref->id);
-    shader.set_int("materials[0].normal_map", 2);
-
-    glBindTextureUnit(3, displace_map.ref->id);
-    shader.set_int("materials[0].displace_map", 3);
-
-    shader.set_float("materials[0].shine", 32.0f);
-
-    glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
-    glBindVertexArray(0);
-}
-
-TexturedCube::~TexturedCube() {
-    glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &VBO);
-}
-
-TexturedQuad::TexturedQuad(TexturedQuad&& other) noexcept {
-    VAO = other.VAO;
-    other.VAO = 0;
-    VBO = other.VBO;
-    other.VBO = 0;
-    texture = std::move(other.texture);
-    verts = std::move(other.verts);
-    model_mat = std::move(other.model_mat);
-    id = other.id;
-    other.id = 0;
-}
-
-TexturedQuad& TexturedQuad::operator=(TexturedQuad&& other) noexcept {
-    if (this == &other) return *this;
-    this->~TexturedQuad();
-    new (this) TexturedQuad(std::move(other));
-    return *this;
-}
-
-void TexturedQuad::init() {
-    glCreateVertexArrays(1, &VAO);
-    glCreateBuffers(1, &VBO);
-    glNamedBufferStorage(VBO, verts.size() * sizeof(Vertex), verts.data(), GL_DYNAMIC_STORAGE_BIT);
-    glVertexArrayVertexBuffer(VAO, 0, VBO, 0, sizeof(Vertex));
-
-    glEnableVertexArrayAttrib(VAO, 0);
-    glEnableVertexArrayAttrib(VAO, 1);
-
-    glVertexArrayAttribFormat(VAO, 0, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, pos));
-    glVertexArrayAttribFormat(VAO, 1, 2, GL_FLOAT, GL_FALSE, offsetof(Vertex, tex));
-
-    glVertexArrayAttribBinding(VAO, 0, 0);
-    glVertexArrayAttribBinding(VAO, 1, 0);
-
-    id = gen_id();
-}
-
-void TexturedQuad::gen_tex(TextureManager& manager, int w, int h, GLenum intern_format, GLenum format, GLenum type){ 
-    auto ret = manager.generate_texture(w, h, intern_format, format, type); 
-    
-    if (!ret) {
-        assert(false);
-    }
-
-    texture = std::move(ret.value());
-}
-
-std::optional<rses> TexturedQuad::load(TextureManager& manager, const fs::path& path) {
-    std::expected<TextureRef, rses> tex = manager.load_texture(path, TextureType::DIFFUSE);
-    if (!tex) {
-        return tex.error();
-    }
-    texture = tex.value();
-    return std::nullopt;
-}
-
-void TexturedQuad::draw(ShaderGL& shader, const GlobalState& state) const {
-    shader.use();
-    shader.set_mat4("model", model_mat);
-    glBindVertexArray(VAO);
-    glBindTextureUnit(0, texture.ref->id);
-    shader.set_int("tex", 0);
-    glDrawArrays(GL_TRIANGLES, 0, verts.size());
-    glBindVertexArray(0);
-}
-
-TexturedQuad::~TexturedQuad() {
-    glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &VBO);
 }
 
 SkyBox::SkyBox(SkyBox&& other) noexcept {
-    VAO = other.VAO;
-    other.VAO = 0;
-    VBO = other.VBO;
-    other.VBO = 0;
+    vao = other.vao;
+    other.vao = 0;
+    verts_buf = other.verts_buf;
+    other.verts_buf = 0;
     texture = std::move(other.texture);
     verts = std::move(other.verts);
     model_mat = std::move(other.model_mat);
@@ -497,18 +288,18 @@ SkyBox& SkyBox::operator=(SkyBox&& other) noexcept {
 }
 
 SkyBox::~SkyBox() {
-    glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &VBO);
+    glDeleteVertexArrays(1, &vao);
+    glDeleteBuffers(1, &verts_buf);
 }
 
 void SkyBox::init() {
-    glCreateVertexArrays(1, &VAO);
-    glCreateBuffers(1, &VBO);
-    glNamedBufferStorage(VBO, verts.size() * sizeof(Vertex), verts.data(), GL_DYNAMIC_STORAGE_BIT);
-    glVertexArrayVertexBuffer(VAO, 0, VBO, 0, sizeof(Vertex));
-    glEnableVertexArrayAttrib(VAO, 0);
-    glVertexArrayAttribFormat(VAO, 0, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, pos));
-    glVertexArrayAttribBinding(VAO, 0, 0);
+    glCreateVertexArrays(1, &vao);
+    glCreateBuffers(1, &verts_buf);
+    glNamedBufferStorage(verts_buf, verts.size() * sizeof(Vertex), verts.data(), GL_DYNAMIC_STORAGE_BIT);
+    glVertexArrayVertexBuffer(vao, 0, verts_buf, 0, sizeof(Vertex));
+    glEnableVertexArrayAttrib(vao, 0);
+    glVertexArrayAttribFormat(vao, 0, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, pos));
+    glVertexArrayAttribBinding(vao, 0, 0);
     id = gen_id();
 }
 
@@ -524,7 +315,7 @@ std::optional<rses> SkyBox::load(TextureManager& manager, const std::vector<fs::
 void SkyBox::draw(ShaderGL& shader, const GlobalState& state) const {
     glDepthMask(GL_FALSE);
     shader.use();
-    glBindVertexArray(VAO);
+    glBindVertexArray(vao);
     glBindTextureUnit(0, texture.ref->id);
     glDrawArrays(GL_TRIANGLES, 0, 36);
     glBindVertexArray(0);

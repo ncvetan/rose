@@ -11,7 +11,9 @@
 namespace rose {
 namespace gui {
 
-// TODO: The GUI code is pretty rough right now and is primarily used for debugging, I'd like to clean this up
+// right now, the gui is a but hacked together. it is primarily used for debugging and observing
+// how changing certain parameters impact various graphics components. in the future this should
+// be a cleaner interface with less bugs
 
 static float dir_angle = std::numbers::pi / 2;
 static bool first_frame = true;
@@ -45,14 +47,19 @@ void imgui(WindowGLFW& state) {
     ImGui::SeparatorText("point lights");
     bool light_changed = false;
     if (ImGui::TreeNode("lights")) {
-        for (int i = 0; i < state.pnt_lights.size(); i++) {
-            if (ImGui::TreeNode((void*)(intptr_t)i, "light %d", i)) {
+        for (size_t idx = 0; idx < state.objects.size(); idx++) {
+            
+            if (!(state.objects.flags[idx] & ObjectFlags::EMIT_LIGHT)) {
+                continue;
+            }
+            
+            if (ImGui::TreeNode((void*)(intptr_t)idx, "light %d", idx)) {
                 light_changed = 
-                    ImGui::SliderFloat3("position", glm::value_ptr(state.pnt_lights[i].pos), -10.0f, 10.0f) 
-                    || ImGui::ColorEdit3("color", glm::value_ptr(state.pnt_lights[i].light_props.color))
-                    || ImGui::SliderFloat("linear", &state.pnt_lights[i].light_props.linear, 0.1f, 10.0f) 
-                    || ImGui::SliderFloat("quad", &state.pnt_lights[i].light_props.quad, 0.1f, 10.0f)
-                    || ImGui::SliderFloat("intensity", &state.pnt_lights[i].light_props.intensity, 1.0f, 10.0f);
+                    ImGui::SliderFloat3("position", glm::value_ptr(state.objects.posns[idx]), -10.0f, 10.0f) 
+                    || ImGui::ColorEdit3("color", glm::value_ptr(state.objects.light_props[idx].color)) ||
+                    ImGui::SliderFloat("linear", &state.objects.light_props[idx].linear, 0.1f, 10.0f) 
+                    || ImGui::SliderFloat("quad", &state.objects.light_props[idx].quad, 0.1f, 10.0f) ||
+                    ImGui::SliderFloat("intensity", &state.objects.light_props[idx].intensity, 1.0f, 10.0f);
                 ImGui::TreePop();
             }
         }
@@ -95,8 +102,8 @@ void imgui(WindowGLFW& state) {
 
     // TODO: temporary, update light ssbos when changes are made from the gui
     if (light_changed) {
-        for (auto& light : state.pnt_lights) {
-            light.light_props.radius(state.world_state.exposure);
+        for (auto& light_props : state.objects.light_props) {
+            light_props.radius(state.world_state.exposure);
         }
         state.update_light_ssbos();
     }

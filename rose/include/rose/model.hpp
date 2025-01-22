@@ -13,8 +13,6 @@
 
 namespace rose {
 
-namespace fs = std::filesystem;
-
 struct GlobalState;
 
 template <typename T>
@@ -41,15 +39,9 @@ void rotate(T& obj, float deg, const glm::vec3& axis) {
 }
 
 struct Mesh {
-    struct Vertex {
-        glm::vec3 pos;
-        glm::vec3 norm;
-        glm::vec3 tangent;
-        glm::vec2 tex;
-    };
 
-    Mesh() = delete;
-    Mesh(const std::vector<Vertex>& verts, const std::vector<u32>& indices, const std::vector<TextureRef>& textures);
+    Mesh() = default;
+
     Mesh(const Mesh& other) = delete;
     Mesh(Mesh&& other) noexcept;
     ~Mesh();
@@ -61,13 +53,22 @@ struct Mesh {
     void draw(ShaderGL& shader, const GlobalState& state) const;
 
     u32 id = 0;
-    std::vector<Vertex> verts;
+
+    std::vector<glm::vec3> pos;
+    std::vector<glm::vec3> norm;
+    std::vector<glm::vec3> tangent;
+    std::vector<glm::vec2> uv;
+
     std::vector<u32> indices;
     std::vector<TextureRef> textures;
 
-    u32 VAO = 0;
-    u32 VBO = 0;
-    u32 EBO = 0;
+    u32 vao = 0;
+    u32 indices_buf = 0;
+
+    u32 pos_buf = 0;
+    u32 norm_buf = 0;
+    u32 tangent_buf = 0;
+    u32 uv_buf = 0;
 };
 
 struct Model {
@@ -77,174 +78,6 @@ struct Model {
 
     glm::mat4 model_mat = glm::mat4(1.0f);
     std::vector<Mesh> meshes;
-};
-
-struct Cube {
-    struct Vertex {
-        glm::vec3 pos;
-        glm::vec3 norm;
-    };
-
-    Cube() = default;
-    Cube(const Cube& other) = delete;
-    Cube(Cube&& other) noexcept;
-    ~Cube();
-
-    Cube& operator=(const Cube& other) = delete;
-    Cube& operator=(Cube&& other) noexcept;
-
-    void init();
-    void draw(ShaderGL& shader, const GlobalState& state) const;
-    inline void reset() { model_mat = glm::mat4(1.0f); }
-
-    u32 id = 0;
-    glm::mat4 model_mat = glm::mat4(1.0f);
-    u32 VAO = 0;
-    u32 VBO = 0;
-    u32 EBO = 0;
-
-    std::vector<Vertex> verts = {
-        { { -0.5f, -0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f } },
-        { { 0.5f, -0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f } },
-        { { 0.5f, 0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f } },
-        { { -0.5f, 0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f } },
-
-        { { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f } },
-        { { 0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f } },
-        { { 0.5f, 0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f } },
-        { { -0.5f, 0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f } },
-
-        { { -0.5f, -0.5f, -0.5f }, { -1.0f, 0.0f, 0.0f } },
-        { { -0.5f, -0.5f, 0.5f }, { -1.0f, 0.0f, 0.0f } },
-        { { -0.5f, 0.5f, 0.5f }, { -1.0f, 0.0f, 0.0f } },
-        { { -0.5f, 0.5f, -0.5f }, { -1.0f, 0.0f, 0.0f } },
-
-        { { 0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f } },
-        { { 0.5f, -0.5f, 0.5f }, { 1.0f, 0.0f, 0.0f } },
-        { { 0.5f, 0.5f, 0.5f }, { 1.0f, 0.0f, 0.0f } }, 
-        { { 0.5f, 0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f } },
-
-        { { -0.5f, 0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f } },
-        { { 0.5f, 0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f } },
-        { { 0.5f, 0.5f, 0.5f }, { 0.0f, 1.0f, 0.0f } },
-        { { -0.5f, 0.5f, 0.5f }, { 0.0f, 1.0f, 0.0f } },
-
-        { { -0.5f, -0.5f, -0.5f }, { 0.0f, -1.0f, 0.0f } },
-        { { 0.5f, -0.5f, -0.5f }, { 0.0f, -1.0f, 0.0f } },
-        { { 0.5f, -0.5f, 0.5f }, { 0.0f, -1.0f, 0.0f } },
-        { { -0.5f, -0.5f, 0.5f }, { 0.0f, -1.0f, 0.0f } }
-    };
-
-    std::vector<int> indices = {
-        0, 1, 2, 0, 2, 3,
-        6, 5, 4, 7, 6, 4,
-        8, 9, 10, 8, 10, 11,
-        14, 13, 12, 15, 14, 12,
-        18, 17, 16, 19, 18, 16,
-        20, 21, 22, 20, 22, 23
-    };
-
-};
-
-struct TexturedCube {
-    struct Vertex {
-        glm::vec3 pos;
-        glm::vec3 norm;
-        glm::vec3 tangent;
-        glm::vec2 tex;
-    };
-
-    TexturedCube() = default;
-    TexturedCube(const TexturedCube& other) = delete;
-    TexturedCube(TexturedCube&& other) noexcept;
-    ~TexturedCube();
-
-    TexturedCube& operator=(const TexturedCube& other) = delete;
-    TexturedCube& operator=(TexturedCube&& other) noexcept;
-
-    void init();
-    std::optional<rses> load(TextureManager& manager, const fs::path& diff_path, 
-        const fs::path& spec_path, const fs::path& norm_path, const fs::path& disp_path);
-    void draw(ShaderGL& shader, const GlobalState& state) const;
-    inline void reset() { model_mat = glm::mat4(1.0f); }
-
-    u32 id = 0;
-    TextureRef diffuse_map;
-    TextureRef specular_map;
-    TextureRef normal_map;
-    TextureRef displace_map;
-    glm::mat4 model_mat = glm::mat4(1.0f);
-    u32 VAO = 0;
-    u32 VBO = 0;
-    u32 EBO = 0;
-
-    std::vector<Vertex> verts = 
-    { { { -0.5f, -0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
-        { { 0.5f, -0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
-        { { 0.5f, 0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } },
-        { { -0.5f, 0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } }, 
-
-        { { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
-        { { 0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
-        { { 0.5f, 0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } },
-        { { -0.5f, 0.5f, -0.5f }, { 0.0f, 0.0f, -1.0f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } }, 
-
-        { { -0.5f, -0.5f, -0.5f }, { -1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
-        { { -0.5f, -0.5f, 0.5f }, { -1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
-        { { -0.5f, 0.5f, 0.5f }, { -1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
-        { { -0.5f, 0.5f, -0.5f }, { -1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } }, 
-
-        { { 0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
-        { { 0.5f, -0.5f, 0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
-        { { 0.5f, 0.5f, 0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
-        { { 0.5f, 0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } }, 
-
-        { { -0.5f, 0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
-        { { 0.5f, 0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
-        { { 0.5f, 0.5f, 0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } },
-        { { -0.5f, 0.5f, 0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } }, 
-
-        { { -0.5f, -0.5f, -0.5f }, { 0.0f, -1.0f, 0.0f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
-        { { 0.5f, -0.5f, -0.5f }, { 0.0f, -1.0f, 0.0f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
-        { { 0.5f, -0.5f, 0.5f }, { 0.0f, -1.0f, 0.0f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } },
-        { { -0.5f, -0.5f, 0.5f }, { 0.0f, -1.0f, 0.0f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } }  
-    };
-
-    std::vector<int> indices = { 0,  1,  2,  0,  2,  3,  6,  5,  4,  7,  6,  4,  8,  9,  10, 8,  10, 11,
-                                 14, 13, 12, 15, 14, 12, 18, 17, 16, 19, 18, 16, 20, 21, 22, 20, 22, 23 };
-};
-
-struct TexturedQuad {
-    struct Vertex {
-        glm::vec3 pos;
-        glm::vec2 tex;
-    };
-
-    TexturedQuad() = default;
-    TexturedQuad(const TexturedQuad& other) = delete;
-    TexturedQuad(TexturedQuad&& other) noexcept;
-    ~TexturedQuad();
-
-    TexturedQuad& operator=(const TexturedQuad& other) = delete;
-    TexturedQuad& operator=(TexturedQuad&& other) noexcept;
-
-    void init();
-    void gen_tex(TextureManager& manager, int w, int h, GLenum internal_format, GLenum format, GLenum type);
-    std::optional<rses> load(TextureManager& manager, const fs::path& path);
-    void draw(ShaderGL& shader, const GlobalState& state) const;
-    inline void reset() { model_mat = glm::mat4(1.0f); }
-
-    u32 id = 0;
-    TextureRef texture;
-    glm::mat4 model_mat = glm::mat4(1.0f);
-    u32 VAO = 0;
-    u32 VBO = 0;
-
-    std::vector<Vertex> verts = {
-        { { 1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },   { { -1.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } },
-        { { -1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } }, { { 1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
-        { { -1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } }, { { 1.0f, -1.0f, 0.0f }, { 1.0f, 0.0f } }
-    };
 };
 
 struct SkyBox {
@@ -269,8 +102,8 @@ struct SkyBox {
     u32 id = 0;
     TextureRef texture;
     glm::mat4 model_mat = glm::mat4(1.0f);
-    u32 VAO = 0;
-    u32 VBO = 0;
+    u32 vao = 0;
+    u32 verts_buf = 0;
 
     std::vector<Vertex> verts = { { { -1.0f, 1.0f, -1.0f } },  { { -1.0f, -1.0f, -1.0f } }, { { 1.0f, -1.0f, -1.0f } },
                                   { { 1.0f, -1.0f, -1.0f } },  { { 1.0f, 1.0f, -1.0f } },   { { -1.0f, 1.0f, -1.0f } },
