@@ -96,8 +96,8 @@ std::expected<TextureRef, rses> TextureManager::load_texture(const fs::path& pat
 
     if (texture_data) {
         glCreateTextures(GL_TEXTURE_2D, 1, &texture.id);
-        glTextureParameteri(texture.id, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTextureParameteri(texture.id, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTextureParameteri(texture.id, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTextureParameteri(texture.id, GL_TEXTURE_WRAP_T, GL_REPEAT);
         glTextureParameteri(texture.id, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTextureParameteri(texture.id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTextureStorage2D(texture.id, 1, GL_RGBA8, width, height);

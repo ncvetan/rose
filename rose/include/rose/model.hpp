@@ -39,45 +39,48 @@ void rotate(T& obj, float deg, const glm::vec3& axis) {
 }
 
 struct Mesh {
+    u64 n_indices = 0;
+    u64 base_vert = 0;
+    u64 base_idx = 0;
+    u32 matl_offset = 0;
+    u32 n_matls = 0;
+};
 
-    Mesh() = default;
+struct Model {
+    
+    Model() = default;
 
-    Mesh(const Mesh& other) = delete;
-    Mesh(Mesh&& other) noexcept;
-    ~Mesh();
+    Model(Model&& other) noexcept;
 
-    Mesh& operator=(const Mesh& other) = delete;
-    Mesh& operator=(Mesh&& other) noexcept;
+    Model& operator=(Model&& other) noexcept;
 
-    void init();
+    ~Model();
+    
     void draw(ShaderGL& shader, const GlobalState& state) const;
+    
+    std::optional<rses> load(TextureManager& manager, const std::filesystem::path& path);
+    
+    // this should only be called once and after vectors have been populated
+    void init_gl();
+    
+    inline void reset() { model_mat = glm::mat4(1.0f); }
 
-    u32 id = 0;
+    glm::mat4 model_mat = glm::mat4(1.0f);
+    std::vector<Mesh> meshes;
+    std::vector<TextureRef> textures;
 
+    std::vector<u32> indices;
     std::vector<glm::vec3> pos;
     std::vector<glm::vec3> norm;
     std::vector<glm::vec3> tangent;
     std::vector<glm::vec2> uv;
 
-    std::vector<u32> indices;
-    std::vector<TextureRef> textures;
-
     u32 vao = 0;
-    u32 indices_buf = 0;
-
     u32 pos_buf = 0;
     u32 norm_buf = 0;
     u32 tangent_buf = 0;
     u32 uv_buf = 0;
-};
-
-struct Model {
-    void draw(ShaderGL& shader, const GlobalState& state) const;
-    std::optional<rses> load(TextureManager& manager, const std::filesystem::path& path);
-    inline void reset() { model_mat = glm::mat4(1.0f); }
-
-    glm::mat4 model_mat = glm::mat4(1.0f);
-    std::vector<Mesh> meshes;
+    u32 indices_buf = 0;
 };
 
 struct SkyBox {
@@ -99,7 +102,6 @@ struct SkyBox {
     void draw(ShaderGL& shader, const GlobalState& state) const;
     inline void reset() { model_mat = glm::mat4(1.0f); }
 
-    u32 id = 0;
     TextureRef texture;
     glm::mat4 model_mat = glm::mat4(1.0f);
     u32 vao = 0;

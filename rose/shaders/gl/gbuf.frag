@@ -7,7 +7,7 @@ layout (location = 2) out vec4 gbuf_color;
 in vs_data {
 	vec3 frag_pos_ws;		// world space
 	vec3 frag_pos_ts;		// tangent space
-	float frag_pos_z_vs;		// view space
+	float frag_pos_z_vs;	// view space
 	vec3 normal;			// tangent space
 	vec3 view_pos_ts;		// tangent space
 	vec2 tex_coords;
@@ -21,19 +21,13 @@ struct Material {
 	float		shine;
 };
 
-// TODO: multiple material support
-#define N_MATS 1
-uniform Material materials[N_MATS];
+uniform Material material;
 
 void main() {
-	
 	// write positions, normals, colors, and specular instensities to the g-buffer
 	gbuf_pos.xyz = fs_in.frag_pos_ws;
 	gbuf_pos.w = fs_in.frag_pos_z_vs;
 	gbuf_norm = normalize(fs_in.normal);
-
-	for (int i = 0; i < N_MATS; ++i) {
-		gbuf_color.rgb += texture(materials[i].diffuse_map, fs_in.tex_coords).rgb;
-		gbuf_color.a += texture(materials[i].specular_map, fs_in.tex_coords).r;	
-	}
+	gbuf_color.rgb = texture(material.diffuse_map, fs_in.tex_coords).rgb;
+	gbuf_color.a = texture(material.specular_map, fs_in.tex_coords).r;	
 }

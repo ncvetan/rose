@@ -29,9 +29,6 @@ std::optional<rses> WindowGLFW::init_glfw() {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
 
-    // TODO: reimplement
-    // glfwWindowHint(GLFW_SAMPLES, 4);
-
 #ifdef _DEBUG
     glfwWindowHint(GLFW_CONTEXT_DEBUG, GL_TRUE);
 #endif
@@ -135,14 +132,13 @@ std::optional<rses> WindowGLFW::init() {
     }
 
     // models
-    ObjectCtx obj1_def = { .model_pth = SOURCE_DIR "/assets/model1/model1.obj",
-                           .pos = { 2.0f, 1.0f, 5.0f },
-                           .scale = { 1.0f, 1.0f, 1.0f },
-                           .light_props = PointLight(),
-                           .flags = ObjectFlags::NONE 
-                         };
-    
-    objects.add_object(texture_manager, obj1_def);
+    ObjectCtx sponza_def = { .model_pth = SOURCE_DIR "/assets/Sponza/glTF/Sponza.gltf",
+                        .pos = { 0.0f, 0.0f, 0.0f },
+                        .scale = { 0.02f, 0.02f, 0.02f },
+                        .light_props = PointLight(),
+                        .flags = ObjectFlags::NONE };
+
+    objects.add_object(texture_manager, sponza_def);
     
     // TODO: Fill in light path...
     ObjectCtx light1_def = { .model_pth = SOURCE_DIR "/assets/model1/model1.obj",
@@ -165,6 +161,8 @@ std::optional<rses> WindowGLFW::init() {
     objects.add_object(texture_manager, light2_def);
     objects.light_props.back().radius(world_state.exposure);
     objects.light_props.back().color = { 0.35f, 0.1f, 0.1f, 1.0f };
+
+    world_state.dir_light.color = { 0.7f, 0.7f, 0.7f };
 
     // frame buf initialization ===================================================================
     if (err = gbuf.init(width, height,
@@ -357,7 +355,7 @@ void WindowGLFW::update() {
         glStencilMask(0xFF);
 
         for (size_t idx = 0; idx < objects.size(); ++idx) {
-            if (!(objects.flags[idx] & ObjectFlags::EMIT_LIGHT)) {
+            if (!(objects.flags[idx] & ObjectFlags::EMIT_LIGHT)) {                
                 translate(objects.models[idx], objects.posns[idx]);
                 scale(objects.models[idx], objects.scales[idx]);
                 objects.models[idx].draw(shaders.gbuf, world_state);

@@ -3,28 +3,17 @@
 #include <rose/model.hpp>
 #include <rose/window.hpp>
 
+#include <GL/glew.h>
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
-#include <GL/glew.h>
 
 #include <format>
 #include <unordered_map>
 
 namespace rose {
 
-namespace globals {
-// start at one and use zero as an unitialized value
-u32 id_counter = 1;
-} // namespace globals
-
-static u32 gen_id() {
-    u32 tmp = globals::id_counter;
-    globals::id_counter++;
-    return tmp;
-}
-
-Mesh::Mesh(Mesh&& other) noexcept {
+Model::Model(Model&& other) noexcept {
     vao = other.vao;
     other.vao = 0;
     pos_buf = other.pos_buf;
@@ -37,24 +26,23 @@ Mesh::Mesh(Mesh&& other) noexcept {
     other.uv_buf = 0;
     indices_buf = other.indices_buf;
     other.indices_buf = 0;
-    id = other.id;
-    other.id = 0;
     pos = std::move(other.pos);
     norm = std::move(other.norm);
     tangent = std::move(other.tangent);
     uv = std::move(other.uv);
     indices = std::move(other.indices);
     textures = std::move(other.textures);
+    meshes = std::move(other.meshes);
 }
 
-Mesh& Mesh::operator=(Mesh&& other) noexcept {
+Model& Model::operator=(Model&& other) noexcept {
     if (this == &other) return *this;
-    this->~Mesh();
-    new (this) Mesh(std::move(other));
+    this->~Model();
+    new (this) Model(std::move(other));
     return *this;
 }
 
-void Mesh::init() {
+void Model::init_gl() {
     glCreateVertexArrays(1, &vao);
     glCreateBuffers(1, &pos_buf);
     glCreateBuffers(1, &norm_buf);
@@ -88,161 +76,161 @@ void Mesh::init() {
     glVertexArrayAttribFormat(vao, 3, 2, GL_FLOAT, GL_FALSE, 0);
     glVertexArrayAttribBinding(vao, 3, 3);
     glEnableVertexArrayAttrib(vao, 3);
-
-    id = gen_id();
 }
 
-void Mesh::draw(ShaderGL& shader, const GlobalState& state) const {
-
-    shader.use();
-    u32 diff_n = 0;
-    u32 spec_n = 0;
-    u32 norm_n = 0;
-    u32 disp_n = 0;
-
-    for (u32 tex_unit = 0; tex_unit < textures.size(); ++tex_unit) {
-        glActiveTexture(GL_TEXTURE0 + tex_unit);
-        switch (textures[tex_unit].ref->ty) {
-        case TextureType::DIFFUSE:
-            shader.set_int(std::format("materials[{}].diffuse_map", diff_n), tex_unit);
-            diff_n++;
-            break;
-        case TextureType::SPECULAR:
-            shader.set_int(std::format("materials[{}].specular_map", spec_n), tex_unit);
-            spec_n++;
-            break;
-        case TextureType::NORMAL:
-            shader.set_int(std::format("materials[{}].normal_map", norm_n), tex_unit);
-            norm_n++;
-            break;
-        case TextureType::DISPLACE:
-            shader.set_int(std::format("materials[{}].displace_map", disp_n), tex_unit);
-            disp_n++;
-            break;
-        default:
-            break;
-        }
-        glBindTexture(GL_TEXTURE_2D, textures[tex_unit].ref->id);
+Model::~Model() {
+    if (vao) {
+        glDeleteVertexArrays(1, &vao);
+        glDeleteBuffers(1, &pos_buf);
+        glDeleteBuffers(1, &norm_buf);
+        glDeleteBuffers(1, &tangent_buf);
+        glDeleteBuffers(1, &uv_buf);
+        glDeleteBuffers(1, &indices_buf);
     }
-
-    glBindVertexArray(vao);
-    glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
-    glActiveTexture(GL_TEXTURE0);
-}
-
-Mesh::~Mesh() {
-    glDeleteVertexArrays(1, &vao);
-    glDeleteBuffers(1, &pos_buf);
-    glDeleteBuffers(1, &norm_buf);
-    glDeleteBuffers(1, &tangent_buf);
-    glDeleteBuffers(1, &uv_buf);
-    glDeleteBuffers(1, &indices_buf);
 }
 
 void Model::draw(ShaderGL& shader, const GlobalState& state) const {
     shader.use();
     shader.set_mat4("model", model_mat);
+    glBindVertexArray(vao);
 
     for (auto& mesh : meshes) {
-        mesh.draw(shader, state);
+        for (u32 idx = mesh.matl_offset; idx < mesh.matl_offset + mesh.n_matls; ++idx) {
+            switch (textures[idx].ref->ty) {
+            case TextureType::DIFFUSE:
+                glBindTextureUnit(0, textures[idx].ref->id);
+                shader.set_int("material.diffuse_map", 0);
+                break;
+            case TextureType::SPECULAR:
+                glBindTextureUnit(1, textures[idx].ref->id);
+                shader.set_int("material.specular_map", 1);
+                break;
+            case TextureType::NORMAL:
+                glBindTextureUnit(2, textures[idx].ref->id);
+                shader.set_int("material.normal_map", 2);
+                break;
+            case TextureType::DISPLACE:
+                glBindTextureUnit(3, textures[idx].ref->id);
+                shader.set_int("material.displace_map", 3);
+                break;
+            default:
+                break;
+            }
+        }
+
+        glDrawElementsBaseVertex(GL_TRIANGLES, mesh.n_indices, GL_UNSIGNED_INT, (void*)(sizeof(u32) * mesh.base_idx),
+                                 mesh.base_vert);
     }
 }
 
-static std::vector<TextureRef> load_mat_textures(TextureManager& manager, aiMaterial* mat, aiTextureType ty, const fs::path& root_path) {
-
-    std::vector<TextureRef> textures;
-    textures.reserve(mat->GetTextureCount(ty));
-
+static void load_matl_textures(TextureManager& manager, Model& model, aiMaterial* mat, aiTextureType ty,
+                               const fs::path& root_path) {
     for (int i = 0; i < mat->GetTextureCount(ty); ++i) {
-        
         aiString ai_str;
         mat->GetTexture(ty, i, &ai_str);
         fs::path texture_path = root_path / std::string(ai_str.C_Str());
         std::expected<TextureRef, rses> texture;
-        
+
         switch (ty) {
         case aiTextureType_DIFFUSE:
             texture = manager.load_texture(texture_path, TextureType::DIFFUSE);
-            textures.push_back(texture.value());
+            model.textures.push_back(texture.value());
             break;
         case aiTextureType_SPECULAR:
             texture = manager.load_texture(texture_path, TextureType::SPECULAR);
-            textures.push_back(texture.value());
+            model.textures.push_back(texture.value());
             break;
         case aiTextureType_HEIGHT:
             texture = manager.load_texture(texture_path, TextureType::NORMAL);
-            textures.push_back(texture.value());
+            model.textures.push_back(texture.value());
             break;
         case aiTextureType_DISPLACEMENT:
             texture = manager.load_texture(texture_path, TextureType::DISPLACE);
-            textures.push_back(texture.value());
+            model.textures.push_back(texture.value());
+            break;
+        default:
             break;
         }
+
         if (!texture.has_value()) {
             err::print(texture.error());
-            continue;        
+            continue;
         }
-        
     }
-    return textures;
 }
 
-static void process_assimp_node(TextureManager& manager, aiNode* ai_node, const aiScene* ai_scene, std::vector<Mesh>& meshes,
-                                const fs::path& root_path) {
-    
+// determine the number of meshes in the model
+static void get_n_meshes(aiNode* ai_node, const aiScene* ai_scene, u32& n_meshes) {
+    n_meshes += ai_node->mNumMeshes;
+    for (int i = 0; i < ai_node->mNumChildren; ++i) {
+        get_n_meshes(ai_node->mChildren[i], ai_scene, n_meshes);
+    }
+}
+
+static void init_meshes(aiNode* ai_node, const aiScene* ai_scene, Model& model, u32& n_verts, u32& n_indices, u32& n_textures) {
     for (int i = 0; i < ai_node->mNumMeshes; ++i) {
-        Mesh mesh;
         aiMesh* ai_mesh = ai_scene->mMeshes[ai_node->mMeshes[i]];
 
-        mesh.pos.reserve(ai_mesh->mNumVertices);
-        mesh.norm.reserve(ai_mesh->mNumVertices);
-        mesh.tangent.reserve(ai_mesh->mNumVertices);
-        mesh.uv.reserve(ai_mesh->mNumVertices);
+        Mesh mesh = {
+                        .n_indices = ai_mesh->mNumFaces * 3,
+                        .base_vert = n_verts,
+                        .base_idx = n_indices,
+                        .matl_offset = n_textures,
+                        .n_matls = 0
+                    };
 
-        for (int i = 0; i < ai_mesh->mNumVertices; ++i) {
-            mesh.pos.push_back({ ai_mesh->mVertices[i].x, ai_mesh->mVertices[i].y, ai_mesh->mVertices[i].z });
-            mesh.norm.push_back({ ai_mesh->mNormals[i].x, ai_mesh->mNormals[i].y, ai_mesh->mNormals[i].z });
-            mesh.tangent.push_back({ ai_mesh->mTangents[i].x, ai_mesh->mTangents[i].y, ai_mesh->mTangents[i].z });
+        model.meshes.push_back(mesh);
+        n_verts += ai_mesh->mNumVertices;
+        n_indices += model.meshes.back().n_indices;
+
+        if (ai_mesh->mMaterialIndex >= 0) {
+            aiMaterial* matl = ai_scene->mMaterials[ai_mesh->mMaterialIndex];
+            model.meshes.back().n_matls = matl->GetTextureCount(aiTextureType_DIFFUSE) + matl->GetTextureCount(aiTextureType_SPECULAR) +
+                matl->GetTextureCount(aiTextureType_HEIGHT) + matl->GetTextureCount(aiTextureType_DISPLACEMENT);
+            n_textures += model.meshes.back().n_matls;
+        }
+    }
+
+    for (int i = 0; i < ai_node->mNumChildren; ++i) {
+        init_meshes(ai_node->mChildren[i], ai_scene, model, n_verts, n_indices, n_textures);
+    }
+}
+
+static void process_assimp_node(TextureManager& manager, aiNode* ai_node, const aiScene* ai_scene, Model& model,
+                                const fs::path& root_path) {
+    for (int i = 0; i < ai_node->mNumMeshes; ++i) {
+        aiMesh* ai_mesh = ai_scene->mMeshes[ai_node->mMeshes[i]];
+
+        for (int j = 0; j < ai_mesh->mNumVertices; ++j) {
+            model.pos.push_back({ ai_mesh->mVertices[j].x, ai_mesh->mVertices[j].y, ai_mesh->mVertices[j].z });
+            model.norm.push_back({ ai_mesh->mNormals[j].x, ai_mesh->mNormals[j].y, ai_mesh->mNormals[j].z });
+            model.tangent.push_back({ ai_mesh->mTangents[j].x, ai_mesh->mTangents[j].y, ai_mesh->mTangents[j].z });
             glm::vec2 uv = { 0.0f, 0.0f };
             if (ai_mesh->mTextureCoords) {
-                uv = { ai_mesh->mTextureCoords[0][i].x, ai_mesh->mTextureCoords[0][i].y };
-            } 
-            mesh.uv.push_back(uv);
+                uv = { ai_mesh->mTextureCoords[0][j].x, ai_mesh->mTextureCoords[0][j].y };
+            }
+            model.uv.push_back(uv);
         }
 
         for (int i = 0; i < ai_mesh->mNumFaces; ++i) {
             aiFace face = ai_mesh->mFaces[i];
             for (int j = 0; j < face.mNumIndices; ++j) {
-                mesh.indices.push_back(face.mIndices[j]);
+                model.indices.push_back(face.mIndices[j]);
             }
         }
 
         // Loading material textures
         if (ai_mesh->mMaterialIndex >= 0) {
-            aiMaterial* material = ai_scene->mMaterials[ai_mesh->mMaterialIndex];
-
-            std::vector<TextureRef> diff_maps = load_mat_textures(manager, material, aiTextureType_DIFFUSE,      root_path);
-            std::vector<TextureRef> spec_maps = load_mat_textures(manager, material, aiTextureType_SPECULAR,     root_path);
-            std::vector<TextureRef> norm_maps = load_mat_textures(manager, material, aiTextureType_HEIGHT,       root_path);
-            std::vector<TextureRef> disp_maps = load_mat_textures(manager, material, aiTextureType_DISPLACEMENT, root_path);
-
-            mesh.textures.reserve(diff_maps.size() + spec_maps.size() + norm_maps.size() + disp_maps.size());
-
-            mesh.textures.insert(mesh.textures.end(), std::make_move_iterator(diff_maps.begin()),
-                                 std::make_move_iterator(diff_maps.end()));
-            mesh.textures.insert(mesh.textures.end(), std::make_move_iterator(spec_maps.begin()),
-                                 std::make_move_iterator(spec_maps.end()));
-            mesh.textures.insert(mesh.textures.end(), std::make_move_iterator(norm_maps.begin()),
-                                 std::make_move_iterator(norm_maps.end()));
-            mesh.textures.insert(mesh.textures.end(), std::make_move_iterator(disp_maps.begin()),
-                                 std::make_move_iterator(disp_maps.end()));
+            aiMaterial* matl = ai_scene->mMaterials[ai_mesh->mMaterialIndex];
+            load_matl_textures(manager, model, matl, aiTextureType_DIFFUSE, root_path);
+            load_matl_textures(manager, model, matl, aiTextureType_SPECULAR, root_path);
+            load_matl_textures(manager, model, matl, aiTextureType_HEIGHT, root_path);
+            load_matl_textures(manager, model, matl, aiTextureType_DISPLACEMENT, root_path);
         }
-
-        meshes.push_back(std::move(mesh));
     }
 
     for (int i = 0; i < ai_node->mNumChildren; ++i) {
-        process_assimp_node(manager, ai_node->mChildren[i], ai_scene, meshes, root_path);
+        process_assimp_node(manager, ai_node->mChildren[i], ai_scene, model, root_path);
     }
 }
 
@@ -251,7 +239,8 @@ std::optional<rses> Model::load(TextureManager& manager, const fs::path& path) {
 
     // note: for dx12 this will need the aiProcess_MakeLeftHanded flag set
     const aiScene* scene =
-        import.ReadFile(path.generic_string(), aiProcess_GenNormals | aiProcess_Triangulate | aiProcess_CalcTangentSpace);
+        import.ReadFile(path.generic_string(), aiProcess_GenSmoothNormals | aiProcess_Triangulate |
+                                                   aiProcess_CalcTangentSpace | aiProcess_JoinIdenticalVertices);
 
     if (!scene) {
         return rses().io("Error importing scene : {}", import.GetErrorString());
@@ -259,11 +248,27 @@ std::optional<rses> Model::load(TextureManager& manager, const fs::path& path) {
 
     fs::path root_path = path.parent_path();
 
-    process_assimp_node(manager, scene->mRootNode, scene, meshes, root_path);
+    // determine number of meshes to reserve their space
+    u32 n_meshes = 0;
+    get_n_meshes(scene->mRootNode, scene, n_meshes);
+    meshes.reserve(n_meshes);
 
-    for (auto& mesh : meshes) {
-        mesh.init();
-    }
+    // reserve space for all remaining buffers
+    u32 n_verts = 0;
+    u32 n_indices = 0;
+    u32 n_textures = 0;
+    init_meshes(scene->mRootNode, scene, *this, n_verts, n_indices, n_textures);
+
+    indices.reserve(n_indices);
+    pos.reserve(n_verts);
+    norm.reserve(n_verts);
+    tangent.reserve(n_verts);
+    uv.reserve(n_verts);
+    textures.reserve(n_textures);
+
+    // fill out buffers and initialize opengl data
+    process_assimp_node(manager, scene->mRootNode, scene, *this, root_path);
+    init_gl();
 
     return std::nullopt;
 }
@@ -276,8 +281,6 @@ SkyBox::SkyBox(SkyBox&& other) noexcept {
     texture = std::move(other.texture);
     verts = std::move(other.verts);
     model_mat = std::move(other.model_mat);
-    id = other.id;
-    other.id = 0;
 }
 
 SkyBox& SkyBox::operator=(SkyBox&& other) noexcept {
@@ -300,7 +303,6 @@ void SkyBox::init() {
     glEnableVertexArrayAttrib(vao, 0);
     glVertexArrayAttribFormat(vao, 0, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, pos));
     glVertexArrayAttribBinding(vao, 0, 0);
-    id = gen_id();
 }
 
 std::optional<rses> SkyBox::load(TextureManager& manager, const std::vector<fs::path>& paths) {
