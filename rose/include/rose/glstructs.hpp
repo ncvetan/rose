@@ -27,7 +27,7 @@ struct FrameBuf {
 
     ~FrameBuf();
 
-    std::optional<rses> init(int w, int h, const std::vector<FrameBufTexCtx>& texs);
+    std::optional<rses> init(int w, int h, bool has_depth_buf, const std::vector<FrameBufTexCtx>& texs);
     void draw(ShaderGL& shader, const GlobalState& state);
 
     u32 frame_buf = 0;

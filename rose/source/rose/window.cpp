@@ -165,22 +165,25 @@ std::optional<rses> WindowGLFW::init() {
     world_state.dir_light.color = { 0.7f, 0.7f, 0.7f };
 
     // frame buf initialization ===================================================================
-    if (err = gbuf.init(width, height,
+    if (err = gbuf.init(width, height, true,
                         { { GL_RGBA16F, GL_RGBA, GL_FLOAT },
                           { GL_RGBA16F, GL_RGBA, GL_FLOAT },
                           { GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE } })) {
         return err;
     }
 
-    if (err = pp1.init(width, height, { { GL_RGBA16F, GL_RGBA, GL_FLOAT }, { GL_RGBA16F, GL_RGBA, GL_FLOAT } })) {
+    if (err = pp1.init(width, height, false, { { GL_RGBA16F, GL_RGBA, GL_FLOAT }, { GL_RGBA16F, GL_RGBA, GL_FLOAT } })) {
         return err;
     }
 
-    if (err = pp2.init(width, height, { { GL_RGBA16F, GL_RGBA, GL_FLOAT } })) {
+    // pp1 uses the render buffer of gbuf to perform masking with the stencil buffer
+    glNamedFramebufferRenderbuffer(pp1.frame_buf, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, gbuf.render_buf);
+
+    if (err = pp2.init(width, height, false, { { GL_RGBA16F, GL_RGBA, GL_FLOAT } })) {
         return err;
     }
 
-    if (err = fbuf_out.init(width, height, { { GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE } })) {
+    if (err = fbuf_out.init(width, height, false, { { GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE } })) {
         return err;
     }
 
@@ -363,19 +366,14 @@ void WindowGLFW::update() {
             }
         }
 
-        // lighting pass ===========================================================================
+        // deferred pass ==========================================================================
 
         glBindFramebuffer(GL_FRAMEBUFFER, pp1.frame_buf);
         glNamedFramebufferDrawBuffers(pp1.frame_buf, 2, pp1.attachments.data());
 
-        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-        glBlitNamedFramebuffer(gbuf.frame_buf, pp1.frame_buf, 0, 0, width, height, 0, 0, width, height,
-                               GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, GL_NEAREST);
-
+        // compute lighting for all fragments with stencil value '1'
         glDisable(GL_DEPTH_TEST);
-        glStencilFunc(GL_EQUAL, 1, 0xFF); // compute lighting for all fragments with stencil value '1'
+        glStencilFunc(GL_EQUAL, 1, 0xFF); 
         glStencilOp(GL_ZERO, GL_REPLACE, GL_REPLACE);
 
         glBindTextureUnit(0, gbuf.tex_bufs[0]); // positions (ws)
@@ -388,12 +386,13 @@ void WindowGLFW::update() {
 
         pp1.draw(shaders.lighting, world_state);
 
-        glStencilFunc(GL_EQUAL, 0, 0xFF); // pass through for all fragments with stencil value '0'
+        // pass through for all fragments with stencil value '0'
+        glStencilFunc(GL_EQUAL, 0, 0xFF); 
         glStencilOp(GL_REPLACE, GL_ZERO, GL_ZERO);
         shaders.passthrough.set_int("gbuf_colors", 2);
         pp1.draw(shaders.passthrough, world_state);
 
-        // forward rendered =======================================================================
+        // forward pass ===========================================================================
         glEnable(GL_DEPTH_TEST);
         glDisable(GL_STENCIL_TEST);
 
@@ -413,8 +412,6 @@ void WindowGLFW::update() {
         if (world_state.bloom) {
             glBindFramebuffer(GL_FRAMEBUFFER, pp1.frame_buf);
             glNamedFramebufferDrawBuffer(pp1.frame_buf, GL_COLOR_ATTACHMENT1);
-            glClear(GL_DEPTH_BUFFER_BIT);
-            glDisable(GL_DEPTH_TEST);
             bool horizontal = false;
             glBindTextureUnit(0, pp1.tex_bufs[1]); // brightness buf
             shaders.blur.set_int("tex", 0);
@@ -424,16 +421,12 @@ void WindowGLFW::update() {
                 if (horizontal) {
                     glBindFramebuffer(GL_FRAMEBUFFER, pp1.frame_buf);
                     glNamedFramebufferDrawBuffer(pp1.frame_buf, GL_COLOR_ATTACHMENT1);
-                    glClear(GL_DEPTH_BUFFER_BIT);
-                    glDisable(GL_DEPTH_TEST);
                     glBindTextureUnit(0, pp2.tex_bufs[0]);
                     shaders.blur.set_bool("horizontal", true);
                     shaders.blur.set_int("tex", 0);
                     pp1.draw(shaders.blur, world_state);
                 } else {
                     glBindFramebuffer(GL_FRAMEBUFFER, pp2.frame_buf);
-                    glClear(GL_DEPTH_BUFFER_BIT);
-                    glDisable(GL_DEPTH_TEST);
                     glBindTextureUnit(0, pp1.tex_bufs[1]);
                     shaders.blur.set_bool("horizontal", false);
                     shaders.blur.set_int("tex", 0);

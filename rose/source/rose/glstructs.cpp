@@ -2,7 +2,7 @@
 
 namespace rose {
 
-std::optional<rses> FrameBuf::init(int w, int h, const std::vector<FrameBufTexCtx>& texs) {
+std::optional<rses> FrameBuf::init(int w, int h, bool has_depth_buf, const std::vector<FrameBufTexCtx>& texs) {
 
     glCreateFramebuffers(1, &frame_buf);
 
@@ -19,11 +19,12 @@ std::optional<rses> FrameBuf::init(int w, int h, const std::vector<FrameBufTexCt
         glNamedFramebufferTexture(frame_buf, GL_COLOR_ATTACHMENT0 + i, tex_bufs[i], 0);
         attachments[i] = GL_COLOR_ATTACHMENT0 + i;
     }
-
-    // TODO: make having a depth buf optional, unnecessary memory alloc
-    glCreateRenderbuffers(1, &render_buf);
-    glNamedRenderbufferStorage(render_buf, GL_DEPTH24_STENCIL8, w, h);
-    glNamedFramebufferRenderbuffer(frame_buf, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, render_buf);
+    
+    if (has_depth_buf) {
+        glCreateRenderbuffers(1, &render_buf);
+        glNamedRenderbufferStorage(render_buf, GL_DEPTH24_STENCIL8, w, h);
+        glNamedFramebufferRenderbuffer(frame_buf, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, render_buf);
+    }
 
     if (glCheckNamedFramebufferStatus(frame_buf, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
         return rses().gl("framebuffer is incomplete");
@@ -54,7 +55,9 @@ void FrameBuf::draw(ShaderGL& shader, const GlobalState& state) {
 
 FrameBuf::~FrameBuf() {
     glDeleteFramebuffers(1, &frame_buf);
-    glDeleteRenderbuffers(1, &render_buf);
+    if (render_buf) {
+        glDeleteRenderbuffers(1, &render_buf);
+    }
     for (auto& buf : tex_bufs) {
         glDeleteTextures(1, &buf);
     }
