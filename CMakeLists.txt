@@ -9,7 +9,7 @@ include(InstallRequiredSystemLibraries)
 add_subdirectory ("deps")
 
 if(MSVC)
-    add_compile_options(/EHsc /W3)
+    add_compile_options(/EHsc /W4)
 endif()
 
 add_subdirectory ("rose")

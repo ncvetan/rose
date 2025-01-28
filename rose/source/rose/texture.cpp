@@ -1,4 +1,3 @@
-#include <rose/logger.hpp>
 #include <rose/texture.hpp>
 
 #include <GL/glew.h>
@@ -106,7 +105,6 @@ std::expected<TextureRef, rses> TextureManager::load_texture(const fs::path& pat
         stbi_image_free(texture_data);
     } 
     else {
-        LOG_ERROR("Failed to load texture");
         stbi_image_free(texture_data);
         const char* err_msg = stbi_failure_reason();
         texture.free();
@@ -121,7 +119,8 @@ std::expected<TextureRef, rses> TextureManager::load_texture(const fs::path& pat
 std::optional<TextureRef> TextureManager::load_cubemap(const std::vector<fs::path>& paths) {
     
     if (paths.size() != 6) {
-        return std::nullopt; // todo: improve err handling here. arg can be a std::array
+        // TODO: improve err handling here. arg can be a std::array
+        return std::nullopt; 
     }
 
     s32 width = 0, height = 0, n_channels = 0;

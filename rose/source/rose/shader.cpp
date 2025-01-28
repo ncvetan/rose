@@ -1,5 +1,4 @@
-﻿#include <rose/logger.hpp>
-#include <rose/shader.hpp>
+﻿#include <rose/shader.hpp>
 
 #include <GL/glew.h>
 #include <glm.hpp>

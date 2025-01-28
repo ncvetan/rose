@@ -1,17 +1,17 @@
 #include <rose/application.hpp>
-#include <rose/logger.hpp>
 #include <rose/err.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
+#include <print>
+
 int main() {
-    rose::Logger::init();
 
 #ifdef OPENGL
     rose::RoseApp application = rose::RoseApp<rose::WindowGLFW>();
 #else
-    LOG_ERROR("No platform has been defined");
+    std::println("No platform has been defined");
     return -1;
 #endif
 

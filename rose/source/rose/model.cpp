@@ -1,5 +1,4 @@
 #include <rose/err.hpp>
-#include <rose/logger.hpp>
 #include <rose/model.hpp>
 #include <rose/window.hpp>
 

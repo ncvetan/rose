@@ -7,7 +7,7 @@
 #include <sstream>
 
 namespace err {
-    
+
 void GLAPIENTRY gl_debug_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei len, const GLchar* msg,
                                  const void* user_param) {
 
@@ -205,12 +205,6 @@ Error::~Error() {
         break;
     default:
         assert(false);
-    }
-}
-
-void print(rses es) {
-    for (const auto& err : es.err_stack) {
-        std::cerr << err.str() << '\n';
     }
 }
 

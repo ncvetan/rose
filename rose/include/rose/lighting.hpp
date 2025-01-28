@@ -9,7 +9,7 @@ namespace rose {
 
 struct DirLight {
     glm::vec3 direction = { 0.0f, -0.999848f, -0.0174525f };
-    glm::vec3 color = { 0.025f, 0.025f, 0.025f };
+    glm::vec3 color = { 0.55f, 0.55f, 0.55f };
 };
 
 struct PointLight {

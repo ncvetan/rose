@@ -44,9 +44,10 @@ class WindowGLFW {
     u32 height = 1080;
     ImGuiID dock_id = 0;
     std::string name = "Rose";
+    
     glm::vec2 last_xy;
-
     vec2f mouse_xy;
+
     Rectf vp_rect;
     bool vp_focused = false;
     bool glfw_captured = true;
@@ -77,9 +78,9 @@ class WindowGLFW {
     ClusterCtx clusters;
 
   private:
-    std::optional<rses> init_glfw();
-    std::optional<rses> init_imgui(GLFWwindow* window);
-    std::optional<rses> init_opengl();
+    [[nodiscard]] std::optional<rses> init_glfw();
+    [[nodiscard]] std::optional<rses> init_imgui(GLFWwindow* window);
+    [[nodiscard]] std::optional<rses> init_opengl();
 };
 
 void resize_callback(GLFWwindow* window, int width, int height);

@@ -1,6 +1,5 @@
 #include <rose/err.hpp>
 #include <rose/gui.hpp>
-#include <rose/logger.hpp>
 #include <rose/model.hpp>
 #include <rose/window.hpp>
 
@@ -14,6 +13,7 @@
 #include <array>
 #include <format>
 #include <iostream>
+#include <print>
 
 namespace rose {
 
@@ -22,7 +22,7 @@ std::optional<rses> WindowGLFW::init_glfw() {
         return rses().gl("GLFW failed to initialize");
     }
 
-    LOG_INFO("GLFW successfully initialized version: {}", glfwGetVersionString());
+    std::println("GLFW successfully initialized version: {}", glfwGetVersionString());
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -40,7 +40,7 @@ std::optional<rses> WindowGLFW::init_glfw() {
         return rses().gl("Failed to create GLFW window");
     }
 
-    LOG_INFO("GLFW window has been successfully created");
+    std::println("GLFW window has been successfully created");
 
     glfwSetWindowUserPointer(window, this);
     glfwMakeContextCurrent(window);
@@ -79,7 +79,7 @@ std::optional<rses> WindowGLFW::init_opengl() {
         return rses().gl(std::format("GLEW failed to initialize: {}", (const char*)glewGetErrorString(glew_success)));
     }
 
-    LOG_INFO("Glew successfully initialized version: {}", (const char*)glewGetString(GLEW_VERSION));
+    std::println("Glew successfully initialized version: {}", (const char*)glewGetString(GLEW_VERSION));
 
     glViewport(0, 0, width, height);
     glEnable(GL_DEPTH_TEST);
@@ -161,8 +161,6 @@ std::optional<rses> WindowGLFW::init() {
     objects.add_object(texture_manager, light2_def);
     objects.light_props.back().radius(world_state.exposure);
     objects.light_props.back().color = { 0.35f, 0.1f, 0.1f, 1.0f };
-
-    world_state.dir_light.color = { 0.7f, 0.7f, 0.7f };
 
     // frame buf initialization ===================================================================
     if (err = gbuf.init(width, height, true,
@@ -248,7 +246,6 @@ void WindowGLFW::update() {
 
         glm::mat4 projection = camera.projection((float)width / (float)height);
         glm::mat4 view = camera.view();
-        s32 n_clusters = clusters.grid_sz.x * clusters.grid_sz.y * clusters.grid_sz.z;
 
         // update ubo state
         glNamedBufferSubData(world_state.ubo, 0, 64, glm::value_ptr(projection));
@@ -496,7 +493,6 @@ void mouse_callback(GLFWwindow* window, double xpos_in, double ypos_in) {
 }
 
 void resize_callback(GLFWwindow* window, int width, int height) {
-    // TODO: implement necessary resize state changes
     WindowGLFW* window_state = (WindowGLFW*)glfwGetWindowUserPointer(window);
 }
 

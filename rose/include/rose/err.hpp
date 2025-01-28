@@ -4,6 +4,7 @@
 #include <GL/glew.h>
 
 #include <format>
+#include <print>
 #include <string>
 #include <vector>
 
@@ -87,7 +88,14 @@ struct Error {
     std::string str() const;
 };
 
-void print(rses es);
+// banking on this being a no-op...
+inline void print(rses es) {
+#ifndef ROSE_RELEASE_BUILD
+    for (const auto& err : es.err_stack) {
+        std::println("{}", err.str());
+    }
+#endif
+}
 
 } // namespace err
 
