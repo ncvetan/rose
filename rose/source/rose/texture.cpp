@@ -116,11 +116,18 @@ std::expected<TextureRef, rses> TextureManager::load_texture(const fs::path& pat
     return TextureRef(&loaded_textures[texture.id].texture, this);
 }
 
-std::optional<TextureRef> TextureManager::load_cubemap(const std::vector<fs::path>& paths) {
+std::expected<TextureRef, rses> TextureManager::load_cubemap(const std::array<fs::path, 6>& paths) {
     
-    if (paths.size() != 6) {
-        // TODO: improve err handling here. arg can be a std::array
-        return std::nullopt; 
+    // ensure all paths are valid
+    for (auto& path : paths) {
+        std::error_code err;
+        bool f_exists = fs::exists(path, err);
+        if (err) {
+            return std::unexpected(rses().io("system error: {}", err.message()));
+        }
+        if (!f_exists) {
+            return std::unexpected(rses().io("file does not exists: {}", path.string()));
+        }
     }
 
     s32 width = 0, height = 0, n_channels = 0;
@@ -144,20 +151,7 @@ std::optional<TextureRef> TextureManager::load_cubemap(const std::vector<fs::pat
         if (!texture_data) {
             stbi_image_free(texture_data);
             texture.free();
-            return std::nullopt;
-        }
-
-        fs::path name = path.stem();
-
-        if ((face == 0 && name != "right")  || 
-            (face == 1 && name != "left")   ||
-            (face == 2 && name != "top")    || 
-            (face == 3 && name != "bottom") || 
-            (face == 4 && name != "front")  || 
-            (face == 5 && name != "back")) {
-            stbi_image_free(texture_data);
-            texture.free();
-            return std::nullopt;
+            return std::unexpected(rses().io("failure loading image with stb"));;
         }
 
         glTextureSubImage3D(texture.id, 0, 0, 0, face, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, texture_data);

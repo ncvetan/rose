@@ -75,7 +75,6 @@ struct Error {
         int errcode = 0;
         std::string gl_err_msg;
         std::error_code ec;
-        std::vector<Error> stack;
     };
 
     Error() = default;

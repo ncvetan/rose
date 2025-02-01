@@ -1,9 +1,12 @@
+// =============================================================================
+//   contains wrappers around some OpenGL constructs
+// =============================================================================
+
 #ifndef ROSE_INCLUDE_GLSTRUCTS
 #define ROSE_INCLUDE_GLSTRUCTS
 
 #include <rose/alias.hpp>
 #include <rose/err.hpp>
-#include <rose/object.hpp>
 #include <rose/shader.hpp>
 
 #include <GL/glew.h>
@@ -28,7 +31,7 @@ struct FrameBuf {
     ~FrameBuf();
 
     std::optional<rses> init(int w, int h, bool has_depth_buf, const std::vector<FrameBufTexCtx>& texs);
-    void draw(ShaderGL& shader, const GlobalState& state);
+    void draw(ShaderGL& shader);
 
     u32 frame_buf = 0;
     u32 render_buf = 0;
@@ -82,22 +85,6 @@ struct SSBO {
     u32 elem_sz;        // size of each ssbo element in bytes
     u32 sz = 0;         // size of the ssbo in bytes
     u32 base = 0;       // bind idx
-};
-
-// TODO: Put this somewhere else
-struct AABB {
-    glm::vec4 min_pt;
-    glm::vec4 max_pt;
-};
-
-// data related to cluster shading
-struct ClusterCtx {
-    glm::uvec3 grid_sz = { 16, 9, 24 }; // size of cluster grid (xyz)
-    s32 max_lights_in_cluster = 100;    // number of lights that will be considered for a single cluster
-    SSBO clusters_aabb_ssbo;            // AABBs for each cluster
-    SSBO lights_ssbo;                   // light parameters for each light in the scene
-    SSBO lights_pos_ssbo;               // light positions for each light in the scene
-    SSBO clusters_ssbo;                 // light for each cluster
 };
 
 }

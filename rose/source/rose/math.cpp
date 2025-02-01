@@ -2,7 +2,7 @@
 
 namespace rose {
 
-bool Rectf::contains(float x, float y) {
+bool Rectf::contains(f32 x, f32 y) {
 	if ((x_min <= x && x <= x_max) && (y_min <= y && y <= y_max)) {
 		return true;
 	}

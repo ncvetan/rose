@@ -11,18 +11,17 @@
 namespace rose {
 namespace gui {
 
-// right now, the gui is a but hacked together. it is primarily used for debugging and observing
+// note: right now, the gui is a but hacked together. it is primarily used for debugging and observing
 // how changing certain parameters impact various graphics components. in the future this should
 // be a cleaner interface with less bugs
 
-static float dir_angle = std::numbers::pi / 2;
+static f32 dir_angle = std::numbers::pi / 2;
 static bool first_frame = true;
 static bool vp_open = true;
 static bool controls_open = true;
 
 void imgui(WindowGLFW& state) {
     ImGuiIO& io = ImGui::GetIO();
-    (void)io;
 
     ImGui::Begin("controls", &controls_open, ImGuiWindowFlags_AlwaysAutoResize);
     ImGui::Text("FPS: %f", io.Framerate);
@@ -77,13 +76,13 @@ void imgui(WindowGLFW& state) {
     state.vp_rect.y_max = ImGui::GetWindowPos().y + ImGui::GetWindowSize().y;
 
     // center the image in the viewport
-    float scale = std::min(state.vp_rect.width() / state.width, state.vp_rect.height() / state.height);
-    float offset_x = (state.vp_rect.width() - scale * (float)state.width) / 2;
-    float offset_y = (state.vp_rect.height() - scale * (float)state.height) / 2;
+    f32 scale = std::min(state.vp_rect.width() / state.width, state.vp_rect.height() / state.height);
+    f32 offset_x = (state.vp_rect.width() - scale * (f32)state.width) / 2;
+    f32 offset_y = (state.vp_rect.height() - scale * (f32)state.height) / 2;
     ImGui::SetCursorPos({ offset_x, offset_y });
 
     // resize the image based on the size of the viewport
-    ImGui::Image((void*)state.fbuf_out.tex_bufs[0], { scale * (float)state.width, scale * (float)state.height },
+    ImGui::Image((void*)state.fbuf_out.tex_bufs[0], { scale * (f32)state.width, scale * (f32)state.height },
                  { 0, 1 }, { 1, 0 });
     ImGui::End();
 
@@ -100,12 +99,9 @@ void imgui(WindowGLFW& state) {
         first_frame = false;
     }
 
-    // TODO: temporary, update light ssbos when changes are made from the gui
     if (light_changed) {
-        for (auto& light_props : state.objects.light_props) {
-            light_props.radius(state.world_state.exposure);
-        }
-        state.update_light_ssbos();
+        state.objects.update_light_radii(state.world_state.exposure);
+        update_light_state(state.objects, state.clusters);
     }
 }
 

@@ -304,10 +304,10 @@ void SkyBox::init() {
     glVertexArrayAttribBinding(vao, 0, 0);
 }
 
-std::optional<rses> SkyBox::load(TextureManager& manager, const std::vector<fs::path>& paths) {
-    std::optional<TextureRef> tex = manager.load_cubemap(paths);
+std::optional<rses> SkyBox::load(TextureManager& manager, const std::array<fs::path, 6>& paths) {
+    std::expected<TextureRef, rses> tex = manager.load_cubemap(paths);
     if (!tex) {
-        return rses().io("unable to load skybox");
+        return tex.error().io("unable to load skybox");
     }
     texture = tex.value();
     return std::nullopt;

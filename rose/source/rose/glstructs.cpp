@@ -47,7 +47,7 @@ std::optional<rses> FrameBuf::init(int w, int h, bool has_depth_buf, const std::
     return std::nullopt;
 }
 
-void FrameBuf::draw(ShaderGL& shader, const GlobalState& state) {
+void FrameBuf::draw(ShaderGL& shader) {
     shader.use();
     glBindVertexArray(vertex_arr);
     glDrawArrays(GL_TRIANGLES, 0, verts.size());
@@ -61,7 +61,7 @@ FrameBuf::~FrameBuf() {
     for (auto& buf : tex_bufs) {
         glDeleteTextures(1, &buf);
     }
-};
+}
 
 bool SSBO::init(u32 elem_sz, u32 n_elems, u32 base) { 
 	glCreateBuffers(1, &ssbo);

@@ -31,18 +31,11 @@ Some features that Rose supports includes...
 
 Rose uses a mix of deferred and forward rendering techniques
 
-## Todo
-
-Some known bugs as well as future features...
-
-- fix GUI bugs, especially within the viewport window
-- automatic exposure adjustment
-
 ## Resources
 
-Some of the resources used that helped me develop Rose. I want to give a big thank you to the authors for these resources...
+Some of the resources used that helped me develop Rose. I'd like to give my thanks to the authors of these resources...
 
-- LearnOpenGl
-- Real Time Rendering
+- [LearnOpenGL](https://learnopengl.com/)
+- [Real Time Rendering](https://www.realtimerendering.com/)
 - [A Primer of Efficient Rendering Algorithms & Clustered Shading](https://www.aortiz.me/2018/12/21/CG.html)
-- [Clustered Shading - David Hu](https://github.com/DaveH355/clustered-shading)
+- [Clustered Shading](https://github.com/DaveH355/clustered-shading)

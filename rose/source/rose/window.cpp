@@ -79,7 +79,7 @@ std::optional<rses> WindowGLFW::init_opengl() {
         return rses().gl(std::format("GLEW failed to initialize: {}", (const char*)glewGetErrorString(glew_success)));
     }
 
-    std::println("Glew successfully initialized version: {}", (const char*)glewGetString(GLEW_VERSION));
+    std::println("GLEW successfully initialized version: {}", (const char*)glewGetString(GLEW_VERSION));
 
     glViewport(0, 0, width, height);
     glEnable(GL_DEPTH_TEST);
@@ -116,13 +116,16 @@ std::optional<rses> WindowGLFW::init() {
         return err.value().general("Unable to initialize GLEW and OpenGL");
     }
 
-    // shader initialization ======================================================================
-
     if (err = shaders.init()) {
         return err.value().general("unable to initialize shaders");
     }
 
     // object initialization ======================================================================
+    
+    // note: these models are manually loaded here for my ease of use. if someone wanted to run the executable on their own,
+    // they need to modify these paths for their own system. eventually, I'd like a format for savings scenes as well as
+    // the ability to load models through the gui
+
     world_state.sky_box.init();
     if (err = world_state.sky_box.load(
             texture_manager, { SOURCE_DIR "/assets/skybox/right.jpg", SOURCE_DIR "/assets/skybox/left.jpg",
@@ -133,10 +136,10 @@ std::optional<rses> WindowGLFW::init() {
 
     // models
     ObjectCtx sponza_def = { .model_pth = SOURCE_DIR "/assets/Sponza/glTF/Sponza.gltf",
-                        .pos = { 0.0f, 0.0f, 0.0f },
-                        .scale = { 0.02f, 0.02f, 0.02f },
-                        .light_props = PointLight(),
-                        .flags = ObjectFlags::NONE };
+                             .pos = { 0.0f, 0.0f, 0.0f },
+                             .scale = { 0.02f, 0.02f, 0.02f },
+                             .light_props = PointLight(),
+                             .flags = ObjectFlags::NONE };
 
     objects.add_object(texture_manager, sponza_def);
     
@@ -187,15 +190,15 @@ std::optional<rses> WindowGLFW::init() {
 
     // uniform buffer initialization ==============================================================
 
-    glCreateBuffers(1, &world_state.ubo);
-    glNamedBufferStorage(world_state.ubo, 208, nullptr, GL_DYNAMIC_STORAGE_BIT);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 1, world_state.ubo);
+    glCreateBuffers(1, &world_state.global_ubo);
+    glNamedBufferStorage(world_state.global_ubo, 208, nullptr, GL_DYNAMIC_STORAGE_BIT);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 1, world_state.global_ubo);
 
     glm::uvec2 screen_dims = { width, height };
-    glNamedBufferSubData(world_state.ubo, 176, 16, glm::value_ptr(clusters.grid_sz));
-    glNamedBufferSubData(world_state.ubo, 192, 8, glm::value_ptr(screen_dims));
-    glNamedBufferSubData(world_state.ubo, 200, 4, &camera.far_plane);
-    glNamedBufferSubData(world_state.ubo, 204, 4, &camera.near_plane);
+    glNamedBufferSubData(world_state.global_ubo, 176, 16, glm::value_ptr(clusters.grid_sz));
+    glNamedBufferSubData(world_state.global_ubo, 192, 8, glm::value_ptr(screen_dims));
+    glNamedBufferSubData(world_state.global_ubo, 200, 4, &camera.far_plane);
+    glNamedBufferSubData(world_state.global_ubo, 204, 4, &camera.near_plane);
 
     // ssbo initialization ========================================================================
 
@@ -205,7 +208,8 @@ std::optional<rses> WindowGLFW::init() {
     // initially allocate memory for 1024 point lights
     clusters.lights_ssbo.init(sizeof(PointLight), 1024, 3);
     clusters.lights_pos_ssbo.init(sizeof(glm::vec4), 1024, 4);
-    update_light_ssbos();
+    objects.update_light_radii(world_state.exposure);
+    update_light_state(objects, clusters);
     clusters.clusters_ssbo.init(sizeof(u32) * (1 + clusters.max_lights_in_cluster), n_clusters, 5);
 
     // shadow map initialization ==================================================================
@@ -244,15 +248,15 @@ void WindowGLFW::update() {
         process_input(window, io.DeltaTime);
         glEnable(GL_DEPTH_TEST);
 
-        glm::mat4 projection = camera.projection((float)width / (float)height);
+        glm::mat4 projection = camera.projection((f32)width / (f32)height);
         glm::mat4 view = camera.view();
 
         // update ubo state
-        glNamedBufferSubData(world_state.ubo, 0, 64, glm::value_ptr(projection));
-        glNamedBufferSubData(world_state.ubo, 64, 64, glm::value_ptr(view));
-        glNamedBufferSubData(world_state.ubo, 128, 16, glm::value_ptr(camera.position));
-        glNamedBufferSubData(world_state.ubo, 144, 16, glm::value_ptr(world_state.dir_light.direction));
-        glNamedBufferSubData(world_state.ubo, 160, 16, glm::value_ptr(world_state.dir_light.color));
+        glNamedBufferSubData(world_state.global_ubo, 0, 64, glm::value_ptr(projection));
+        glNamedBufferSubData(world_state.global_ubo, 64, 64, glm::value_ptr(view));
+        glNamedBufferSubData(world_state.global_ubo, 128, 16, glm::value_ptr(camera.position));
+        glNamedBufferSubData(world_state.global_ubo, 144, 16, glm::value_ptr(world_state.dir_light.direction));
+        glNamedBufferSubData(world_state.global_ubo, 160, 16, glm::value_ptr(world_state.dir_light.color));
 
         // clustered set-up ===========================================================================================
 
@@ -273,16 +277,15 @@ void WindowGLFW::update() {
         // shadow pass ================================================================================================
 
         glm::mat4 shadow_proj = glm::perspective(
-            glm::radians(90.0f), (float)world_state.shadow.resolution / (float)world_state.shadow.resolution,
+            glm::radians(90.0f), (f32)world_state.shadow.resolution / (f32)world_state.shadow.resolution,
             camera.near_plane, camera.far_plane);
         std::array<glm::mat4, 6> shadow_transforms;
 
         glBindFramebuffer(GL_FRAMEBUFFER, world_state.shadow.fbo);
         glViewport(0, 0, world_state.shadow.resolution, world_state.shadow.resolution);
         glClear(GL_DEPTH_BUFFER_BIT);
-        glCullFace(GL_FRONT); // preventing peter panning
+        glCullFace(GL_FRONT);           // preventing peter panning
 
-        // TODO: currently only supporting point light shadows, need to take global light into account as well
         for (size_t light_idx = 0; light_idx < objects.size(); ++light_idx) {
             
             if (!(objects.flags[light_idx] & ObjectFlags::EMIT_LIGHT)) {
@@ -339,9 +342,9 @@ void WindowGLFW::update() {
 
         glm::mat4 static_view = view;
         static_view[3] = { 0, 0, 0, 1 }; // removing translation component
-        glNamedBufferSubData(world_state.ubo, 64, sizeof(glm::mat4), glm::value_ptr(static_view));
+        glNamedBufferSubData(world_state.global_ubo, 64, sizeof(glm::mat4), glm::value_ptr(static_view));
         world_state.sky_box.draw(shaders.skybox, world_state);
-        glNamedBufferSubData(world_state.ubo, 64, sizeof(glm::mat4), glm::value_ptr(view));
+        glNamedBufferSubData(world_state.global_ubo, 64, sizeof(glm::mat4), glm::value_ptr(view));
 
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_STENCIL_TEST);
@@ -381,13 +384,13 @@ void WindowGLFW::update() {
         shaders.lighting.set_int("gbuf_norms", 1);
         shaders.lighting.set_int("gbuf_colors", 2);
 
-        pp1.draw(shaders.lighting, world_state);
+        pp1.draw(shaders.lighting);
 
         // pass through for all fragments with stencil value '0'
         glStencilFunc(GL_EQUAL, 0, 0xFF); 
         glStencilOp(GL_REPLACE, GL_ZERO, GL_ZERO);
         shaders.passthrough.set_int("gbuf_colors", 2);
-        pp1.draw(shaders.passthrough, world_state);
+        pp1.draw(shaders.passthrough);
 
         // forward pass ===========================================================================
         glEnable(GL_DEPTH_TEST);
@@ -407,12 +410,13 @@ void WindowGLFW::update() {
 
         // compute bloom
         if (world_state.bloom) {
-            glBindFramebuffer(GL_FRAMEBUFFER, pp1.frame_buf);
             glNamedFramebufferDrawBuffer(pp1.frame_buf, GL_COLOR_ATTACHMENT1);
+            glClear(GL_DEPTH_BUFFER_BIT);
+            glDisable(GL_DEPTH_TEST);
             bool horizontal = false;
             glBindTextureUnit(0, pp1.tex_bufs[1]); // brightness buf
             shaders.blur.set_int("tex", 0);
-            pp1.draw(shaders.blur, world_state);
+            pp1.draw(shaders.blur);
 
             for (int i = 0; i < world_state.n_bloom_passes * 2 - 1; ++i) {
                 if (horizontal) {
@@ -421,13 +425,13 @@ void WindowGLFW::update() {
                     glBindTextureUnit(0, pp2.tex_bufs[0]);
                     shaders.blur.set_bool("horizontal", true);
                     shaders.blur.set_int("tex", 0);
-                    pp1.draw(shaders.blur, world_state);
+                    pp1.draw(shaders.blur);
                 } else {
                     glBindFramebuffer(GL_FRAMEBUFFER, pp2.frame_buf);
                     glBindTextureUnit(0, pp1.tex_bufs[1]);
                     shaders.blur.set_bool("horizontal", false);
                     shaders.blur.set_int("tex", 0);
-                    pp2.draw(shaders.blur, world_state);
+                    pp2.draw(shaders.blur);
                 }
                 horizontal = !horizontal;
             }
@@ -445,7 +449,7 @@ void WindowGLFW::update() {
         shaders.hdr.set_float("gamma", world_state.gamma);
         shaders.hdr.set_float("exposure", world_state.exposure);
         shaders.hdr.set_bool("bloom_enabled", world_state.bloom);
-        fbuf_out.draw(shaders.hdr, world_state);
+        fbuf_out.draw(shaders.hdr);
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -478,14 +482,14 @@ void WindowGLFW::enable_vsync(bool enable) { (enable) ? glfwSwapInterval(1) : gl
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) { return; }
 
-void mouse_callback(GLFWwindow* window, double xpos_in, double ypos_in) {
+void mouse_callback(GLFWwindow* window, f64 xpos_in, f64 ypos_in) {
     WindowGLFW* window_state = (WindowGLFW*)glfwGetWindowUserPointer(window);
-    window_state->mouse_xy = { (float)xpos_in, (float)ypos_in };
+    window_state->mouse_xy = { (f32)xpos_in, (f32)ypos_in };
     if (window_state->glfw_captured) {
-        float xpos = static_cast<float>(xpos_in);
-        float ypos = static_cast<float>(ypos_in);
-        float xoffset = xpos - window_state->last_xy.x;
-        float yoffset = window_state->last_xy.y - ypos;
+        f32 xpos = static_cast<f32>(xpos_in);
+        f32 ypos = static_cast<f32>(ypos_in);
+        f32 xoffset = xpos - window_state->last_xy.x;
+        f32 yoffset = window_state->last_xy.y - ypos;
         window_state->last_xy.x = xpos;
         window_state->last_xy.y = ypos;
         window_state->camera.process_mouse_movement(xoffset, yoffset);
@@ -496,14 +500,14 @@ void resize_callback(GLFWwindow* window, int width, int height) {
     WindowGLFW* window_state = (WindowGLFW*)glfwGetWindowUserPointer(window);
 }
 
-void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
+void scroll_callback(GLFWwindow* window, f64 xoffset, f64 yoffset) {
     WindowGLFW* window_state = (WindowGLFW*)glfwGetWindowUserPointer(window);
     if (window_state->glfw_captured) {
-        window_state->camera.process_mouse_scroll(static_cast<float>(yoffset));
+        window_state->camera.process_mouse_scroll(static_cast<f32>(yoffset));
     }
 }
 
-void process_input(GLFWwindow* window, float delta_time) {
+void process_input(GLFWwindow* window, f32 delta_time) {
     WindowGLFW* window_state = (WindowGLFW*)glfwGetWindowUserPointer(window);
     if (window_state->glfw_captured) {
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {

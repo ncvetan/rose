@@ -24,7 +24,7 @@ void translate(T& obj, const glm::vec3& vec) {
 }
 
 template <Transformable T>
-void scale(T& obj, float factor) {
+void scale(T& obj, f32 factor) {
     obj.model_mat = glm::scale(obj.model_mat, { factor, factor, factor });
 }
 
@@ -34,7 +34,7 @@ void scale(T& obj, const glm::vec3& factors) {
 }
 
 template <Transformable T>
-void rotate(T& obj, float deg, const glm::vec3& axis) {
+void rotate(T& obj, f32 deg, const glm::vec3& axis) {
     obj.model_mat = glm::rotate(obj.model_mat, glm::radians(deg), axis);
 }
 
@@ -98,7 +98,7 @@ struct SkyBox {
     SkyBox& operator=(SkyBox&& other) noexcept;
 
     void init();
-    std::optional<rses> load(TextureManager& manager, const std::vector<fs::path>& paths);
+    std::optional<rses> load(TextureManager& manager, const std::array<fs::path, 6>& paths);
     void draw(ShaderGL& shader, const GlobalState& state) const;
     inline void reset() { model_mat = glm::mat4(1.0f); }
 

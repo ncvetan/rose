@@ -1,7 +1,12 @@
+// =============================================================================
+//   contains structures used in Rose's lighting systems
+// =============================================================================
+
 #ifndef ROSE_INCLUDE_LIGHTING
 #define ROSE_INCLUDE_LIGHTING
 
 #include <rose/alias.hpp>
+#include <rose/glstructs.hpp>
 
 #include <glm.hpp>
 
@@ -15,24 +20,33 @@ struct DirLight {
 struct PointLight {
 
     // calculate the radius of the point light
-    inline void radius(float exposure) {
-        float lum = glm::dot(glm::vec3(color.r, color.g, color.b), glm::vec3(0.2126, 0.7152, 0.0722));
-        float threshold = 0.01f / exposure;
+    inline void radius(f32 exposure) {
+        f32 lum = glm::dot(glm::vec3(color.r, color.g, color.b), glm::vec3(0.2126, 0.7152, 0.0722));
+        f32 threshold = 0.01f / exposure;
         rad = (-linear + std::sqrtf(linear * linear - 4.0f * quad * (1.0f - lum / threshold)) / (2.0f * quad));
     };
 
     glm::vec4 color = { 0.20f, 0.20f, 0.20f, 1.0f };
-    float linear = 1.0f;
-    float quad = 0.7f;
-    float intensity = 1.8f;
-    float rad = 1.0f;
+    f32 linear = 1.0f;
+    f32 quad = 0.7f;
+    f32 intensity = 1.8f;
+    f32 rad = 1.0f;
 };
 
-struct ShadowCtx {
+struct ShadowData {
     u32 fbo = 0;
     u32 tex = 0;
-    float bias = 0.005;
+    f32 bias = 0.005;
     u16 resolution = 2048;
+};
+
+struct ClusterData {
+    glm::uvec3 grid_sz = { 16, 9, 24 }; // size of cluster grid (xyz)
+    s32 max_lights_in_cluster = 100;    // number of lights that will be considered for a single cluster
+    SSBO clusters_aabb_ssbo;            // AABBs for each cluster
+    SSBO lights_ssbo;                   // light parameters for each light in the scene
+    SSBO lights_pos_ssbo;               // light positions for each light in the scene
+    SSBO clusters_ssbo;                 // light for each cluster
 };
 
 }

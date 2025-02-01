@@ -1,6 +1,7 @@
 #ifndef ROSE_INCLUDE_OBJECT
 #define ROSE_INCLUDE_OBJECT
 
+#include <rose/alias.hpp>
 #include <rose/lighting.hpp>
 #include <rose/model.hpp>
 #include <rose/shader.hpp>
@@ -15,17 +16,21 @@ namespace rose {
 struct GlobalState {
     SkyBox sky_box;
     DirLight dir_light;
-    u32 ubo;
-    float gamma = 2.2f;
-    float exposure = 1.0f;
+    u32 global_ubo;         // ubo storing values available across shaders
+    f32 gamma = 2.2f;
+    f32 exposure = 1.0f;
 
     bool bloom = true;
     int n_bloom_passes = 5;
 
-    ShadowCtx shadow;
+    ShadowData shadow;
 };
 
-enum class ObjectFlags : u32 { NONE = bit1, EMIT_LIGHT = bit2, HIDE = bit3 };
+enum class ObjectFlags : u32 { 
+    NONE = bit1,        // no effect
+    EMIT_LIGHT = bit2,  // make this object a light emitter
+    HIDE = bit3         // don't render this object
+};
 
 inline bool operator&(ObjectFlags lhs, ObjectFlags rhs) {
     return (static_cast<u32>(lhs) & static_cast<u32>(rhs)) != 0;
@@ -52,6 +57,8 @@ struct Objects {
 
     std::optional<rses> add_object(TextureManager& manager, const ObjectCtx& obj_def);
 
+    void update_light_radii(f32 exposure);
+
     // SoA of program objects, should all be equal length
     std::vector<Model> models;
     std::vector<glm::vec3> posns;
@@ -61,9 +68,11 @@ struct Objects {
 
     // indices that are set as lights
     std::vector<u32> light_idxs;
-
-
 };
+
+// TODO: this function is ugly any probably should not exist + inefficient for large collections
+// temporary until I have a better solution
+void update_light_state(Objects& objs, ClusterData& clusters);
 
 }
 

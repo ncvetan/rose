@@ -29,7 +29,7 @@ struct ShaderGL {
 
     void set_bool(const std::string& name, bool value) const;
     void set_int(const std::string& name, int value) const;
-    void set_float(const std::string& name, float value) const;
+    void set_float(const std::string& name, f32 value) const;
     void set_mat4(const std::string& name, const glm::mat4& value) const;
     void set_vec2(const std::string& name, const glm::vec2& value) const;
     void set_uvec2(const std::string& name, const glm::uvec2& value) const;

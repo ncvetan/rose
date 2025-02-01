@@ -22,6 +22,9 @@ using s16 = int16_t;
 using s32 = int32_t;
 using s64 = int64_t;
 
+using f32 = float;
+using f64 = double;
+
 inline const u32 bit1 = (1 << 0);
 inline const u32 bit2 = (1 << 1);
 inline const u32 bit3 = (1 << 2);
