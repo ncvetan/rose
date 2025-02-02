@@ -17,8 +17,6 @@ namespace rose {
 
 struct FrameBufTexCtx {
     GLenum intern_format = 0;
-    GLenum format = 0;
-    GLenum type = 0;
 };
 
 struct FrameBuf {
@@ -58,7 +56,7 @@ struct SSBO {
         // check if we have exceeded the capacity of the SSBO and need to resize it
         // 
         // note: if using the .length() function in GLSL, it will return the capacity and
-        // not the actual number of elements intialized in the buffer, therefore might
+        // not the actual number of elements initialized in the buffer, therefore might
         // want to also keep track of the number of elements
         if (elem_sz * offset + data.size_bytes() > sz) {
             u32 realloced_ssbo = 0;

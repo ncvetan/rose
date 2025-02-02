@@ -40,7 +40,6 @@ class WindowGLFW {
 
     FrameBuf gbuf;
     FrameBuf pp1;
-    FrameBuf pp2;
     FrameBuf fbuf_out;
 
     u32 width = 1920;

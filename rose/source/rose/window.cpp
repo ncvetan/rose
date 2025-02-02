@@ -164,25 +164,20 @@ std::optional<rses> WindowGLFW::init() {
     objects.light_props.back().color = { 0.35f, 0.1f, 0.1f, 1.0f };
 
     // frame buf initialization ===================================================================
-    if (err = gbuf.init(width, height, true,
-                        { { GL_RGBA16F, GL_RGBA, GL_FLOAT },
-                          { GL_RGBA16F, GL_RGBA, GL_FLOAT },
-                          { GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE } })) {
+    
+    // (position, normal, albedo)
+    if (err = gbuf.init(width, height, true, { { GL_RGBA16F }, { GL_RGBA16F }, { GL_RGBA8 } })) {
         return err;
     }
 
-    if (err = pp1.init(width, height, false, { { GL_RGBA16F, GL_RGBA, GL_FLOAT }, { GL_RGBA16F, GL_RGBA, GL_FLOAT } })) {
+    if (err = pp1.init(width, height, false, { { GL_RGBA16F }, { GL_RGBA16F } })) {
         return err;
     }
 
-    // pp1 uses the render buffer of gbuf to perform masking with the stencil buffer
+    // note: pp1 uses the render buffer of gbuf to perform masking with the stencil buffer
     glNamedFramebufferRenderbuffer(pp1.frame_buf, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, gbuf.render_buf);
 
-    if (err = pp2.init(width, height, false, { { GL_RGBA16F, GL_RGBA, GL_FLOAT } })) {
-        return err;
-    }
-
-    if (err = fbuf_out.init(width, height, false, { { GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE } })) {
+    if (err = fbuf_out.init(width, height, false, { { GL_RGBA8 } })) {
         return err;
     }
 
@@ -424,16 +419,18 @@ void WindowGLFW::update() {
                 if (horizontal) {
                     glBindFramebuffer(GL_FRAMEBUFFER, pp1.frame_buf);
                     glNamedFramebufferDrawBuffer(pp1.frame_buf, GL_COLOR_ATTACHMENT1);
-                    glBindTextureUnit(0, pp2.tex_bufs[0]);
+                    glBindTextureUnit(0, gbuf.tex_bufs[0]);
                     shaders.blur.set_bool("horizontal", true);
                     shaders.blur.set_int("tex", 0);
                     pp1.draw(shaders.blur);
                 } else {
-                    glBindFramebuffer(GL_FRAMEBUFFER, pp2.frame_buf);
+                    // note: reusing the gbuf position buf for bloom calculations
+                    glBindFramebuffer(GL_FRAMEBUFFER, gbuf.frame_buf);
+                    glNamedFramebufferDrawBuffer(gbuf.frame_buf, GL_COLOR_ATTACHMENT0);
                     glBindTextureUnit(0, pp1.tex_bufs[1]);
                     shaders.blur.set_bool("horizontal", false);
                     shaders.blur.set_int("tex", 0);
-                    pp2.draw(shaders.blur);
+                    gbuf.draw(shaders.blur);
                 }
                 horizontal = !horizontal;
             }
