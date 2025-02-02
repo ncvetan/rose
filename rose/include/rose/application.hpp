@@ -13,13 +13,11 @@ template <class T>
 concept platform = requires(T t) {
     { t.init() } -> std::same_as<std::optional<rses>>;
     { t.update() } -> std::same_as<void>;
-    { t.destroy() } -> std::same_as<void>;
+    { t.shutdown() } -> std::same_as<void>;
 };
 
 template <platform T>
-class RoseApp {
-  public:
-    RoseApp() = default;
+struct RoseApp {
 
     inline std::optional<rses> init() {
         std::optional<rses> err = window.init();
@@ -31,9 +29,8 @@ class RoseApp {
 
     inline void run() { window.update(); }
 
-    inline void shutdown() { window.destroy(); }
+    inline void shutdown() { window.shutdown(); }
 
-  private:
     T window;
 };
 } // namespace rose

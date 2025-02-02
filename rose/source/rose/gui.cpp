@@ -68,8 +68,8 @@ void imgui(WindowGLFW& state) {
 
     // render our framebuffer to an imgui window
     ImGui::Begin("viewport", &vp_open, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    
     state.vp_focused = ImGui::IsWindowFocused();
-
     state.vp_rect.x_min = ImGui::GetWindowPos().x;
     state.vp_rect.y_min = ImGui::GetWindowPos().y;
     state.vp_rect.x_max = ImGui::GetWindowPos().x + ImGui::GetWindowSize().x;

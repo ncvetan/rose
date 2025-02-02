@@ -13,9 +13,9 @@ enum class CameraMovement { FORWARD, BACKWARD, LEFT, RIGHT, UP, DOWN };
 struct CameraGL {
     glm::mat4 view();
     glm::mat4 projection(f32 aspect_ratio);
-    void process_keyboard(CameraMovement direction, f32 delta_time);
-    void process_mouse_movement(f32 xoffset, f32 yoffset);
-    void process_mouse_scroll(f32 yoffset);
+    void handle_keyboard(CameraMovement direction, f32 delta_time);
+    void handle_mouse(f32 xoffset, f32 yoffset);
+    void handle_scroll(f32 yoffset);
 
     glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);
     glm::vec3 front = glm::vec3(1.0f, 0.0f, 0.0f);

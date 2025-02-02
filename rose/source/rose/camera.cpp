@@ -11,7 +11,7 @@ glm::mat4 CameraGL::projection(f32 aspect_ratio) {
     return glm::perspective(glm::radians(zoom), aspect_ratio, near_plane, far_plane);
 }
 
-void CameraGL::process_keyboard(CameraMovement direction, f32 delta_time) {
+void CameraGL::handle_keyboard(CameraMovement direction, f32 delta_time) {
     f32 velocity = speed * delta_time;
     switch (direction) {
     case CameraMovement::FORWARD:
@@ -35,7 +35,7 @@ void CameraGL::process_keyboard(CameraMovement direction, f32 delta_time) {
     }
 }
 
-void CameraGL::process_mouse_movement(f32 xoffset, f32 yoffset) {
+void CameraGL::handle_mouse(f32 xoffset, f32 yoffset) {
     xoffset *= sensitivity;
     yoffset *= sensitivity;
     yaw += xoffset;
@@ -52,7 +52,7 @@ void CameraGL::process_mouse_movement(f32 xoffset, f32 yoffset) {
     up = glm::normalize(glm::cross(right, front));
 }
 
-void CameraGL::process_mouse_scroll(f32 yoffset) {
+void CameraGL::handle_scroll(f32 yoffset) {
     zoom -= yoffset;
     if (zoom < 1.0f) zoom = 1.0f;
     else if (zoom > 45.0f) zoom = 45.0f;

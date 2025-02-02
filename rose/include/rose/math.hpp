@@ -10,6 +10,9 @@ namespace rose {
 struct vec2f {
     f32 x = 0.0f;
     f32 y = 0.0f;
+
+    bool operator==(vec2f const& r) const = default;
+    bool operator!=(vec2f const& r) const = default;
 };
 
 struct Rectf {

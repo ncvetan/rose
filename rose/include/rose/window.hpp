@@ -26,7 +26,8 @@ class WindowGLFW {
     [[nodiscard]] std::optional<rses> init();
     void enable_vsync(bool enable);
     void update();
-    void destroy();
+    void shutdown();
+    void handle_events();
 
     GLFWwindow* window = nullptr;
     CameraGL camera;
@@ -47,12 +48,12 @@ class WindowGLFW {
     ImGuiID dock_id = 0;
     std::string name = "Rose";
     
-    glm::vec2 last_xy;
+    vec2f last_xy;
     vec2f mouse_xy;
 
     Rectf vp_rect;
     bool vp_focused = false;
-    bool glfw_captured = true;
+    bool vp_captured = true;  // indicates whether events should be processed in the viewport
 
   private:
     [[nodiscard]] std::optional<rses> init_glfw();
@@ -60,15 +61,8 @@ class WindowGLFW {
     [[nodiscard]] std::optional<rses> init_opengl();
 };
 
-void resize_callback(GLFWwindow* window, int width, int height);
-
-void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-
-void mouse_callback(GLFWwindow* window, f64 xpos, f64 ypos);
-
 void scroll_callback(GLFWwindow* window, f64 xoffset, f64 yoffset);
 
-void process_input(GLFWwindow* window, f32 delta_time);
 
 } // namespace rose
 

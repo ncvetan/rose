@@ -26,6 +26,7 @@ std::optional<rses> WindowGLFW::init_glfw() {
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
 
@@ -44,9 +45,6 @@ std::optional<rses> WindowGLFW::init_glfw() {
 
     glfwSetWindowUserPointer(window, this);
     glfwMakeContextCurrent(window);
-    glfwSetWindowSizeCallback(window, resize_callback);
-    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-    glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
@@ -238,14 +236,18 @@ std::optional<rses> WindowGLFW::init() {
 };
 
 void WindowGLFW::update() {
+    
     while (!glfwWindowShouldClose(window)) {
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
-        dock_id = ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
 
+        
         ImGuiIO& io = ImGui::GetIO();
-        process_input(window, io.DeltaTime);
+        dock_id = ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
+        
+        handle_events();
+        
         glEnable(GL_DEPTH_TEST);
 
         glm::mat4 projection = camera.projection((f32)width / (f32)height);
@@ -452,7 +454,6 @@ void WindowGLFW::update() {
         fbuf_out.draw(shaders.hdr);
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
         gui::imgui(*this);
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -469,7 +470,7 @@ void WindowGLFW::update() {
     }
 };
 
-void WindowGLFW::destroy() {
+void WindowGLFW::shutdown() {
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
@@ -480,64 +481,59 @@ void WindowGLFW::destroy() {
 
 void WindowGLFW::enable_vsync(bool enable) { (enable) ? glfwSwapInterval(1) : glfwSwapInterval(0); };
 
-void framebuffer_size_callback(GLFWwindow* window, int width, int height) { return; }
-
-void mouse_callback(GLFWwindow* window, f64 xpos_in, f64 ypos_in) {
-    WindowGLFW* window_state = (WindowGLFW*)glfwGetWindowUserPointer(window);
-    window_state->mouse_xy = { (f32)xpos_in, (f32)ypos_in };
-    if (window_state->glfw_captured) {
-        f32 xpos = static_cast<f32>(xpos_in);
-        f32 ypos = static_cast<f32>(ypos_in);
-        f32 xoffset = xpos - window_state->last_xy.x;
-        f32 yoffset = window_state->last_xy.y - ypos;
-        window_state->last_xy.x = xpos;
-        window_state->last_xy.y = ypos;
-        window_state->camera.process_mouse_movement(xoffset, yoffset);
-    }
-}
-
-void resize_callback(GLFWwindow* window, int width, int height) {
-    WindowGLFW* window_state = (WindowGLFW*)glfwGetWindowUserPointer(window);
-}
-
 void scroll_callback(GLFWwindow* window, f64 xoffset, f64 yoffset) {
     WindowGLFW* window_state = (WindowGLFW*)glfwGetWindowUserPointer(window);
-    if (window_state->glfw_captured) {
-        window_state->camera.process_mouse_scroll(static_cast<f32>(yoffset));
+    if (window_state->vp_captured) {
+        window_state->camera.handle_scroll(static_cast<f32>(yoffset));
     }
 }
 
-void process_input(GLFWwindow* window, f32 delta_time) {
-    WindowGLFW* window_state = (WindowGLFW*)glfwGetWindowUserPointer(window);
-    if (window_state->glfw_captured) {
-        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-            window_state->camera.process_keyboard(CameraMovement::FORWARD, delta_time);
-        }
-        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-            window_state->camera.process_keyboard(CameraMovement::BACKWARD, delta_time);
-        }
-        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-            window_state->camera.process_keyboard(CameraMovement::LEFT, delta_time);
-        }
-        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-            window_state->camera.process_keyboard(CameraMovement::RIGHT, delta_time);
-        }
-        if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
-            window_state->camera.process_keyboard(CameraMovement::DOWN, delta_time);
-        }
-        if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
-            window_state->camera.process_keyboard(CameraMovement::UP, delta_time);
-        }
-    }
-    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-        if (window_state->vp_focused && window_state->vp_rect.contains(window_state->mouse_xy)) {
+void WindowGLFW::handle_events() {
+    
+    ImGuiIO& io = ImGui::GetIO();
+    mouse_xy = { io.MousePos.x, io.MousePos.y };
+
+    if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+        if (vp_rect.contains(mouse_xy) && vp_focused) {
+            vp_captured = true;
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-            window_state->glfw_captured = true;
         }
     }
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+
+    if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+        vp_captured = false;
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-        window_state->glfw_captured = false;
+    }
+
+    if (vp_captured) {
+        if (last_xy != mouse_xy) {
+            f32 xoffset = mouse_xy.x - last_xy.x;
+            f32 yoffset = last_xy.y - mouse_xy.y;
+            camera.handle_mouse(xoffset, yoffset);
+            last_xy = mouse_xy;
+        }
+        
+        camera.handle_scroll(ImGui::GetScrollY());
+        f32 delta_time = io.DeltaTime;
+        
+        if (ImGui::IsKeyDown(ImGuiKey_W)) {
+            camera.handle_keyboard(CameraMovement::FORWARD, delta_time);
+        }
+        if (ImGui::IsKeyDown(ImGuiKey_A)) {
+            camera.handle_keyboard(CameraMovement::LEFT, delta_time);
+        }
+        if (ImGui::IsKeyDown(ImGuiKey_S)) {
+            camera.handle_keyboard(CameraMovement::BACKWARD, delta_time);
+        }
+        if (ImGui::IsKeyDown(ImGuiKey_D)) {
+            camera.handle_keyboard(CameraMovement::RIGHT, delta_time);
+        }
+        if (ImGui::IsKeyDown(ImGuiKey_LeftShift)) {
+            camera.handle_keyboard(CameraMovement::DOWN, delta_time);
+        }
+        if (ImGui::IsKeyDown(ImGuiKey_Space)) {
+            camera.handle_keyboard(CameraMovement::UP, delta_time);
+        }
     }
 }
 } // namespace rose
