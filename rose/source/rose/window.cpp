@@ -146,7 +146,7 @@ std::optional<rses> WindowGLFW::init() {
                              .pos = { 0.0f, 3.0f, 0.0f },
                              .scale = { 1.0f, 1.0f, 1.0f },
                              .light_props = PointLight(),
-                             .flags = ObjectFlags::EMIT_LIGHT 
+                             .flags = ObjectFlags::NONE 
                            };
 
     objects.add_object(texture_manager, light1_def);

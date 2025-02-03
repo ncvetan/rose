@@ -94,6 +94,8 @@ void Model::draw(ShaderGL& shader, const GlobalState& state) const {
     glBindVertexArray(vao);
 
     for (auto& mesh : meshes) {
+        shader.set_bool("material.has_normal_map", false);
+        shader.set_bool("material.has_specular_map", false);
         for (u32 idx = mesh.matl_offset; idx < mesh.matl_offset + mesh.n_matls; ++idx) {
             switch (textures[idx].ref->ty) {
             case TextureType::DIFFUSE:
@@ -103,10 +105,12 @@ void Model::draw(ShaderGL& shader, const GlobalState& state) const {
             case TextureType::SPECULAR:
                 glBindTextureUnit(1, textures[idx].ref->id);
                 shader.set_int("material.specular_map", 1);
+                shader.set_bool("material.has_specular_map", true);
                 break;
             case TextureType::NORMAL:
                 glBindTextureUnit(2, textures[idx].ref->id);
                 shader.set_int("material.normal_map", 2);
+                shader.set_bool("material.has_normal_map", true);
                 break;
             case TextureType::DISPLACE:
                 glBindTextureUnit(3, textures[idx].ref->id);
