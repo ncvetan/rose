@@ -146,7 +146,7 @@ void main() {
 	// compute contributions from point lights
 	for (uint i = 0; i < clusters[cluster_idx].count; ++i) {
 		uint light_idx = clusters[cluster_idx].indices[i];
-		result += calc_point_light(lights[light_idx], lights_pos[light_idx].xyz, frag_pos, norm, spec);
+		result += color * calc_point_light(lights[light_idx], lights_pos[light_idx].xyz, frag_pos, norm, spec);
 	}
 	
 	frag_color = vec4(result, 1.0);

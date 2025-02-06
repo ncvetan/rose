@@ -53,7 +53,7 @@ struct Objects {
         }
     }
 
-    inline size_t size() { return posns.size(); }
+    inline size_t size() { return positions.size(); }
 
     std::optional<rses> add_object(TextureManager& manager, const ObjectCtx& obj_def);
 
@@ -61,7 +61,7 @@ struct Objects {
 
     // SoA of program objects, should all be equal length
     std::vector<Model> models;
-    std::vector<glm::vec3> posns;
+    std::vector<glm::vec3> positions;
     std::vector<glm::vec3> scales;
     std::vector<PointLight> light_props;
     std::vector<ObjectFlags> flags;

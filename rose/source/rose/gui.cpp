@@ -11,7 +11,7 @@
 namespace rose {
 namespace gui {
 
-// note: right now, the gui is a but hacked together. it is primarily used for debugging and observing
+// note: right now, the gui is a bit hacked together. it is primarily used for debugging and observing
 // how changing certain parameters impact various graphics components. in the future this should
 // be a cleaner interface with less bugs
 
@@ -54,7 +54,7 @@ void imgui(WindowGLFW& state) {
             
             if (ImGui::TreeNode((void*)(intptr_t)idx, "light %d", idx)) {
                 light_changed = 
-                    ImGui::SliderFloat3("position", glm::value_ptr(state.objects.posns[idx]), -10.0f, 10.0f) 
+                    ImGui::SliderFloat3("position", glm::value_ptr(state.objects.positions[idx]), -100.0f, 100.0f) 
                     || ImGui::ColorEdit3("color", glm::value_ptr(state.objects.light_props[idx].color)) ||
                     ImGui::SliderFloat("linear", &state.objects.light_props[idx].linear, 0.1f, 10.0f) 
                     || ImGui::SliderFloat("quad", &state.objects.light_props[idx].quad, 0.1f, 10.0f) ||

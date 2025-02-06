@@ -12,7 +12,7 @@ std::optional<rses> Objects::add_object(TextureManager& manager, const ObjectCtx
     }
 
     models.push_back(std::move(model));
-    posns.push_back(obj_def.pos);
+    positions.push_back(obj_def.pos);
     scales.push_back(obj_def.scale);
     light_props.push_back(obj_def.light_props);
     flags.push_back(obj_def.flags);
@@ -40,7 +40,7 @@ void update_light_state(Objects& objs, ClusterData& clusters) {
     // linear search, probably not a big deal for now
     for (size_t idx = 0; idx < objs.size(); ++idx) {
         if (objs.flags[idx] & ObjectFlags::EMIT_LIGHT) {
-            pnt_lights_pos.push_back(glm::vec4(objs.posns[idx], 1.0f));
+            pnt_lights_pos.push_back(glm::vec4(objs.positions[idx], 1.0f));
             pnt_lights_props.push_back(objs.light_props[idx]);
             n_lights++;
         }

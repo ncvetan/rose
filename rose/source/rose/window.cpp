@@ -45,7 +45,6 @@ std::optional<rses> WindowGLFW::init_glfw() {
 
     glfwSetWindowUserPointer(window, this);
     glfwMakeContextCurrent(window);
-    glfwSetScrollCallback(window, scroll_callback);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     return std::nullopt;
@@ -141,20 +140,26 @@ std::optional<rses> WindowGLFW::init() {
 
     objects.add_object(texture_manager, sponza_def);
     
-    // TODO: Fill in light path...
-    ObjectCtx light1_def = { .model_pth = SOURCE_DIR "/assets/model1/model1.obj",
+    ObjectCtx model1_def = { .model_pth = SOURCE_DIR "/assets/model1/model1.obj",
                              .pos = { 0.0f, 3.0f, 0.0f },
                              .scale = { 1.0f, 1.0f, 1.0f },
                              .light_props = PointLight(),
                              .flags = ObjectFlags::NONE 
                            };
 
-    objects.add_object(texture_manager, light1_def);
-    objects.light_props.back().radius(world_state.exposure);
-    objects.light_props.back().color = { 1.0f, 0.1f, 0.1f, 1.0f };
+    objects.add_object(texture_manager, model1_def);
+
+
+    ObjectCtx model2_def = { .model_pth = SOURCE_DIR "/assets/model1/model1.obj",
+                             .pos = { 0.0f, 7.0f, 0.0f },
+                             .scale = { 1.0f, 1.0f, 1.0f },
+                             .light_props = PointLight(),
+                             .flags = ObjectFlags::NONE };
+
+    objects.add_object(texture_manager, model2_def);
 
     ObjectCtx light2_def = { .model_pth = SOURCE_DIR "/assets/model1/model1.obj",
-                             .pos = { 0.0f, 3.0f, 2.5f },
+                             .pos = { 0.0f, 10.0f, 0.0f },
                              .scale = { 1.0f, 1.0f, 1.0f },
                              .light_props = PointLight(),
                              .flags = ObjectFlags::EMIT_LIGHT };
@@ -165,6 +170,8 @@ std::optional<rses> WindowGLFW::init() {
 
     // frame buf initialization ===================================================================
     
+    // TODO: optimize size of framebuffers
+
     // (position, normal, albedo)
     if (err = gbuf.init(width, height, true, { { GL_RGBA16F }, { GL_RGBA16F }, { GL_RGBA8 } })) {
         return err;
@@ -232,11 +239,12 @@ std::optional<rses> WindowGLFW::init() {
 
 void WindowGLFW::update() {
     
+    shaders.shadow.set_float("far_plane", camera.far_plane);
+
     while (!glfwWindowShouldClose(window)) {
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
-
         
         ImGuiIO& io = ImGui::GetIO();
         dock_id = ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
@@ -289,7 +297,7 @@ void WindowGLFW::update() {
                 continue;
             }
 
-            glm::vec3 light_pos = objects.posns[light_idx];
+            glm::vec3 light_pos = objects.positions[light_idx];
             
             shadow_transforms[0] = shadow_proj * glm::lookAt(light_pos, light_pos + glm::vec3(1.0f, 0.0f, 0.0f),
                                                              glm::vec3(0.0f, -1.0f, 0.0f));
@@ -314,7 +322,7 @@ void WindowGLFW::update() {
 
             for (size_t obj_idx = 0; obj_idx < objects.size(); ++obj_idx) {
                 if (!(objects.flags[obj_idx] & ObjectFlags::EMIT_LIGHT)) {
-                    translate(objects.models[obj_idx], objects.posns[obj_idx]);
+                    translate(objects.models[obj_idx], objects.positions[obj_idx]);
                     scale(objects.models[obj_idx], objects.scales[obj_idx]);
                     objects.models[obj_idx].draw(shaders.shadow, world_state);
                     objects.models[obj_idx].reset();
@@ -346,17 +354,13 @@ void WindowGLFW::update() {
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_STENCIL_TEST);
 
-        glActiveTexture(GL_TEXTURE12); // this texture unit is arbitrary for now
-        glBindTexture(GL_TEXTURE_CUBE_MAP, world_state.shadow.tex);
-        shaders.lighting.set_int("shadow_map", 12);
-
         glStencilFunc(GL_ALWAYS, 1, 0xFF);
         glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
         glStencilMask(0xFF);
 
         for (size_t idx = 0; idx < objects.size(); ++idx) {
             if (!(objects.flags[idx] & ObjectFlags::EMIT_LIGHT)) {                
-                translate(objects.models[idx], objects.posns[idx]);
+                translate(objects.models[idx], objects.positions[idx]);
                 scale(objects.models[idx], objects.scales[idx]);
                 objects.models[idx].draw(shaders.gbuf, world_state);
                 objects.models[idx].reset();
@@ -381,6 +385,10 @@ void WindowGLFW::update() {
         shaders.lighting.set_int("gbuf_norms", 1);
         shaders.lighting.set_int("gbuf_colors", 2);
 
+        glActiveTexture(GL_TEXTURE12); // this texture unit is arbitrary for now
+        glBindTexture(GL_TEXTURE_CUBE_MAP, world_state.shadow.tex);
+        shaders.lighting.set_int("shadow_map", 12);
+
         pp1.draw(shaders.lighting);
 
         // pass through for all fragments with stencil value '0'
@@ -396,7 +404,7 @@ void WindowGLFW::update() {
         // draw light emitters
         for (size_t idx = 0; idx < objects.size(); ++idx) {
             if (objects.flags[idx] & ObjectFlags::EMIT_LIGHT) {
-                translate(objects.models[idx], objects.posns[idx]);
+                translate(objects.models[idx], objects.positions[idx]);
                 scale(objects.models[idx], objects.scales[idx]);
                 objects.models[idx].draw(shaders.light, world_state);
                 objects.models[idx].reset();
@@ -478,13 +486,6 @@ void WindowGLFW::shutdown() {
 
 void WindowGLFW::enable_vsync(bool enable) { (enable) ? glfwSwapInterval(1) : glfwSwapInterval(0); };
 
-void scroll_callback(GLFWwindow* window, f64 xoffset, f64 yoffset) {
-    WindowGLFW* window_state = (WindowGLFW*)glfwGetWindowUserPointer(window);
-    if (window_state->vp_captured) {
-        window_state->camera.handle_scroll(static_cast<f32>(yoffset));
-    }
-}
-
 void WindowGLFW::handle_events() {
     
     ImGuiIO& io = ImGui::GetIO();
@@ -510,7 +511,6 @@ void WindowGLFW::handle_events() {
             last_xy = mouse_xy;
         }
         
-        camera.handle_scroll(ImGui::GetScrollY());
         f32 delta_time = io.DeltaTime;
         
         if (ImGui::IsKeyDown(ImGuiKey_W)) {
