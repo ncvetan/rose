@@ -7,6 +7,11 @@
 
 namespace fs = std::filesystem;
 
+namespace rose {
+	constexpr f32 f32_max = std::numeric_limits<f32>::max();
+	constexpr f32 f32_min = std::numeric_limits<f32>::min();
+}
+
 using glint = GLint;
 using gluint = GLuint;
 using glsizei = GLsizei;

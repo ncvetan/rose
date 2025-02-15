@@ -160,13 +160,18 @@ std::optional<rses> ShadersGL::init() {
                                             { SOURCE_DIR "/rose/shaders/gl/passthrough.frag", GL_FRAGMENT_SHADER } })) {
         return err;
     }
-    if (err = shadow.init({ { SOURCE_DIR "/rose/shaders/gl/shadow.vert", GL_VERTEX_SHADER },
-                                       { SOURCE_DIR "/rose/shaders/gl/shadow.frag", GL_FRAGMENT_SHADER },
-                                       { SOURCE_DIR "/rose/shaders/gl/shadow.geom", GL_GEOMETRY_SHADER } })) {
+    if (err = dir_shadow.init({{ SOURCE_DIR "/rose/shaders/gl/shadow.vert", GL_VERTEX_SHADER },
+                               { SOURCE_DIR "/rose/shaders/gl/dir_shadow.frag", GL_FRAGMENT_SHADER },
+                               { SOURCE_DIR "/rose/shaders/gl/dir_shadow.geom", GL_GEOMETRY_SHADER } })) {
         return err;
     }
-    if (err = skybox.init({ { SOURCE_DIR "/rose/shaders/gl/skybox.vert", GL_VERTEX_SHADER },
-                                       { SOURCE_DIR "/rose/shaders/gl/skybox.frag", GL_FRAGMENT_SHADER } })) {
+    if (err = pt_shadow.init({ { SOURCE_DIR "/rose/shaders/gl/shadow.vert", GL_VERTEX_SHADER   },
+                               { SOURCE_DIR "/rose/shaders/gl/pt_shadow.frag", GL_FRAGMENT_SHADER },
+                               { SOURCE_DIR "/rose/shaders/gl/pt_shadow.geom", GL_GEOMETRY_SHADER } })) {
+        return err;
+    }
+    if (err = skybox.init({ { SOURCE_DIR "/rose/shaders/gl/skybox.vert", GL_VERTEX_SHADER   },
+                            { SOURCE_DIR "/rose/shaders/gl/skybox.frag", GL_FRAGMENT_SHADER } })) {
         return err;
     }
 

@@ -53,7 +53,8 @@ struct ShadersGL {
     ShaderGL light;
     ShaderGL lighting;
     ShaderGL passthrough;
-    ShaderGL shadow;
+    ShaderGL dir_shadow;
+    ShaderGL pt_shadow;
     ShaderGL skybox;
 };
 

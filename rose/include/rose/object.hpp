@@ -23,13 +23,16 @@ struct GlobalState {
     bool bloom = true;
     int n_bloom_passes = 5;
 
-    ShadowData shadow;
+    u8 n_cascades = 3;
+    u32 light_mats_ubo;
+    ShadowData dir_shadow;
+    ShadowData pt_shadow;
 };
 
 enum class ObjectFlags : u32 { 
-    NONE = bit1,        // no effect
+    NONE       = bit1,  // no effect
     EMIT_LIGHT = bit2,  // make this object a light emitter
-    HIDE = bit3         // don't render this object
+    HIDE       = bit3   // don't render this object
 };
 
 inline bool operator&(ObjectFlags lhs, ObjectFlags rhs) {
@@ -41,7 +44,7 @@ struct ObjectCtx {
     fs::path model_pth;
     glm::vec3 pos;
     glm::vec3 scale;
-    PointLight light_props;
+    PtLight light_props;
     ObjectFlags flags;
 };
 
@@ -63,11 +66,8 @@ struct Objects {
     std::vector<Model> models;
     std::vector<glm::vec3> positions;
     std::vector<glm::vec3> scales;
-    std::vector<PointLight> light_props;
+    std::vector<PtLight> light_props;
     std::vector<ObjectFlags> flags;
-
-    // indices that are set as lights
-    std::vector<u32> light_idxs;
 };
 
 // TODO: this function is ugly any probably should not exist + inefficient for large collections

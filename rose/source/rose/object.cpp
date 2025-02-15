@@ -33,7 +33,7 @@ void Objects::update_light_radii(f32 exposure) {
 }
 
 void update_light_state(Objects& objs, ClusterData& clusters) {
-    std::vector<PointLight> pnt_lights_props;
+    std::vector<PtLight> pnt_lights_props;
     std::vector<glm::vec4> pnt_lights_pos;
     u32 n_lights = 0;
 
