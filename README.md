@@ -1,6 +1,6 @@
 # Rose - A Graphics Engine
 
-The primary goal when creating this engine was to learn about graphics programming techniques
+The goal when creating this engine was to drive my learning about computer graphics techniques. 
 
 ## Installation
 
@@ -30,6 +30,10 @@ Some features that Rose supports includes...
 - HDR
 
 Rose uses a mix of deferred and forward rendering techniques
+
+## Contributing
+
+Contributions are welcome. Feel free to fork the repository and submit a pull request.
 
 ## Resources
 

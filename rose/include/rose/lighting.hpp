@@ -37,7 +37,7 @@ struct ShadowData {
     u32 fbo = 0;
     u32 tex = 0;
     f32 bias = 0.005;
-    u16 resolution = 2048;
+    u16 resolution = 4096;
 };
 
 struct ClusterData {

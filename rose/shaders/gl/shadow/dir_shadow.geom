@@ -8,7 +8,6 @@ layout(std140, binding=6) uniform light_space_mats_ubo {
 };
 
 void main() {
-
 	for (int i=0; i < 3; ++i) {
 		gl_Position = ls_mats[gl_InvocationID] * gl_in[i].gl_Position;
 		gl_Layer = gl_InvocationID;

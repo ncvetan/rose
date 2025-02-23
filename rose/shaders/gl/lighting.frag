@@ -23,9 +23,17 @@ layout (std140, binding = 1) uniform globals {
 	float near_z;
 };
 
+layout(std140, binding=6) uniform light_space_mats_ubo {
+	mat4 ls_mats[3];
+};
+
 uniform sampler2D gbuf_pos;
 uniform sampler2D gbuf_norms;
 uniform sampler2D gbuf_colors;
+uniform sampler2DArray cascade_maps;
+// TODO: make cascade uniforms cleaner
+uniform int n_cascades;
+uniform float cascade_depths[3];
 uniform samplerCube shadow_map;
 
 // light parameters for a particular point light
@@ -56,6 +64,31 @@ layout (std430, binding=5) buffer clusters_ssbo {
     Cluster clusters[];
 };
 
+float calc_dir_shadow(vec3 frag_pos, float frag_depth, sampler2DArray shadow_maps, float far_plane) {
+	// determine this fragment's cascade based on view space depth
+	int cascade_idx = 0;
+	for (int idx = 0; idx < n_cascades; ++idx) {
+		if (frag_depth < cascade_depths[idx]) {
+			cascade_idx = idx;
+			break;
+		}
+	}
+
+	// vec4 res = step(csmClipSpaceZFar, depthValue);
+	// int i = int(res.x + res.y + res.z + res.w);
+
+	// [ world space -> light space ]
+	vec4 frag_pos_ls = ls_mats[cascade_idx] * vec4(frag_pos, 1.0);
+	frag_pos_ls.xyz /= frag_pos_ls.w;
+	frag_pos_ls.xyz = frag_pos_ls.xyz * 0.5 + 0.5; // [ -1, 1 ] -> [ 0, 1 ]
+
+	float closest_depth = texture(shadow_maps, vec3(frag_pos_ls.xy, cascade_idx)).r * far_plane;
+	float curr_depth = frag_pos_ls.z;
+	float bias = 0.05;
+	float shadow = (curr_depth - bias > closest_depth) ? 1.0 : 0.0;
+	return shadow;
+}
+
 float calc_point_shadow(vec3 frag_pos, vec3 light_pos, samplerCube shadow_map, float far_plane) {
 	vec3 frag_to_light = frag_pos - light_pos;
 	float closest = texture(shadow_map, frag_to_light).r * far_plane;
@@ -65,14 +98,11 @@ float calc_point_shadow(vec3 frag_pos, vec3 light_pos, samplerCube shadow_map, f
 	return shadow;
 }
 
-vec3 calc_dir_light(DirLight light, vec3 frag_pos, vec3 normal, float spec) {
-	// ambient
+vec3 calc_dir_light(DirLight light, vec3 frag_pos, float frag_depth, vec3 normal, float spec) {
 	float ambient_strength = 0.1;
 
-	// diffuse
 	float diffuse_strength = max(dot(-normalize(light.direction), normal), 0.0);
 
-	// specular
 	float specular_strength = 0.0;
 
 	if (diffuse_strength != 0.0) {
@@ -81,8 +111,9 @@ vec3 calc_dir_light(DirLight light, vec3 frag_pos, vec3 normal, float spec) {
 		specular_strength = pow(max(dot(view_dir, half_dir), 0.0), 16);
 	}
 
-	return (ambient_strength + diffuse_strength + spec * specular_strength) * light.color;
-};
+	float shadow = calc_dir_shadow(frag_pos, frag_depth, cascade_maps, far_z);
+	return (ambient_strength + (1.0 - shadow) * (diffuse_strength + spec * specular_strength)) * light.color;
+}
 
 vec3 calc_point_light(PointLight light_props, vec3 light_pos, vec3 frag_pos, vec3 normal, float spec) {
 	
@@ -141,7 +172,7 @@ void main() {
 	uint cluster_idx = cluster.x + (cluster.y * grid_sz.x) + (cluster.z * grid_sz.x * grid_sz.y);
 
 	// compute directional light contribution
-	vec3 result = color * calc_dir_light(dir_light, frag_pos, norm, spec);
+	vec3 result = color * calc_dir_light(dir_light, frag_pos, frag_pos_z_vs, norm, spec);
 
 	// compute contributions from point lights
 	for (uint i = 0; i < clusters[cluster_idx].count; ++i) {

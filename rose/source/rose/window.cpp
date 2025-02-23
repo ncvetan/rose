@@ -200,10 +200,6 @@ std::optional<rses> WindowGLFW::init() {
     glNamedBufferSubData(world_state.global_ubo, 200, 4, &camera.far_plane);
     glNamedBufferSubData(world_state.global_ubo, 204, 4, &camera.near_plane);
 
-    glCreateBuffers(1, &world_state.global_ubo);
-    glNamedBufferStorage(world_state.global_ubo, 192, nullptr, GL_DYNAMIC_STORAGE_BIT);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 6, world_state.global_ubo);
-
     // ssbo initialization ========================================================================
 
     s32 n_clusters = clusters.grid_sz.x * clusters.grid_sz.y * clusters.grid_sz.z;
@@ -218,10 +214,12 @@ std::optional<rses> WindowGLFW::init() {
 
     // shadow map initialization ==================================================================
     
-    // directional shadow map
+    // ---- directional shadow map ----
     glCreateFramebuffers(1, &world_state.dir_shadow.fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, world_state.dir_shadow.fbo);
     glCreateTextures(GL_TEXTURE_2D_ARRAY, 1, &world_state.dir_shadow.tex);
-    glTextureStorage3D(world_state.dir_shadow.tex, 0, GL_DEPTH_COMPONENT32F, world_state.dir_shadow.resolution, world_state.dir_shadow.resolution, world_state.n_cascades);
+    glTextureStorage3D(world_state.dir_shadow.tex, 1, GL_DEPTH_COMPONENT32F, 
+                       world_state.dir_shadow.resolution, world_state.dir_shadow.resolution, world_state.n_cascades);
 
     glTextureParameteri(world_state.dir_shadow.tex, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTextureParameteri(world_state.dir_shadow.tex, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -230,11 +228,20 @@ std::optional<rses> WindowGLFW::init() {
 
     glNamedFramebufferTexture(world_state.dir_shadow.fbo, GL_DEPTH_ATTACHMENT, world_state.dir_shadow.tex, 0);
 
+    glNamedFramebufferDrawBuffer(world_state.dir_shadow.fbo, GL_NONE);
+    glNamedFramebufferReadBuffer(world_state.dir_shadow.fbo, GL_NONE);
+
     if (glCheckNamedFramebufferStatus(world_state.dir_shadow.fbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-        return rses().gl("framebuffer is incomplete");
+        return rses().gl("directional shadow framebuffer is incomplete");
     }
 
-    // point shadow map
+    glCreateBuffers(1, &world_state.light_mats_ubo);
+    glNamedBufferStorage(world_state.light_mats_ubo, 192, nullptr, GL_DYNAMIC_STORAGE_BIT);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 6, world_state.light_mats_ubo);
+
+    // ---- point shadow map ----
+
+    // TODO: convert to DSA
     glGenFramebuffers(1, &world_state.pt_shadow.fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, world_state.pt_shadow.fbo);
     glGenTextures(1, &world_state.pt_shadow.tex);
@@ -258,6 +265,54 @@ std::optional<rses> WindowGLFW::init() {
 
     return std::nullopt;
 };
+
+// obtains a projection-view matrix for a directional light
+// near and far values should be specific to the cascade
+static glm::mat4 get_light_pv(const CameraGL& camera, const glm::vec3& light_dir, f32 near, f32 far)
+{
+    static std::array<glm::vec4, 8> frustum_corners = {
+        glm::vec4(-1.0f, -1.0f, -1.0f, 1.0f),
+        glm::vec4( 1.0f, -1.0f, -1.0f, 1.0f),
+        glm::vec4(-1.0f,  1.0f, -1.0f, 1.0f),
+        glm::vec4( 1.0f,  1.0f, -1.0f, 1.0f),
+        glm::vec4(-1.0f, -1.0f,  1.0f, 1.0f),
+        glm::vec4( 1.0f, -1.0f,  1.0f, 1.0f),
+        glm::vec4(-1.0f,  1.0f,  1.0f, 1.0f),
+        glm::vec4( 1.0f,  1.0f,  1.0f, 1.0f)
+    };
+
+    // note: if resolutions are not square, the aspect ratio will need to be explicitly calculated
+    glm::mat4 proj = glm::perspective(glm::radians(camera.zoom), 1.0f, near, far);
+    glm::mat4 pv_inv = glm::inverse(proj * camera.view());
+
+    glm::vec3 frust_center;
+    // [ clip -> world ]
+    for (auto& corner : frustum_corners) {
+        corner = pv_inv * corner;
+        corner /= corner.w;
+        frust_center += glm::vec3(corner);
+    }
+
+    frust_center /= frustum_corners.size();
+    glm::mat4 light_view = glm::lookAt(frust_center + light_dir, frust_center, { 0.0f, 1.0f, 0.0f });
+
+    // find tight bounds for the frustum
+    glm::vec3 min_pt = constants::vec3_max;
+    glm::vec3 max_pt = constants::vec3_min;
+    for (const auto& corner : frustum_corners) {
+        glm::vec4 pt = light_view * corner; // [ world -> light view ]
+        min_pt = { std::min(min_pt.x, pt.x), std::min(min_pt.y, pt.y), std::min(min_pt.z, pt.z) };
+        max_pt = { std::max(max_pt.x, pt.x), std::max(max_pt.y, pt.y), std::max(max_pt.z, pt.z) };
+    }
+
+    // note: z-range of the projection matrix must be larger than the frustum to account for shadow casters
+    // outside of the frustum
+    (min_pt.z < 0.0f) ? min_pt.z *= 10.0f : min_pt.z /= 10.0f;
+    (max_pt.z < 0.0f) ? max_pt.z /= 10.0f : max_pt.z *= 10.0f;
+
+    glm::mat4 light_proj = glm::ortho(min_pt.x, max_pt.x, min_pt.y, max_pt.y, min_pt.z, max_pt.z);
+    return light_proj * light_view;
+}
 
 void WindowGLFW::update() {
     
@@ -305,63 +360,27 @@ void WindowGLFW::update() {
         
         glCullFace(GL_FRONT);           // prevent peter panning
 
-        // directional light
-        std::array<glm::vec4, 28> corners;
-        glm::mat4 pv_inv = glm::inverse(projection * view);
+        // ---- directional light ----
 
-        // transform frustum pts from clip space -> world space
-        u32 cornerIdx = 0;
-        for (u32 x = 0; x < world_state.n_cascades-1; ++x) {
-            for (u32 y = 0; y < world_state.n_cascades-1; ++y) {
-                for (u32 z = 0; z < world_state.n_cascades-1; ++z) {
-                    corners[cornerIdx] = pv_inv *  glm::vec4(2.0f * x - 1.0f, 2.0f * y - 1.0f, 2.0f * z - 1.0f, 1.0f);
-                    cornerIdx++;
-                }
-            }
-        }
-
-        // calculate center of frustum to use in dir_light view matrix (same for each cascade)
-        glm::vec3 frust_center;
-        for (const auto& corner : corners) {
-            frust_center += glm::vec3(corner);
-        }
-        frust_center /= corners.size();
-        glm::mat4 light_view = glm::lookAt(frust_center + world_state.dir_light.direction, frust_center, { 0.0f, 1.0f, 0.0f });
-
-        // find tight bounds for the frustum
-        glm::vec3 min_pt = { f32_min, f32_min, f32_min};
-        glm::vec3 max_pt = { f32_max, f32_max, f32_max };
-        for (const auto& corner : corners) {
-            glm::vec4 pt = light_view * corner;
-            min_pt = { std::min(min_pt.x, pt.x), std::min(min_pt.y, pt.y), std::min(min_pt.z, pt.z) };
-            max_pt = { std::min(max_pt.x, pt.x), std::min(max_pt.y, pt.y), std::min(max_pt.z, pt.z) };
-        }
-
-        // note: z range of the projection matrix must be larger than the frustum to account for shadow casters
-        // outside of the frustum
-        if (min_pt.z < 0.0f) {
-            min_pt.z *= 10.0f;
-        } 
-        else {
-            min_pt.z /= 10.0f;
-        }
-        if (max_pt.z < 0.0f) {
-            max_pt.z /= 10.0f;
-        } 
-        else {
-            max_pt.z *= 10.0f;
-        }
-
-        glm::mat4 light_proj = glm::ortho(min_pt.x, max_pt.x, min_pt.y, max_pt.y, min_pt.z, max_pt.z);
-        glm::mat4 light_pv = light_proj * light_view;
-        
         glBindFramebuffer(GL_FRAMEBUFFER, world_state.dir_shadow.fbo);
         glViewport(0, 0, world_state.dir_shadow.resolution, world_state.dir_shadow.resolution);
         glClear(GL_DEPTH_BUFFER_BIT);
 
-        glNamedBufferSubData(world_state.global_ubo, 0, 64, glm::value_ptr(light_pv));
-        glNamedBufferSubData(world_state.global_ubo, 64, 64, glm::value_ptr(light_pv));
-        glNamedBufferSubData(world_state.global_ubo, 128, 64, glm::value_ptr(light_pv));
+        f32 c1_far = camera.near_plane * std::pow(camera.far_plane / camera.near_plane, 1.0f / 3.0f);
+        f32 c2_far = camera.near_plane * std::pow(camera.far_plane / camera.near_plane, 2.0f / 3.0f);
+
+        shaders.lighting.set_float("cascade_depths[0]", c1_far);
+        shaders.lighting.set_float("cascade_depths[1]", c2_far);
+        shaders.lighting.set_float("cascade_depths[2]", camera.far_plane);
+
+        // TODO: Problem seems to be with these maps
+        glm::mat4 c1_map = get_light_pv(camera, world_state.dir_light.direction, camera.near_plane, c1_far);
+        glm::mat4 c2_map = get_light_pv(camera, world_state.dir_light.direction, c1_far, c2_far);
+        glm::mat4 c3_map = get_light_pv(camera, world_state.dir_light.direction, c2_far, camera.far_plane);
+
+        glNamedBufferSubData(world_state.light_mats_ubo, 0, 64, glm::value_ptr(c1_map));
+        glNamedBufferSubData(world_state.light_mats_ubo, 64, 64, glm::value_ptr(c2_map));
+        glNamedBufferSubData(world_state.light_mats_ubo, 128, 64, glm::value_ptr(c3_map));
 
         for (size_t obj_idx = 0; obj_idx < objects.size(); ++obj_idx) {
             if (!(objects.flags[obj_idx] & ObjectFlags::EMIT_LIGHT)) {
@@ -372,7 +391,7 @@ void WindowGLFW::update() {
             }
         }
 
-        // point lights
+        // ---- point lights ----
         glm::mat4 shadow_proj = glm::perspective(
             glm::radians(90.0f), (f32)world_state.pt_shadow.resolution / (f32)world_state.pt_shadow.resolution,
             camera.near_plane, camera.far_plane);
@@ -478,7 +497,8 @@ void WindowGLFW::update() {
         shaders.lighting.set_int("gbuf_colors", 2);
 
         glBindTextureUnit(11, world_state.dir_shadow.tex);
-        shaders.lighting.set_int("cascade", 11);
+        shaders.lighting.set_int("cascade_maps", 11);
+        shaders.lighting.set_int("n_cascades", world_state.n_cascades);
 
         // TODO: convert to DSA
         glActiveTexture(GL_TEXTURE12);
@@ -491,6 +511,7 @@ void WindowGLFW::update() {
         glStencilFunc(GL_EQUAL, 0, 0xFF); 
         glStencilOp(GL_REPLACE, GL_ZERO, GL_ZERO);
         shaders.passthrough.set_int("gbuf_colors", 2);
+
         pp1.draw(shaders.passthrough);
 
         // forward pass ===========================================================================
