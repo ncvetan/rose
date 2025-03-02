@@ -13,7 +13,7 @@ namespace gui {
 
 // note: right now, the gui is a bit hacked together. it is primarily used for debugging and observing
 // how changing certain parameters impact various graphics components. in the future this should
-// be a cleaner interface with less bugs
+// be a cleaner interface with less bugs.
 
 static f32 dir_angle = std::numbers::pi / 2;
 static bool first_frame = true;
@@ -28,20 +28,20 @@ void imgui(WindowGLFW& state) {
     
     ImGui::Text("global controls");
     ImGui::Separator();
-    ImGui::SliderFloat("exposure", &state.world_state.exposure, 0.1f, 5.0f);    
-    ImGui::Checkbox("enable bloom", &state.world_state.bloom);
+    ImGui::SliderFloat("exposure", &state.app_state.exposure, 0.1f, 5.0f);    
+    ImGui::Checkbox("enable bloom", &state.app_state.bloom);
 
-    ImGui::BeginDisabled(!state.world_state.bloom);
-    ImGui::SliderInt("num passes", &state.world_state.n_bloom_passes, 1, 10);
+    ImGui::BeginDisabled(!state.app_state.bloom);
+    ImGui::SliderInt("num passes", &state.app_state.n_bloom_passes, 1, 10);
     ImGui::EndDisabled();
 
     ImGui::SeparatorText("global light");
     if (ImGui::SliderAngle("angle", &dir_angle, 0.0f, 180.0f)) {
-        state.world_state.dir_light.direction.y = -std::sin(dir_angle) * 1.0f;
-        state.world_state.dir_light.direction.z = std::cos(dir_angle) * 1.0f;
-        state.world_state.dir_light.direction = glm::normalize(state.world_state.dir_light.direction);
+        state.app_state.dir_light.direction.y = -std::sin(dir_angle) * 1.0f;
+        state.app_state.dir_light.direction.z = std::cos(dir_angle) * 1.0f;
+        state.app_state.dir_light.direction = glm::normalize(state.app_state.dir_light.direction);
     }
-    ImGui::ColorEdit3("color", glm::value_ptr(state.world_state.dir_light.color));
+    ImGui::ColorEdit3("color", glm::value_ptr(state.app_state.dir_light.color));
     
     ImGui::SeparatorText("point lights");
     bool light_changed = false;
@@ -54,7 +54,7 @@ void imgui(WindowGLFW& state) {
             
             if (ImGui::TreeNode((void*)(intptr_t)idx, "light %d", idx)) {
                 light_changed = 
-                    ImGui::SliderFloat3("position", glm::value_ptr(state.objects.positions[idx]), -100.0f, 100.0f) 
+                    ImGui::SliderFloat3("position", glm::value_ptr(state.objects.positions[idx]), -30.0f, 30.0f) 
                     || ImGui::ColorEdit3("color", glm::value_ptr(state.objects.light_props[idx].color)) ||
                     ImGui::SliderFloat("linear", &state.objects.light_props[idx].linear, 0.1f, 10.0f) 
                     || ImGui::SliderFloat("quad", &state.objects.light_props[idx].quad, 0.1f, 10.0f) ||
@@ -100,7 +100,7 @@ void imgui(WindowGLFW& state) {
     }
 
     if (light_changed) {
-        state.objects.update_light_radii(state.world_state.exposure);
+        state.objects.update_light_radii(state.app_state.exposure);
         update_light_state(state.objects, state.clusters);
     }
 }

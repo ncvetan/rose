@@ -19,8 +19,8 @@
 namespace rose {
 
 // TODO: This entire thing is much more than a 'window' at this point and needs to be refactored
-class WindowGLFW {
-  public:
+struct WindowGLFW {
+    
     WindowGLFW() = default;
 
     [[nodiscard]] std::optional<rses> init();
@@ -34,7 +34,7 @@ class WindowGLFW {
     ShadersGL shaders;
     TextureManager texture_manager;
 
-    GlobalState world_state;
+    GlobalState app_state;
     ClusterData clusters;
     Objects objects;
 
@@ -54,7 +54,6 @@ class WindowGLFW {
     bool vp_focused = false;
     bool vp_captured = true;  // indicates whether events should be processed in the viewport
 
-  private:
     [[nodiscard]] std::optional<rses> init_glfw();
     [[nodiscard]] std::optional<rses> init_imgui(GLFWwindow* window);
     [[nodiscard]] std::optional<rses> init_opengl();
