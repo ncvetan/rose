@@ -20,6 +20,8 @@ struct GlobalState {
     f32 gamma = 2.2f;
     f32 exposure = 1.0f;
 
+    f32 dist_test = 10.0f;
+
     bool bloom = true;
     int n_bloom_passes = 5;
 

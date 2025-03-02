@@ -28,7 +28,7 @@ void imgui(WindowGLFW& state) {
     
     ImGui::Text("global controls");
     ImGui::Separator();
-    ImGui::SliderFloat("exposure", &state.world_state.exposure, 0.1f, 5.0f);
+    ImGui::SliderFloat("exposure", &state.world_state.exposure, 0.1f, 5.0f);    
     ImGui::Checkbox("enable bloom", &state.world_state.bloom);
 
     ImGui::BeginDisabled(!state.world_state.bloom);

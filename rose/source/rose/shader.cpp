@@ -92,6 +92,7 @@ ShaderGL::~ShaderGL() {
 
 void ShaderGL::use() { glUseProgram(prg); }
 
+// TODO: using std::string here causes unnecessary allocations... should replace with something else
 void ShaderGL::set_bool(const std::string& name, bool value) const {
     glProgramUniform1i(prg, glGetUniformLocation(prg, name.c_str()), (int)value);
 }

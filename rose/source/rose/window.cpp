@@ -215,19 +215,22 @@ std::optional<rses> WindowGLFW::init() {
     // shadow map initialization ==================================================================
     
     // ---- directional shadow map ----
+
     glCreateFramebuffers(1, &world_state.dir_shadow.fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, world_state.dir_shadow.fbo);
     glCreateTextures(GL_TEXTURE_2D_ARRAY, 1, &world_state.dir_shadow.tex);
+
+    // TODO: Resolution could vary between cascades to save memory
     glTextureStorage3D(world_state.dir_shadow.tex, 1, GL_DEPTH_COMPONENT32F, 
                        world_state.dir_shadow.resolution, world_state.dir_shadow.resolution, world_state.n_cascades);
 
-    glTextureParameteri(world_state.dir_shadow.tex, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(world_state.dir_shadow.tex, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTextureParameteri(world_state.dir_shadow.tex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-    glTextureParameteri(world_state.dir_shadow.tex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    glTextureParameteri(world_state.dir_shadow.tex, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(world_state.dir_shadow.tex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTextureParameteri(world_state.dir_shadow.tex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(world_state.dir_shadow.tex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(world_state.dir_shadow.tex, GL_TEXTURE_COMPARE_MODE, GL_NONE);
 
     glNamedFramebufferTexture(world_state.dir_shadow.fbo, GL_DEPTH_ATTACHMENT, world_state.dir_shadow.tex, 0);
-
     glNamedFramebufferDrawBuffer(world_state.dir_shadow.fbo, GL_NONE);
     glNamedFramebufferReadBuffer(world_state.dir_shadow.fbo, GL_NONE);
 
@@ -268,9 +271,9 @@ std::optional<rses> WindowGLFW::init() {
 
 // obtains a projection-view matrix for a directional light
 // near and far values should be specific to the cascade
-static glm::mat4 get_light_pv(const CameraGL& camera, const glm::vec3& light_dir, f32 near, f32 far)
+static glm::mat4 get_light_pv(const CameraGL& camera, const glm::vec3& light_dir, const GlobalState& state, float ar, f32 near, f32 far)
 {
-    static std::array<glm::vec4, 8> frustum_corners = {
+    std::array<glm::vec4, 8> frustum_corners = {
         glm::vec4(-1.0f, -1.0f, -1.0f, 1.0f),
         glm::vec4( 1.0f, -1.0f, -1.0f, 1.0f),
         glm::vec4(-1.0f,  1.0f, -1.0f, 1.0f),
@@ -281,20 +284,19 @@ static glm::mat4 get_light_pv(const CameraGL& camera, const glm::vec3& light_dir
         glm::vec4( 1.0f,  1.0f,  1.0f, 1.0f)
     };
 
-    // note: if resolutions are not square, the aspect ratio will need to be explicitly calculated
-    glm::mat4 proj = glm::perspective(glm::radians(camera.zoom), 1.0f, near, far);
+    glm::mat4 proj = glm::perspective(glm::radians(camera.zoom), ar, near, far);
     glm::mat4 pv_inv = glm::inverse(proj * camera.view());
 
     glm::vec3 frust_center;
     // [ clip -> world ]
-    for (auto& corner : frustum_corners) {
+    for (auto& corner : frustum_corners) {        
         corner = pv_inv * corner;
         corner /= corner.w;
         frust_center += glm::vec3(corner);
     }
 
     frust_center /= frustum_corners.size();
-    glm::mat4 light_view = glm::lookAt(frust_center + light_dir, frust_center, { 0.0f, 1.0f, 0.0f });
+    glm::mat4 light_view = glm::lookAt(frust_center - light_dir * state.dist_test, frust_center, { 0.0f, 1.0f, 0.0f });
 
     // find tight bounds for the frustum
     glm::vec3 min_pt = constants::vec3_max;
@@ -305,12 +307,7 @@ static glm::mat4 get_light_pv(const CameraGL& camera, const glm::vec3& light_dir
         max_pt = { std::max(max_pt.x, pt.x), std::max(max_pt.y, pt.y), std::max(max_pt.z, pt.z) };
     }
 
-    // note: z-range of the projection matrix must be larger than the frustum to account for shadow casters
-    // outside of the frustum
-    (min_pt.z < 0.0f) ? min_pt.z *= 10.0f : min_pt.z /= 10.0f;
-    (max_pt.z < 0.0f) ? max_pt.z /= 10.0f : max_pt.z *= 10.0f;
-
-    glm::mat4 light_proj = glm::ortho(min_pt.x, max_pt.x, min_pt.y, max_pt.y, min_pt.z, max_pt.z);
+    glm::mat4 light_proj = glm::ortho(min_pt.x, max_pt.x, min_pt.y, max_pt.y, -max_pt.z, -min_pt.z);
     return light_proj * light_view;
 }
 
@@ -330,7 +327,8 @@ void WindowGLFW::update() {
         
         glEnable(GL_DEPTH_TEST);
 
-        glm::mat4 projection = camera.projection((f32)width / (f32)height);
+        f32 ar = (f32)width / (f32)height;
+        glm::mat4 projection = camera.projection(ar);
         glm::mat4 view = camera.view();
 
         // update ubo state
@@ -366,21 +364,18 @@ void WindowGLFW::update() {
         glViewport(0, 0, world_state.dir_shadow.resolution, world_state.dir_shadow.resolution);
         glClear(GL_DEPTH_BUFFER_BIT);
 
-        f32 c1_far = camera.near_plane * std::pow(camera.far_plane / camera.near_plane, 1.0f / 3.0f);
-        f32 c2_far = camera.near_plane * std::pow(camera.far_plane / camera.near_plane, 2.0f / 3.0f);
+        f32 c1_far = 10.0f;
+        f32 c2_far = 30.0f;
 
-        shaders.lighting.set_float("cascade_depths[0]", c1_far);
-        shaders.lighting.set_float("cascade_depths[1]", c2_far);
-        shaders.lighting.set_float("cascade_depths[2]", camera.far_plane);
-
-        // TODO: Problem seems to be with these maps
-        glm::mat4 c1_map = get_light_pv(camera, world_state.dir_light.direction, camera.near_plane, c1_far);
-        glm::mat4 c2_map = get_light_pv(camera, world_state.dir_light.direction, c1_far, c2_far);
-        glm::mat4 c3_map = get_light_pv(camera, world_state.dir_light.direction, c2_far, camera.far_plane);
+        glm::mat4 c1_map = get_light_pv(camera, world_state.dir_light.direction, world_state, ar, camera.near_plane, c1_far);
+        glm::mat4 c2_map = get_light_pv(camera, world_state.dir_light.direction, world_state, ar, c1_far, c2_far);
+        glm::mat4 c3_map = get_light_pv(camera, world_state.dir_light.direction, world_state, ar, c2_far, camera.far_plane);
 
         glNamedBufferSubData(world_state.light_mats_ubo, 0, 64, glm::value_ptr(c1_map));
         glNamedBufferSubData(world_state.light_mats_ubo, 64, 64, glm::value_ptr(c2_map));
         glNamedBufferSubData(world_state.light_mats_ubo, 128, 64, glm::value_ptr(c3_map));
+
+        glEnable(GL_DEPTH_CLAMP);
 
         for (size_t obj_idx = 0; obj_idx < objects.size(); ++obj_idx) {
             if (!(objects.flags[obj_idx] & ObjectFlags::EMIT_LIGHT)) {
@@ -390,8 +385,16 @@ void WindowGLFW::update() {
                 objects.models[obj_idx].reset();
             }
         }
+        
+        glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
+        glDisable(GL_DEPTH_CLAMP);
+
+        shaders.lighting.set_float("cascade_depths[0]", c1_far);
+        shaders.lighting.set_float("cascade_depths[1]", c2_far);
+        shaders.lighting.set_float("cascade_depths[2]", camera.far_plane);
 
         // ---- point lights ----
+
         glm::mat4 shadow_proj = glm::perspective(
             glm::radians(90.0f), (f32)world_state.pt_shadow.resolution / (f32)world_state.pt_shadow.resolution,
             camera.near_plane, camera.far_plane);
@@ -491,16 +494,15 @@ void WindowGLFW::update() {
         glBindTextureUnit(0, gbuf.tex_bufs[0]); // positions (ws)
         glBindTextureUnit(1, gbuf.tex_bufs[1]); // normals
         glBindTextureUnit(2, gbuf.tex_bufs[2]); // colors
+        glBindTextureUnit(11, world_state.dir_shadow.tex);
 
         shaders.lighting.set_int("gbuf_pos", 0);
         shaders.lighting.set_int("gbuf_norms", 1);
         shaders.lighting.set_int("gbuf_colors", 2);
 
-        glBindTextureUnit(11, world_state.dir_shadow.tex);
         shaders.lighting.set_int("cascade_maps", 11);
         shaders.lighting.set_int("n_cascades", world_state.n_cascades);
 
-        // TODO: convert to DSA
         glActiveTexture(GL_TEXTURE12);
         glBindTexture(GL_TEXTURE_CUBE_MAP, world_state.pt_shadow.tex);
         shaders.lighting.set_int("shadow_map", 12);
@@ -515,6 +517,7 @@ void WindowGLFW::update() {
         pp1.draw(shaders.passthrough);
 
         // forward pass ===========================================================================
+        
         glEnable(GL_DEPTH_TEST);
         glDisable(GL_STENCIL_TEST);
 

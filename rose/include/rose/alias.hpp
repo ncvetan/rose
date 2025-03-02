@@ -63,7 +63,7 @@ inline const u32 bit32 = (1 << 31);
 
 namespace constants {
 	constexpr f32 f32_max = std::numeric_limits<f32>::max();
-	constexpr f32 f32_min = std::numeric_limits<f32>::min();
+    constexpr f32 f32_min = std::numeric_limits<f32>::lowest();
     constexpr glm::vec3 vec3_min = { f32_min, f32_min, f32_min };
     constexpr glm::vec3 vec3_max = { f32_max, f32_max, f32_max };
 }

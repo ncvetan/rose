@@ -30,10 +30,12 @@ layout(std140, binding=6) uniform light_space_mats_ubo {
 uniform sampler2D gbuf_pos;
 uniform sampler2D gbuf_norms;
 uniform sampler2D gbuf_colors;
-uniform sampler2DArray cascade_maps;
+
 // TODO: make cascade uniforms cleaner
+uniform sampler2DArray cascade_maps;
 uniform int n_cascades;
 uniform float cascade_depths[3];
+
 uniform samplerCube shadow_map;
 
 // light parameters for a particular point light
@@ -64,37 +66,23 @@ layout (std430, binding=5) buffer clusters_ssbo {
     Cluster clusters[];
 };
 
-float calc_dir_shadow(vec3 frag_pos, float frag_depth, sampler2DArray shadow_maps, float far_plane) {
-	// determine this fragment's cascade based on view space depth
-	int cascade_idx = 0;
-	for (int idx = 0; idx < n_cascades; ++idx) {
-		if (frag_depth < cascade_depths[idx]) {
-			cascade_idx = idx;
-			break;
-		}
-	}
-
-	// vec4 res = step(csmClipSpaceZFar, depthValue);
-	// int i = int(res.x + res.y + res.z + res.w);
+float calc_dir_shadow(DirLight light, vec3 frag_pos, float frag_depth, vec3 normal) {
+	
+	vec3 res = step(vec3(cascade_depths[0], cascade_depths[1], cascade_depths[2]), vec3(abs(frag_depth)));
+	int cascade_idx = int(res.x + res.y + res.z);
 
 	// [ world space -> light space ]
 	vec4 frag_pos_ls = ls_mats[cascade_idx] * vec4(frag_pos, 1.0);
-	frag_pos_ls.xyz /= frag_pos_ls.w;
-	frag_pos_ls.xyz = frag_pos_ls.xyz * 0.5 + 0.5; // [ -1, 1 ] -> [ 0, 1 ]
+	vec3 proj_coords = frag_pos_ls.xyz / frag_pos_ls.w;
+	proj_coords = proj_coords * 0.5 + 0.5;							// [ -1, 1 ] -> [ 0, 1 ]
+	float curr_depth = proj_coords.z;
 
-	float closest_depth = texture(shadow_maps, vec3(frag_pos_ls.xy, cascade_idx)).r * far_plane;
-	float curr_depth = frag_pos_ls.z;
-	float bias = 0.05;
-	float shadow = (curr_depth - bias > closest_depth) ? 1.0 : 0.0;
-	return shadow;
-}
+	float closest_depth = texture(cascade_maps, vec3(proj_coords.xy, cascade_idx)).r;
 
-float calc_point_shadow(vec3 frag_pos, vec3 light_pos, samplerCube shadow_map, float far_plane) {
-	vec3 frag_to_light = frag_pos - light_pos;
-	float closest = texture(shadow_map, frag_to_light).r * far_plane;
-	float depth = length(frag_to_light);
-	float bias = 0.05;
-	float shadow = (depth - bias > closest) ? 1.0 : 0.0;
+	float bias = max(0.05 * (1.0 - dot(normal, light.direction)), 0.005);
+	bias *= 1 / (cascade_depths[cascade_idx] * 0.5f);
+	
+	float shadow = ((curr_depth - bias) > closest_depth) ? 1.0 : 0.0;
 	return shadow;
 }
 
@@ -111,8 +99,17 @@ vec3 calc_dir_light(DirLight light, vec3 frag_pos, float frag_depth, vec3 normal
 		specular_strength = pow(max(dot(view_dir, half_dir), 0.0), 16);
 	}
 
-	float shadow = calc_dir_shadow(frag_pos, frag_depth, cascade_maps, far_z);
+	float shadow = calc_dir_shadow(dir_light, frag_pos, frag_depth, normal);
 	return (ambient_strength + (1.0 - shadow) * (diffuse_strength + spec * specular_strength)) * light.color;
+}
+
+float calc_point_shadow(vec3 frag_pos, vec3 light_pos, samplerCube shadow_map, float far_plane) {
+	vec3 frag_to_light = frag_pos - light_pos;
+	float closest = texture(shadow_map, frag_to_light).r * far_plane;
+	float depth = length(frag_to_light);
+	float bias = 0.05;
+	float shadow = ((depth - bias) > closest) ? 1.0 : 0.0;
+	return shadow;
 }
 
 vec3 calc_point_light(PointLight light_props, vec3 light_pos, vec3 frag_pos, vec3 normal, float spec) {
@@ -121,7 +118,7 @@ vec3 calc_point_light(PointLight light_props, vec3 light_pos, vec3 frag_pos, vec
 	float d = length(light_pos - frag_pos);
 	float inner_r = light_props.radius * (1.0 - 0.30);
 	float outer_r = light_props.radius;
-
+	
 	if (d > outer_r) {
 		return vec3(0.0);
 	}
