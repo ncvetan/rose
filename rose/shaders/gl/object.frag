@@ -49,6 +49,7 @@ uniform Material materials[N_MATS];
 #define N_POINT_LIGHTS 2	// todo: variable support
 uniform PointLight point_lights[N_POINT_LIGHTS];
 
+uniform sampler2DArray cascade;
 uniform samplerCube shadow_map;
 uniform float bias;
 uniform float far_plane;

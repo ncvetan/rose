@@ -12,7 +12,7 @@ std::optional<rses> Objects::add_object(TextureManager& manager, const ObjectCtx
     }
 
     models.push_back(std::move(model));
-    posns.push_back(obj_def.pos);
+    positions.push_back(obj_def.pos);
     scales.push_back(obj_def.scale);
     light_props.push_back(obj_def.light_props);
     flags.push_back(obj_def.flags);
@@ -33,14 +33,14 @@ void Objects::update_light_radii(f32 exposure) {
 }
 
 void update_light_state(Objects& objs, ClusterData& clusters) {
-    std::vector<PointLight> pnt_lights_props;
+    std::vector<PtLight> pnt_lights_props;
     std::vector<glm::vec4> pnt_lights_pos;
     u32 n_lights = 0;
 
     // linear search, probably not a big deal for now
     for (size_t idx = 0; idx < objs.size(); ++idx) {
         if (objs.flags[idx] & ObjectFlags::EMIT_LIGHT) {
-            pnt_lights_pos.push_back(glm::vec4(objs.posns[idx], 1.0f));
+            pnt_lights_pos.push_back(glm::vec4(objs.positions[idx], 1.0f));
             pnt_lights_props.push_back(objs.light_props[idx]);
             n_lights++;
         }

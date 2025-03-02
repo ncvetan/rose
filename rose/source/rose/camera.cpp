@@ -5,9 +5,9 @@
 
 namespace rose {
 
-glm::mat4 CameraGL::view() { return glm::lookAt(position, position + front, up); }
+glm::mat4 CameraGL::view() const { return glm::lookAt(position, position + front, up); }
 
-glm::mat4 CameraGL::projection(f32 aspect_ratio) {
+glm::mat4 CameraGL::projection(f32 aspect_ratio) const {
     return glm::perspective(glm::radians(zoom), aspect_ratio, near_plane, far_plane);
 }
 

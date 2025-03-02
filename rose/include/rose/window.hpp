@@ -60,9 +60,6 @@ class WindowGLFW {
     [[nodiscard]] std::optional<rses> init_opengl();
 };
 
-void scroll_callback(GLFWwindow* window, f64 xoffset, f64 yoffset);
-
-
 } // namespace rose
 
 #endif

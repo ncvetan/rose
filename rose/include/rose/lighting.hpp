@@ -17,7 +17,7 @@ struct DirLight {
     glm::vec3 color = { 0.55f, 0.55f, 0.55f };
 };
 
-struct PointLight {
+struct PtLight {
 
     // calculate the radius of the point light
     inline void radius(f32 exposure) {
