@@ -12,8 +12,8 @@ namespace rose {
 template <class T>
 concept platform = requires(T t) {
     { t.init() } -> std::same_as<std::optional<rses>>;
-    { t.update() } -> std::same_as<void>;
-    { t.shutdown() } -> std::same_as<void>;
+    { t.run() } -> std::same_as<void>;
+    { t.finish() } -> std::same_as<void>;
 };
 
 template <platform T>
@@ -27,9 +27,9 @@ struct RoseApp {
         return std::nullopt;
     }
 
-    inline void run() { window.update(); }
+    inline void run() { window.run(); }
 
-    inline void shutdown() { window.shutdown(); }
+    inline void finish() { window.finish(); }
 
     T window;
 };

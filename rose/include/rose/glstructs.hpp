@@ -28,16 +28,25 @@ struct FrameBuf {
 
     ~FrameBuf();
 
-    std::optional<rses> init(int w, int h, bool has_depth_buf, const std::vector<FrameBufTexCtx>& texs);
+    inline void use() {
+        glBindFramebuffer(GL_FRAMEBUFFER, frame_buf);
+        glViewport(0, 0, width, height);
+    }
+    
+    std::optional<rses> init(i32 w, i32 h, bool has_depth_buf, const std::vector<FrameBufTexCtx>& texs);
     void draw(ShaderGL& shader);
 
     u32 frame_buf = 0;
     u32 render_buf = 0;
-    std::vector<u32> tex_bufs;
-    std::vector<GLenum> attachments;
+
+    u32 height = 0;
+    u32 width = 0;
 
     u32 vertex_arr = 0;
     u32 vertex_buf = 0;
+
+    std::vector<u32> tex_bufs;
+    std::vector<GLenum> attachments;
 
     std::vector<Vertex> verts = {
         { { 1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },   { { -1.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } },

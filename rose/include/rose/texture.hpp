@@ -41,8 +41,7 @@ struct TextureRef;
 struct TextureManager {
     std::expected<TextureRef, rses> load_texture(const fs::path& path, TextureType ty);
     std::expected<TextureRef, rses> load_cubemap(const std::array<fs::path, 6>& paths);
-    std::optional<TextureRef> generate_texture(int w, int h, GLenum intern_format, GLenum format, GLenum type);
-    std::optional<TextureRef> generate_cubemap(int w, int h);
+
     std::optional<TextureRef> get_ref(const fs::path& path);
     std::optional<TextureRef> get_ref(u32 id);
 
