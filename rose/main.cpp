@@ -23,6 +23,6 @@ int main() {
     }
 
     application.run();
-    application.shutdown();
+    application.finish();
     return 0;
 }

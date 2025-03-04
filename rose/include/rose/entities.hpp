@@ -13,55 +13,49 @@
 namespace rose {
 
 // TODO: This probably shouldn't be here but I'm not sure where I want to put it yet
+
+// bundle of state used throughout the program
 struct GlobalState {
     SkyBox sky_box;
-    DirLight dir_light;
-    u32 global_ubo;         // ubo storing values available across shaders
+    
+    u32 global_ubo = 0;     // ubo storing values available across shaders
+    
     f32 gamma = 2.2f;
     f32 exposure = 1.0f;
 
-    f32 dist_test = 10.0f;
+    bool bloom_on = true;
+    i32 n_bloom_passes = 5;
 
-    bool bloom = true;
-    int n_bloom_passes = 5;
-
-    u8 n_cascades = 3;
-    u32 light_mats_ubo;
-    ShadowData dir_shadow;
+    DirLight dir_light;
     ShadowData pt_shadow;
 };
 
-enum class ObjectFlags : u32 { 
+enum class EntityFlags : u32 { 
     NONE       = bit1,  // no effect
     EMIT_LIGHT = bit2,  // make this object a light emitter
     HIDE       = bit3   // don't render this object
 };
 
-inline bool operator&(ObjectFlags lhs, ObjectFlags rhs) {
+inline bool operator&(EntityFlags lhs, EntityFlags rhs) {
     return (static_cast<u32>(lhs) & static_cast<u32>(rhs)) != 0;
 }
 
-// context used to construct an object
-struct ObjectCtx {
+// context used to construct an entity
+struct EntityCtx {
     fs::path model_pth;
     glm::vec3 pos;
     glm::vec3 scale;
     PtLight light_props;
-    ObjectFlags flags;
+    EntityFlags flags;
 };
 
-struct Objects {
-
-    inline void draw(ShaderGL& shader, const GlobalState& state) { 
-        for (auto& model : models) {
-            model.draw(shader, state); 
-        }
-    }
+struct Entities {
 
     inline size_t size() { return positions.size(); }
 
-    std::optional<rses> add_object(TextureManager& manager, const ObjectCtx& obj_def);
+    std::optional<rses> add_object(TextureManager& manager, const EntityCtx& ent_def);
 
+    // updates the light radius field of all entities that are set as light emitters
     void update_light_radii(f32 exposure);
 
     // SoA of program objects, should all be equal length
@@ -69,12 +63,12 @@ struct Objects {
     std::vector<glm::vec3> positions;
     std::vector<glm::vec3> scales;
     std::vector<PtLight> light_props;
-    std::vector<ObjectFlags> flags;
+    std::vector<EntityFlags> flags;
 };
 
 // TODO: this function is ugly any probably should not exist + inefficient for large collections
 // temporary until I have a better solution
-void update_light_state(Objects& objs, ClusterData& clusters);
+void update_light_state(Entities& objs, ClusterData& clusters);
 
 }
 

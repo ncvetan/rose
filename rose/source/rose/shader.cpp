@@ -10,11 +10,11 @@ namespace rose {
 
 std::optional<rses> ShaderGL::init(const std::vector<ShaderCtx>& shader_ctxs) {
     
-    int success = 0;
+    i32 success = 0;
     char info_log[512];
 
     prg = glCreateProgram();
-    std::vector<GLuint> shaders;
+    std::vector<u32> shaders;
 
     for (const auto& shader_info : shader_ctxs) {
 
@@ -33,7 +33,7 @@ std::optional<rses> ShaderGL::init(const std::vector<ShaderCtx>& shader_ctxs) {
         shader_code_buf << shader_file.rdbuf();
         std::string shader_code_str = shader_code_buf.str();
         const char* shader_code = shader_code_str.c_str();
-        GLuint shader = 0;
+        u32 shader = 0;
 
         shader = glCreateShader(shader_info.type);
 
@@ -92,39 +92,38 @@ ShaderGL::~ShaderGL() {
 
 void ShaderGL::use() { glUseProgram(prg); }
 
-// TODO: using std::string here causes unnecessary allocations... should replace with something else
-void ShaderGL::set_bool(const std::string& name, bool value) const {
-    glProgramUniform1i(prg, glGetUniformLocation(prg, name.c_str()), (int)value);
+void ShaderGL::set_bool(const std::string_view& name, bool value) const {
+    glProgramUniform1i(prg, glGetUniformLocation(prg, name.data()), (int)value);
 }
-void ShaderGL::set_int(const std::string& name, int value) const {
-    glProgramUniform1i(prg, glGetUniformLocation(prg, name.c_str()), value);
+void ShaderGL::set_int(const std::string_view& name, int value) const {
+    glProgramUniform1i(prg, glGetUniformLocation(prg, name.data()), value);
 }
-void ShaderGL::set_float(const std::string& name, f32 value) const {
-    glProgramUniform1f(prg, glGetUniformLocation(prg, name.c_str()), value);
-}
-
-void ShaderGL::set_mat4(const std::string& name, const glm::mat4& value) const {
-    glProgramUniformMatrix4fv(prg, glGetUniformLocation(prg, name.c_str()), 1, GL_FALSE, glm::value_ptr(value));
+void ShaderGL::set_float(const std::string_view& name, f32 value) const {
+    glProgramUniform1f(prg, glGetUniformLocation(prg, name.data()), value);
 }
 
-void ShaderGL::set_vec2(const std::string& name, const glm::vec2& value) const {
-    glProgramUniform2f(prg, glGetUniformLocation(prg, name.c_str()), value.x, value.y);
+void ShaderGL::set_mat4(const std::string_view& name, const glm::mat4& value) const {
+    glProgramUniformMatrix4fv(prg, glGetUniformLocation(prg, name.data()), 1, GL_FALSE, glm::value_ptr(value));
 }
 
-void ShaderGL::set_uvec2(const std::string& name, const glm::uvec2& value) const {
-    glProgramUniform2ui(prg, glGetUniformLocation(prg, name.c_str()), value.x, value.y);
+void ShaderGL::set_vec2(const std::string_view& name, const glm::vec2& value) const {
+    glProgramUniform2f(prg, glGetUniformLocation(prg, name.data()), value.x, value.y);
 }
 
-void ShaderGL::set_vec3(const std::string& name, const glm::vec3& value) const {
-    glProgramUniform3f(prg, glGetUniformLocation(prg, name.c_str()), value.x, value.y, value.z);
+void ShaderGL::set_uvec2(const std::string_view& name, const glm::uvec2& value) const {
+    glProgramUniform2ui(prg, glGetUniformLocation(prg, name.data()), value.x, value.y);
 }
 
-void ShaderGL::set_uvec3(const std::string& name, const glm::uvec3& value) const {
-    glProgramUniform3ui(prg, glGetUniformLocation(prg, name.c_str()), value.x, value.y, value.z);
+void ShaderGL::set_vec3(const std::string_view& name, const glm::vec3& value) const {
+    glProgramUniform3f(prg, glGetUniformLocation(prg, name.data()), value.x, value.y, value.z);
 }
 
-void ShaderGL::set_vec4(const std::string& name, const glm::vec4& value) const {
-    glProgramUniform4f(prg, glGetUniformLocation(prg, name.c_str()), value.w, value.x, value.y, value.z);
+void ShaderGL::set_uvec3(const std::string_view& name, const glm::uvec3& value) const {
+    glProgramUniform3ui(prg, glGetUniformLocation(prg, name.data()), value.x, value.y, value.z);
+}
+
+void ShaderGL::set_vec4(const std::string_view& name, const glm::vec4& value) const {
+    glProgramUniform4f(prg, glGetUniformLocation(prg, name.data()), value.w, value.x, value.y, value.z);
 }
 
 std::optional<rses> ShadersGL::init() {
@@ -141,24 +140,24 @@ std::optional<rses> ShadersGL::init() {
     if (err = clusters_cull.init({ { SOURCE_DIR "/rose/shaders/gl/compute/clusters_cull.comp", GL_COMPUTE_SHADER } })) {
         return err;
     }
-    if (err = gbuf.init({ { SOURCE_DIR "/rose/shaders/gl/gbuf.vert", GL_VERTEX_SHADER },
-                                     { SOURCE_DIR "/rose/shaders/gl/gbuf.frag", GL_FRAGMENT_SHADER } })) {
+    if (err = gbuf.init({ { SOURCE_DIR "/rose/shaders/gl/gbuf.vert", GL_VERTEX_SHADER   },
+                          { SOURCE_DIR "/rose/shaders/gl/gbuf.frag", GL_FRAGMENT_SHADER } })) {
         return err;
     }
-    if (err = hdr.init({ { SOURCE_DIR "/rose/shaders/gl/hdr.vert", GL_VERTEX_SHADER },
-                                    { SOURCE_DIR "/rose/shaders/gl/hdr.frag", GL_FRAGMENT_SHADER } })) {
+    if (err = hdr.init({ { SOURCE_DIR "/rose/shaders/gl/hdr.vert", GL_VERTEX_SHADER   },
+                         { SOURCE_DIR "/rose/shaders/gl/hdr.frag", GL_FRAGMENT_SHADER } })) {
         return err;
     }
-    if (err = light.init({ { SOURCE_DIR "/rose/shaders/gl/light.vert", GL_VERTEX_SHADER },
-                                      { SOURCE_DIR "/rose/shaders/gl/light.frag", GL_FRAGMENT_SHADER } })) {
+    if (err = light.init({ { SOURCE_DIR "/rose/shaders/gl/light.vert", GL_VERTEX_SHADER   },
+                           { SOURCE_DIR "/rose/shaders/gl/light.frag", GL_FRAGMENT_SHADER } })) {
         return err;
     }
-    if (err = lighting.init({ { SOURCE_DIR "/rose/shaders/gl/lighting.vert", GL_VERTEX_SHADER },
-                                         { SOURCE_DIR "/rose/shaders/gl/lighting.frag", GL_FRAGMENT_SHADER } })) {
+    if (err = lighting.init({ { SOURCE_DIR "/rose/shaders/gl/lighting.vert", GL_VERTEX_SHADER   },
+                              { SOURCE_DIR "/rose/shaders/gl/lighting.frag", GL_FRAGMENT_SHADER } })) {
         return err;
     }
-    if (err = passthrough.init({ { SOURCE_DIR "/rose/shaders/gl/passthrough.vert", GL_VERTEX_SHADER },
-                                            { SOURCE_DIR "/rose/shaders/gl/passthrough.frag", GL_FRAGMENT_SHADER } })) {
+    if (err = passthrough.init({ { SOURCE_DIR "/rose/shaders/gl/passthrough.vert", GL_VERTEX_SHADER   },
+                                 { SOURCE_DIR "/rose/shaders/gl/passthrough.frag", GL_FRAGMENT_SHADER } })) {
         return err;
     }
     if (err = dir_shadow.init({{ SOURCE_DIR "/rose/shaders/gl/shadow/shadow.vert", GL_VERTEX_SHADER },

@@ -34,7 +34,7 @@ std::optional<rses> WindowGLFW::init_glfw() {
     glfwWindowHint(GLFW_CONTEXT_DEBUG, GL_TRUE);
 #endif
 
-    window = glfwCreateWindow(width, height, name.c_str(), NULL, NULL);
+    window = glfwCreateWindow(window_data.width, window_data.height, window_data.name.c_str(), NULL, NULL);
 
     if (!window) {
         glfwTerminate();
@@ -78,7 +78,7 @@ std::optional<rses> WindowGLFW::init_opengl() {
 
     std::println("GLEW successfully initialized version: {}", (const char*)glewGetString(GLEW_VERSION));
 
-    glViewport(0, 0, width, height);
+    glViewport(0, 0, window_data.width, window_data.height);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_STENCIL_TEST);
     glEnable(GL_MULTISAMPLE);
@@ -123,8 +123,8 @@ std::optional<rses> WindowGLFW::init() {
     // they need to modify these paths for their own system. eventually, I'd like a format for savings scenes as well as
     // the ability to load models through the gui
 
-    world_state.sky_box.init();
-    if (err = world_state.sky_box.load(
+    app_state.sky_box.init();
+    if (err = app_state.sky_box.load(
             texture_manager, { SOURCE_DIR "/assets/skybox/right.jpg", SOURCE_DIR "/assets/skybox/left.jpg",
                                SOURCE_DIR "/assets/skybox/top.jpg", SOURCE_DIR "/assets/skybox/bottom.jpg",
                                SOURCE_DIR "/assets/skybox/front.jpg", SOURCE_DIR "/assets/skybox/back.jpg" })) {
@@ -132,138 +132,141 @@ std::optional<rses> WindowGLFW::init() {
     }
 
     // models
-    ObjectCtx sponza_def = { .model_pth = SOURCE_DIR "/assets/Sponza/glTF/Sponza.gltf",
+    EntityCtx sponza_def = { .model_pth = SOURCE_DIR "/assets/Sponza/glTF/Sponza.gltf",
                              .pos = { 0.0f, 0.0f, 0.0f },
                              .scale = { 0.02f, 0.02f, 0.02f },
                              .light_props = PtLight(),
-                             .flags = ObjectFlags::NONE };
+                             .flags = EntityFlags::NONE };
 
-    objects.add_object(texture_manager, sponza_def);
+    entities.add_object(texture_manager, sponza_def);
     
-    ObjectCtx model1_def = { .model_pth = SOURCE_DIR "/assets/model1/model1.obj",
+    EntityCtx model1_def = { .model_pth = SOURCE_DIR "/assets/model1/model1.obj",
                              .pos = { 0.0f, 3.0f, 0.0f },
                              .scale = { 1.0f, 1.0f, 1.0f },
                              .light_props = PtLight(),
-                             .flags = ObjectFlags::NONE 
+                             .flags = EntityFlags::NONE 
                            };
 
-    objects.add_object(texture_manager, model1_def);
+    entities.add_object(texture_manager, model1_def);
 
-
-    ObjectCtx model2_def = { .model_pth = SOURCE_DIR "/assets/model1/model1.obj",
+    EntityCtx model2_def = { .model_pth = SOURCE_DIR "/assets/model1/model1.obj",
                              .pos = { 0.0f, 7.0f, 0.0f },
                              .scale = { 1.0f, 1.0f, 1.0f },
                              .light_props = PtLight(),
-                             .flags = ObjectFlags::NONE };
+                             .flags = EntityFlags::NONE };
 
-    objects.add_object(texture_manager, model2_def);
+    entities.add_object(texture_manager, model2_def);
 
-    ObjectCtx light2_def = { .model_pth = SOURCE_DIR "/assets/model1/model1.obj",
+    EntityCtx light2_def = { .model_pth = SOURCE_DIR "/assets/model1/model1.obj",
                              .pos = { 0.0f, 10.0f, 0.0f },
                              .scale = { 1.0f, 1.0f, 1.0f },
                              .light_props = PtLight(),
-                             .flags = ObjectFlags::EMIT_LIGHT };
+                             .flags = EntityFlags::EMIT_LIGHT };
 
-    objects.add_object(texture_manager, light2_def);
-    objects.light_props.back().radius(world_state.exposure);
-    objects.light_props.back().color = { 0.35f, 0.1f, 0.1f, 1.0f };
+    entities.add_object(texture_manager, light2_def);
+    entities.light_props.back().radius(app_state.exposure);
+    entities.light_props.back().color = { 0.35f, 0.1f, 0.1f, 1.0f };
 
     // frame buf initialization ===================================================================
     
     // TODO: optimize size of framebuffers
 
     // (position, normal, albedo)
-    if (err = gbuf.init(width, height, true, { { GL_RGBA16F }, { GL_RGBA16F }, { GL_RGBA8 } })) {
+    if (err = gbuf.init(window_data.width, window_data.height, true, { { GL_RGBA16F }, { GL_RGBA16F }, { GL_RGBA8 } })) {
         return err;
     }
 
-    if (err = pp1.init(width, height, false, { { GL_RGBA16F }, { GL_RGBA16F } })) {
+    if (err = pp1.init(window_data.width, window_data.height, false, { { GL_RGBA16F }, { GL_RGBA16F } })) {
         return err;
     }
 
     // note: pp1 uses the render buffer of gbuf to perform masking with the stencil buffer
     glNamedFramebufferRenderbuffer(pp1.frame_buf, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, gbuf.render_buf);
 
-    if (err = fbuf_out.init(width, height, false, { { GL_RGBA8 } })) {
+    if (err = fbuf_out.init(window_data.width, window_data.height, false, { { GL_RGBA8 } })) {
         return err;
     }
 
     // uniform buffer initialization ==============================================================
 
-    glCreateBuffers(1, &world_state.global_ubo);
-    glNamedBufferStorage(world_state.global_ubo, 208, nullptr, GL_DYNAMIC_STORAGE_BIT);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 1, world_state.global_ubo);
+    glCreateBuffers(1, &app_state.global_ubo);
+    glNamedBufferStorage(app_state.global_ubo, 208, nullptr, GL_DYNAMIC_STORAGE_BIT);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 1, app_state.global_ubo);
 
-    glm::uvec2 screen_dims = { width, height };
-    glNamedBufferSubData(world_state.global_ubo, 176, 16, glm::value_ptr(clusters.grid_sz));
-    glNamedBufferSubData(world_state.global_ubo, 192, 8, glm::value_ptr(screen_dims));
-    glNamedBufferSubData(world_state.global_ubo, 200, 4, &camera.far_plane);
-    glNamedBufferSubData(world_state.global_ubo, 204, 4, &camera.near_plane);
+    glm::uvec2 screen_dims = { window_data.width, window_data.height };
+    glNamedBufferSubData(app_state.global_ubo, 176, 16, glm::value_ptr(clusters.grid_sz));
+    glNamedBufferSubData(app_state.global_ubo, 192, 8, glm::value_ptr(screen_dims));
+    glNamedBufferSubData(app_state.global_ubo, 200, 4, &camera.far_plane);
+    glNamedBufferSubData(app_state.global_ubo, 204, 4, &camera.near_plane);
 
     // ssbo initialization ========================================================================
 
-    s32 n_clusters = clusters.grid_sz.x * clusters.grid_sz.y * clusters.grid_sz.z;
+    i32 n_clusters = clusters.grid_sz.x * clusters.grid_sz.y * clusters.grid_sz.z;
 
     clusters.clusters_aabb_ssbo.init(sizeof(AABB), n_clusters, 2);
     // initially allocate memory for 1024 point lights
     clusters.lights_ssbo.init(sizeof(PtLight), 1024, 3);
     clusters.lights_pos_ssbo.init(sizeof(glm::vec4), 1024, 4);
-    objects.update_light_radii(world_state.exposure);
-    update_light_state(objects, clusters);
+    entities.update_light_radii(app_state.exposure);
+    update_light_state(entities, clusters);
     clusters.clusters_ssbo.init(sizeof(u32) * (1 + clusters.max_lights_in_cluster), n_clusters, 5);
 
     // shadow map initialization ==================================================================
     
     // ---- directional shadow map ----
 
-    glCreateFramebuffers(1, &world_state.dir_shadow.fbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, world_state.dir_shadow.fbo);
-    glCreateTextures(GL_TEXTURE_2D_ARRAY, 1, &world_state.dir_shadow.tex);
+    glCreateFramebuffers(1, &app_state.dir_light.shadow.fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, app_state.dir_light.shadow.fbo);
+    glCreateTextures(GL_TEXTURE_2D_ARRAY, 1, &app_state.dir_light.shadow.tex);
 
     // TODO: Resolution could vary between cascades to save memory
-    glTextureStorage3D(world_state.dir_shadow.tex, 1, GL_DEPTH_COMPONENT32F, 
-                       world_state.dir_shadow.resolution, world_state.dir_shadow.resolution, world_state.n_cascades);
+    glTextureStorage3D(app_state.dir_light.shadow.tex, 1, GL_DEPTH_COMPONENT32F, 
+                       app_state.dir_light.shadow.resolution,
+                       app_state.dir_light.shadow.resolution, app_state.dir_light.shadow.n_cascades);
 
-    glTextureParameteri(world_state.dir_shadow.tex, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTextureParameteri(world_state.dir_shadow.tex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTextureParameteri(world_state.dir_shadow.tex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(world_state.dir_shadow.tex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(world_state.dir_shadow.tex, GL_TEXTURE_COMPARE_MODE, GL_NONE);
+    glTextureParameteri(app_state.dir_light.shadow.tex, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(app_state.dir_light.shadow.tex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTextureParameteri(app_state.dir_light.shadow.tex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(app_state.dir_light.shadow.tex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(app_state.dir_light.shadow.tex, GL_TEXTURE_COMPARE_MODE, GL_NONE);
 
-    glNamedFramebufferTexture(world_state.dir_shadow.fbo, GL_DEPTH_ATTACHMENT, world_state.dir_shadow.tex, 0);
-    glNamedFramebufferDrawBuffer(world_state.dir_shadow.fbo, GL_NONE);
-    glNamedFramebufferReadBuffer(world_state.dir_shadow.fbo, GL_NONE);
+    glNamedFramebufferTexture(app_state.dir_light.shadow.fbo, GL_DEPTH_ATTACHMENT, app_state.dir_light.shadow.tex, 0);
+    glNamedFramebufferDrawBuffer(app_state.dir_light.shadow.fbo, GL_NONE);
+    glNamedFramebufferReadBuffer(app_state.dir_light.shadow.fbo, GL_NONE);
 
-    if (glCheckNamedFramebufferStatus(world_state.dir_shadow.fbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+    if (glCheckNamedFramebufferStatus(app_state.dir_light.shadow.fbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
         return rses().gl("directional shadow framebuffer is incomplete");
     }
 
-    glCreateBuffers(1, &world_state.light_mats_ubo);
-    glNamedBufferStorage(world_state.light_mats_ubo, 192, nullptr, GL_DYNAMIC_STORAGE_BIT);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 6, world_state.light_mats_ubo);
+    glCreateBuffers(1, &app_state.dir_light.light_mats_ubo);
+    glNamedBufferStorage(app_state.dir_light.light_mats_ubo, 192, nullptr, GL_DYNAMIC_STORAGE_BIT);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 6, app_state.dir_light.light_mats_ubo);
 
     // ---- point shadow map ----
 
-    // TODO: convert to DSA
-    glGenFramebuffers(1, &world_state.pt_shadow.fbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, world_state.pt_shadow.fbo);
-    glGenTextures(1, &world_state.pt_shadow.tex);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, world_state.pt_shadow.tex);
+    glCreateFramebuffers(1, &app_state.pt_shadow.fbo);
+    glBindFramebuffer(app_state.pt_shadow.fbo, 0);
+    glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &app_state.pt_shadow.tex);
 
-    for (int i = 0; i < 6; ++i) {
-        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, world_state.pt_shadow.resolution,
-                     world_state.pt_shadow.resolution, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+
+    glTextureStorage2D(app_state.pt_shadow.tex, 1, GL_DEPTH_COMPONENT32F, app_state.pt_shadow.resolution,
+                       app_state.pt_shadow.resolution);
+
+    glTextureParameteri(app_state.pt_shadow.tex, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(app_state.pt_shadow.tex, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(app_state.pt_shadow.tex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(app_state.pt_shadow.tex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(app_state.pt_shadow.tex, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+
+    glNamedFramebufferTexture(app_state.pt_shadow.fbo, GL_DEPTH_ATTACHMENT, app_state.pt_shadow.tex, 0);
+    glNamedFramebufferDrawBuffer(app_state.pt_shadow.fbo, GL_NONE);
+    glNamedFramebufferReadBuffer(app_state.pt_shadow.fbo, GL_NONE);
+    
+    if (glCheckNamedFramebufferStatus(app_state.pt_shadow.fbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        return rses().gl("point shadow framebuffer is incomplete");
     }
-
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, world_state.pt_shadow.tex, 0);
-    glDrawBuffer(GL_NONE);
-    glReadBuffer(GL_NONE);
+    
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     return std::nullopt;
@@ -296,7 +299,7 @@ static glm::mat4 get_light_pv(const CameraGL& camera, const glm::vec3& light_dir
     }
 
     frust_center /= frustum_corners.size();
-    glm::mat4 light_view = glm::lookAt(frust_center - light_dir * state.dist_test, frust_center, { 0.0f, 1.0f, 0.0f });
+    glm::mat4 light_view = glm::lookAt(frust_center - light_dir * 10.0f, frust_center, { 0.0f, 1.0f, 0.0f });
 
     // find tight bounds for the frustum
     glm::vec3 min_pt = constants::vec3_max;
@@ -311,32 +314,35 @@ static glm::mat4 get_light_pv(const CameraGL& camera, const glm::vec3& light_dir
     return light_proj * light_view;
 }
 
-void WindowGLFW::update() {
+void WindowGLFW::run() {
     
     shaders.pt_shadow.set_float("far_plane", camera.far_plane);
 
     while (!glfwWindowShouldClose(window)) {
+        
+        // frame set up ===============================================================================================
+        
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
         
         ImGuiIO& io = ImGui::GetIO();
-        dock_id = ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
+        window_data.dock_id = ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
         
         handle_events();
         
         glEnable(GL_DEPTH_TEST);
 
-        f32 ar = (f32)width / (f32)height;
+        f32 ar = (f32)window_data.width / (f32)window_data.height;
         glm::mat4 projection = camera.projection(ar);
         glm::mat4 view = camera.view();
 
         // update ubo state
-        glNamedBufferSubData(world_state.global_ubo, 0, 64, glm::value_ptr(projection));
-        glNamedBufferSubData(world_state.global_ubo, 64, 64, glm::value_ptr(view));
-        glNamedBufferSubData(world_state.global_ubo, 128, 16, glm::value_ptr(camera.position));
-        glNamedBufferSubData(world_state.global_ubo, 144, 16, glm::value_ptr(world_state.dir_light.direction));
-        glNamedBufferSubData(world_state.global_ubo, 160, 16, glm::value_ptr(world_state.dir_light.color));
+        glNamedBufferSubData(app_state.global_ubo, 0, 64, glm::value_ptr(projection));
+        glNamedBufferSubData(app_state.global_ubo, 64, 64, glm::value_ptr(view));
+        glNamedBufferSubData(app_state.global_ubo, 128, 16, glm::value_ptr(camera.position));
+        glNamedBufferSubData(app_state.global_ubo, 144, 16, glm::value_ptr(app_state.dir_light.direction));
+        glNamedBufferSubData(app_state.global_ubo, 160, 16, glm::value_ptr(app_state.dir_light.color));
 
         // clustered set-up ===========================================================================================
 
@@ -356,33 +362,33 @@ void WindowGLFW::update() {
 
         // shadow pass ================================================================================================
         
-        glCullFace(GL_FRONT);           // prevent peter panning
+        glCullFace(GL_FRONT);  // prevent peter panning
 
         // ---- directional light ----
 
-        glBindFramebuffer(GL_FRAMEBUFFER, world_state.dir_shadow.fbo);
-        glViewport(0, 0, world_state.dir_shadow.resolution, world_state.dir_shadow.resolution);
+        glBindFramebuffer(GL_FRAMEBUFFER, app_state.dir_light.shadow.fbo);
+        glViewport(0, 0, app_state.dir_light.shadow.resolution, app_state.dir_light.shadow.resolution);
         glClear(GL_DEPTH_BUFFER_BIT);
 
         f32 c1_far = 10.0f;
         f32 c2_far = 30.0f;
 
-        glm::mat4 c1_map = get_light_pv(camera, world_state.dir_light.direction, world_state, ar, camera.near_plane, c1_far);
-        glm::mat4 c2_map = get_light_pv(camera, world_state.dir_light.direction, world_state, ar, c1_far, c2_far);
-        glm::mat4 c3_map = get_light_pv(camera, world_state.dir_light.direction, world_state, ar, c2_far, camera.far_plane);
+        glm::mat4 c1_map = get_light_pv(camera, app_state.dir_light.direction, app_state, ar, camera.near_plane, c1_far);
+        glm::mat4 c2_map = get_light_pv(camera, app_state.dir_light.direction, app_state, ar, c1_far, c2_far);
+        glm::mat4 c3_map = get_light_pv(camera, app_state.dir_light.direction, app_state, ar, c2_far, camera.far_plane);
 
-        glNamedBufferSubData(world_state.light_mats_ubo, 0, 64, glm::value_ptr(c1_map));
-        glNamedBufferSubData(world_state.light_mats_ubo, 64, 64, glm::value_ptr(c2_map));
-        glNamedBufferSubData(world_state.light_mats_ubo, 128, 64, glm::value_ptr(c3_map));
+        glNamedBufferSubData(app_state.dir_light.light_mats_ubo, 0, 64, glm::value_ptr(c1_map));
+        glNamedBufferSubData(app_state.dir_light.light_mats_ubo, 64, 64, glm::value_ptr(c2_map));
+        glNamedBufferSubData(app_state.dir_light.light_mats_ubo, 128, 64, glm::value_ptr(c3_map));
 
         glEnable(GL_DEPTH_CLAMP);
 
-        for (size_t obj_idx = 0; obj_idx < objects.size(); ++obj_idx) {
-            if (!(objects.flags[obj_idx] & ObjectFlags::EMIT_LIGHT)) {
-                translate(objects.models[obj_idx], objects.positions[obj_idx]);
-                scale(objects.models[obj_idx], objects.scales[obj_idx]);
-                objects.models[obj_idx].draw(shaders.dir_shadow, world_state);
-                objects.models[obj_idx].reset();
+        for (size_t obj_idx = 0; obj_idx < entities.size(); ++obj_idx) {
+            if (!(entities.flags[obj_idx] & EntityFlags::EMIT_LIGHT)) {
+                translate(entities.models[obj_idx], entities.positions[obj_idx]);
+                scale(entities.models[obj_idx], entities.scales[obj_idx]);
+                entities.models[obj_idx].draw(shaders.dir_shadow, app_state);
+                entities.models[obj_idx].reset();
             }
         }
         
@@ -396,22 +402,22 @@ void WindowGLFW::update() {
         // ---- point lights ----
 
         glm::mat4 shadow_proj = glm::perspective(
-            glm::radians(90.0f), (f32)world_state.pt_shadow.resolution / (f32)world_state.pt_shadow.resolution,
+            glm::radians(90.0f), (f32)app_state.pt_shadow.resolution / (f32)app_state.pt_shadow.resolution,
             camera.near_plane, camera.far_plane);
 
         std::array<glm::mat4, 6> shadow_transforms;
 
-        glBindFramebuffer(GL_FRAMEBUFFER, world_state.pt_shadow.fbo);
-        glViewport(0, 0, world_state.pt_shadow.resolution, world_state.pt_shadow.resolution);
+        glBindFramebuffer(GL_FRAMEBUFFER, app_state.pt_shadow.fbo);
+        glViewport(0, 0, app_state.pt_shadow.resolution, app_state.pt_shadow.resolution);
         glClear(GL_DEPTH_BUFFER_BIT);
 
-        for (size_t light_idx = 0; light_idx < objects.size(); ++light_idx) {
+        for (size_t light_idx = 0; light_idx < entities.size(); ++light_idx) {
             
-            if (!(objects.flags[light_idx] & ObjectFlags::EMIT_LIGHT)) {
+            if (!(entities.flags[light_idx] & EntityFlags::EMIT_LIGHT)) {
                 continue;
             }
 
-            glm::vec3 light_pos = objects.positions[light_idx];
+            glm::vec3 light_pos = entities.positions[light_idx];
             
             shadow_transforms[0] = shadow_proj * glm::lookAt(light_pos, light_pos + glm::vec3(1.0f, 0.0f, 0.0f),
                                                              glm::vec3(0.0f, -1.0f, 0.0f));
@@ -434,12 +440,12 @@ void WindowGLFW::update() {
             shaders.pt_shadow.set_mat4("shadow_mats[5]", shadow_transforms[5]);
             shaders.pt_shadow.set_vec3("light_pos", light_pos);
 
-            for (size_t obj_idx = 0; obj_idx < objects.size(); ++obj_idx) {
-                if (!(objects.flags[obj_idx] & ObjectFlags::EMIT_LIGHT)) {
-                    translate(objects.models[obj_idx], objects.positions[obj_idx]);
-                    scale(objects.models[obj_idx], objects.scales[obj_idx]);
-                    objects.models[obj_idx].draw(shaders.pt_shadow, world_state);
-                    objects.models[obj_idx].reset();
+            for (size_t obj_idx = 0; obj_idx < entities.size(); ++obj_idx) {
+                if (!(entities.flags[obj_idx] & EntityFlags::EMIT_LIGHT)) {
+                    translate(entities.models[obj_idx], entities.positions[obj_idx]);
+                    scale(entities.models[obj_idx], entities.scales[obj_idx]);
+                    entities.models[obj_idx].draw(shaders.pt_shadow, app_state);
+                    entities.models[obj_idx].reset();
                 }
             }
         }
@@ -447,10 +453,9 @@ void WindowGLFW::update() {
         glCullFace(GL_BACK);
 
         // geometry pass ==========================================================================
-        glBindFramebuffer(GL_FRAMEBUFFER, gbuf.frame_buf);
-        glNamedFramebufferDrawBuffers(gbuf.frame_buf, 3, gbuf.attachments.data());
 
-        glViewport(0, 0, width, height);
+        gbuf.use();
+        glNamedFramebufferDrawBuffers(gbuf.frame_buf, 3, gbuf.attachments.data());
         glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
@@ -461,9 +466,9 @@ void WindowGLFW::update() {
 
         glm::mat4 static_view = view;
         static_view[3] = { 0, 0, 0, 1 }; // removing translation component
-        glNamedBufferSubData(world_state.global_ubo, 64, sizeof(glm::mat4), glm::value_ptr(static_view));
-        world_state.sky_box.draw(shaders.skybox, world_state);
-        glNamedBufferSubData(world_state.global_ubo, 64, sizeof(glm::mat4), glm::value_ptr(view));
+        glNamedBufferSubData(app_state.global_ubo, 64, sizeof(glm::mat4), glm::value_ptr(static_view));
+        app_state.sky_box.draw(shaders.skybox, app_state);
+        glNamedBufferSubData(app_state.global_ubo, 64, sizeof(glm::mat4), glm::value_ptr(view));
 
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_STENCIL_TEST);
@@ -472,18 +477,18 @@ void WindowGLFW::update() {
         glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
         glStencilMask(0xFF);
 
-        for (size_t idx = 0; idx < objects.size(); ++idx) {
-            if (!(objects.flags[idx] & ObjectFlags::EMIT_LIGHT)) {                
-                translate(objects.models[idx], objects.positions[idx]);
-                scale(objects.models[idx], objects.scales[idx]);
-                objects.models[idx].draw(shaders.gbuf, world_state);
-                objects.models[idx].reset();
+        for (size_t idx = 0; idx < entities.size(); ++idx) {
+            if (!(entities.flags[idx] & EntityFlags::EMIT_LIGHT)) {                
+                translate(entities.models[idx], entities.positions[idx]);
+                scale(entities.models[idx], entities.scales[idx]);
+                entities.models[idx].draw(shaders.gbuf, app_state);
+                entities.models[idx].reset();
             }
         }
 
         // deferred pass ==========================================================================
 
-        glBindFramebuffer(GL_FRAMEBUFFER, pp1.frame_buf);
+        pp1.use();
         glNamedFramebufferDrawBuffers(pp1.frame_buf, 2, pp1.attachments.data());
 
         // compute lighting for all fragments with stencil value '1'
@@ -494,18 +499,16 @@ void WindowGLFW::update() {
         glBindTextureUnit(0, gbuf.tex_bufs[0]); // positions (ws)
         glBindTextureUnit(1, gbuf.tex_bufs[1]); // normals
         glBindTextureUnit(2, gbuf.tex_bufs[2]); // colors
-        glBindTextureUnit(11, world_state.dir_shadow.tex);
+        glBindTextureUnit(11, app_state.dir_light.shadow.tex);
+        glBindTextureUnit(12, app_state.pt_shadow.tex);
 
         shaders.lighting.set_int("gbuf_pos", 0);
         shaders.lighting.set_int("gbuf_norms", 1);
         shaders.lighting.set_int("gbuf_colors", 2);
-
         shaders.lighting.set_int("cascade_maps", 11);
-        shaders.lighting.set_int("n_cascades", world_state.n_cascades);
-
-        glActiveTexture(GL_TEXTURE12);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, world_state.pt_shadow.tex);
         shaders.lighting.set_int("shadow_map", 12);
+
+        shaders.lighting.set_int("n_cascades", app_state.dir_light.shadow.n_cascades);
 
         pp1.draw(shaders.lighting);
 
@@ -522,19 +525,19 @@ void WindowGLFW::update() {
         glDisable(GL_STENCIL_TEST);
 
         // draw light emitters
-        for (size_t idx = 0; idx < objects.size(); ++idx) {
-            if (objects.flags[idx] & ObjectFlags::EMIT_LIGHT) {
-                translate(objects.models[idx], objects.positions[idx]);
-                scale(objects.models[idx], objects.scales[idx]);
-                objects.models[idx].draw(shaders.light, world_state);
-                objects.models[idx].reset();
+        for (size_t idx = 0; idx < entities.size(); ++idx) {
+            if (entities.flags[idx] & EntityFlags::EMIT_LIGHT) {
+                translate(entities.models[idx], entities.positions[idx]);
+                scale(entities.models[idx], entities.scales[idx]);
+                entities.models[idx].draw(shaders.light, app_state);
+                entities.models[idx].reset();
             }
         }
 
         // post processing passes =================================================================
 
         // compute bloom
-        if (world_state.bloom) {
+        if (app_state.bloom_on) {
             glNamedFramebufferDrawBuffer(pp1.frame_buf, GL_COLOR_ATTACHMENT1);
             glClear(GL_DEPTH_BUFFER_BIT);
             glDisable(GL_DEPTH_TEST);
@@ -543,9 +546,9 @@ void WindowGLFW::update() {
             shaders.blur.set_int("tex", 0);
             pp1.draw(shaders.blur);
 
-            for (int i = 0; i < world_state.n_bloom_passes * 2 - 1; ++i) {
+            for (int i = 0; i < app_state.n_bloom_passes * 2 - 1; ++i) {
                 if (horizontal) {
-                    glBindFramebuffer(GL_FRAMEBUFFER, pp1.frame_buf);
+                    pp1.use();
                     glNamedFramebufferDrawBuffer(pp1.frame_buf, GL_COLOR_ATTACHMENT1);
                     glBindTextureUnit(0, gbuf.tex_bufs[0]);
                     shaders.blur.set_bool("horizontal", true);
@@ -553,7 +556,7 @@ void WindowGLFW::update() {
                     pp1.draw(shaders.blur);
                 } else {
                     // note: reusing the gbuf position buf for bloom calculations
-                    glBindFramebuffer(GL_FRAMEBUFFER, gbuf.frame_buf);
+                    gbuf.use();
                     glNamedFramebufferDrawBuffer(gbuf.frame_buf, GL_COLOR_ATTACHMENT0);
                     glBindTextureUnit(0, pp1.tex_bufs[1]);
                     shaders.blur.set_bool("horizontal", false);
@@ -564,7 +567,7 @@ void WindowGLFW::update() {
             }
         }
 
-        glBindFramebuffer(GL_FRAMEBUFFER, fbuf_out.frame_buf);
+        fbuf_out.use();
         glClear(GL_DEPTH_BUFFER_BIT);
         glDisable(GL_DEPTH_TEST);
 
@@ -573,9 +576,9 @@ void WindowGLFW::update() {
 
         shaders.hdr.set_int("scene_tex", 0);
         shaders.hdr.set_int("blur_tex", 1);
-        shaders.hdr.set_float("gamma", world_state.gamma);
-        shaders.hdr.set_float("exposure", world_state.exposure);
-        shaders.hdr.set_bool("bloom_enabled", world_state.bloom);
+        shaders.hdr.set_float("gamma", app_state.gamma);
+        shaders.hdr.set_float("exposure", app_state.exposure);
+        shaders.hdr.set_bool("bloom_enabled", app_state.bloom_on);
         fbuf_out.draw(shaders.hdr);
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -595,7 +598,7 @@ void WindowGLFW::update() {
     }
 };
 
-void WindowGLFW::shutdown() {
+void WindowGLFW::finish() {
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
@@ -609,26 +612,26 @@ void WindowGLFW::enable_vsync(bool enable) { (enable) ? glfwSwapInterval(1) : gl
 void WindowGLFW::handle_events() {
     
     ImGuiIO& io = ImGui::GetIO();
-    mouse_xy = { io.MousePos.x, io.MousePos.y };
+    window_data.mouse_xy = { io.MousePos.x, io.MousePos.y };
 
     if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-        if (vp_rect.contains(mouse_xy) && vp_focused) {
-            vp_captured = true;
+        if (window_data.vp_rect.contains(window_data.mouse_xy) && window_data.vp_focused) {
+            window_data.vp_captured = true;
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         }
     }
 
     if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
-        vp_captured = false;
+        window_data.vp_captured = false;
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     }
 
-    if (vp_captured) {
-        if (last_xy != mouse_xy) {
-            f32 xoffset = mouse_xy.x - last_xy.x;
-            f32 yoffset = last_xy.y - mouse_xy.y;
+    if (window_data.vp_captured) {
+        if (window_data.last_xy != window_data.mouse_xy) {
+            f32 xoffset = window_data.mouse_xy.x - window_data.last_xy.x;
+            f32 yoffset = window_data.last_xy.y - window_data.mouse_xy.y;
             camera.handle_mouse(xoffset, yoffset);
-            last_xy = mouse_xy;
+            window_data.last_xy = window_data.mouse_xy;
         }
         
         f32 delta_time = io.DeltaTime;

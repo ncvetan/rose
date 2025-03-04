@@ -74,7 +74,7 @@ float calc_dir_shadow(DirLight light, vec3 frag_pos, float frag_depth, vec3 norm
 	// [ world space -> light space ]
 	vec4 frag_pos_ls = ls_mats[cascade_idx] * vec4(frag_pos, 1.0);
 	vec3 proj_coords = frag_pos_ls.xyz / frag_pos_ls.w;
-	proj_coords = proj_coords * 0.5 + 0.5;							// [ -1, 1 ] -> [ 0, 1 ]
+	proj_coords = proj_coords * 0.5 + 0.5;  // [ -1, 1 ] -> [ 0, 1 ]
 	float curr_depth = proj_coords.z;
 
 	float closest_depth = texture(cascade_maps, vec3(proj_coords.xy, cascade_idx)).r;

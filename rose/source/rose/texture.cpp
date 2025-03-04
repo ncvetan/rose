@@ -90,7 +90,7 @@ std::expected<TextureRef, rses> TextureManager::load_texture(const fs::path& pat
 
     TextureGL texture;
     texture.ty = ty;
-    s32 width = 0, height = 0, n_channels = 0;
+    i32 width = 0, height = 0, n_channels = 0;
     unsigned char* texture_data = stbi_load(path.generic_string().c_str(), &width, &height, &n_channels, STBI_rgb_alpha);
 
     if (texture_data) {
@@ -130,7 +130,7 @@ std::expected<TextureRef, rses> TextureManager::load_cubemap(const std::array<fs
         }
     }
 
-    s32 width = 0, height = 0, n_channels = 0;
+    i32 width = 0, height = 0, n_channels = 0;
     unsigned char* texture_data = nullptr;
     TextureGL texture = {
         .id = 0,
@@ -167,42 +167,5 @@ std::expected<TextureRef, rses> TextureManager::load_cubemap(const std::array<fs
     loaded_textures[texture.id] = { texture, 1 };
     return TextureRef(&loaded_textures[texture.id].texture, this);
 }
-
-std::optional<TextureRef> TextureManager::generate_texture(int w, int h, GLenum intern_format, GLenum format, GLenum type) {
-    
-    TextureGL texture = { 0, TextureType::INTERNAL };
-    
-    glCreateTextures(GL_TEXTURE_2D, 1, &texture.id);
-    
-    glTextureParameteri(texture.id, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTextureParameteri(texture.id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    glTextureStorage2D(texture.id, 1, intern_format, w, h);
-    glTextureSubImage2D(texture.id, 0, 0, 0, w, h, format, type, nullptr);
-
-    loaded_textures[texture.id] = { texture, 1 };
-    return TextureRef(&loaded_textures[texture.id].texture, this);
-};
-
-// TODO: DSA
-std::optional<TextureRef> TextureManager::generate_cubemap(int w, int h) {
-    TextureGL cubemap = { 0, TextureType::CUBE_MAP };
-    glGenTextures(1, &cubemap.id);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, cubemap.id);
-
-    for (int i = 0; i < 6; ++i) {
-        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, w, h, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
-    }
-
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
-
-    loaded_textures[cubemap.id] = { cubemap, 1 };
-    return TextureRef(&loaded_textures[cubemap.id].texture, this);
-};
 
 } // namespace rose

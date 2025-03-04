@@ -12,11 +12,27 @@
 
 namespace rose {
 
+struct DirShadowData {
+    u32 fbo = 0;
+    u32 tex = 0;
+    u16 resolution = 2048;
+    u8 n_cascades = 3;
+};
+
+struct ShadowData {
+    u32 fbo = 0;
+    u32 tex = 0;
+    u16 resolution = 2048;
+};
+
 struct DirLight {
     glm::vec3 direction = { 0.0f, -0.999848f, -0.0174525f };
     glm::vec3 color = { 0.55f, 0.55f, 0.55f };
+    DirShadowData shadow;
+    u32 light_mats_ubo = 0;     // transforms matrices to directional light space
 };
 
+// state for a singular point light
 struct PtLight {
 
     // calculate the radius of the point light
@@ -33,20 +49,14 @@ struct PtLight {
     f32 rad = 1.0f;
 };
 
-struct ShadowData {
-    u32 fbo = 0;
-    u32 tex = 0;
-    f32 bias = 0.005;
-    u16 resolution = 2048;
-};
-
+// state used for clustered shading
 struct ClusterData {
-    glm::uvec3 grid_sz = { 16, 9, 24 }; // size of cluster grid (xyz)
-    s32 max_lights_in_cluster = 100;    // number of lights that will be considered for a single cluster
-    SSBO clusters_aabb_ssbo;            // AABBs for each cluster
-    SSBO lights_ssbo;                   // light parameters for each light in the scene
-    SSBO lights_pos_ssbo;               // light positions for each light in the scene
-    SSBO clusters_ssbo;                 // light for each cluster
+    SSBO clusters_aabb_ssbo;             // AABBs for each cluster
+    SSBO lights_ssbo;                    // light parameters for each light in the scene
+    SSBO lights_pos_ssbo;                // light positions for each light in the scene
+    SSBO clusters_ssbo;                  // light for each cluster
+    glm::uvec3 grid_sz = { 16, 9, 24 };  // size of cluster grid (xyz)
+    u32 max_lights_in_cluster = 100;     // number of lights that will be considered for a single cluster
 };
 
 }

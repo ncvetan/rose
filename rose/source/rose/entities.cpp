@@ -1,45 +1,41 @@
-#include <rose/object.hpp>
+#include <rose/entities.hpp>
 
 namespace rose {
 
-std::optional<rses> Objects::add_object(TextureManager& manager, const ObjectCtx& obj_def) {
+std::optional<rses> Entities::add_object(TextureManager& manager, const EntityCtx& ent_def) {
 
     Model model;
-    std::optional<rses> err = model.load(manager, obj_def.model_pth);
+    std::optional<rses> err = model.load(manager, ent_def.model_pth);
 
     if (err) {
         return err;
     }
 
     models.push_back(std::move(model));
-    positions.push_back(obj_def.pos);
-    scales.push_back(obj_def.scale);
-    light_props.push_back(obj_def.light_props);
-    flags.push_back(obj_def.flags);
-
-    if (obj_def.flags & ObjectFlags::EMIT_LIGHT) {
-        // do stuff here to initialize lights...
-    }
+    positions.push_back(ent_def.pos);
+    scales.push_back(ent_def.scale);
+    light_props.push_back(ent_def.light_props);
+    flags.push_back(ent_def.flags);
 
     return std::nullopt;
 }
 
-void Objects::update_light_radii(f32 exposure) {
+void Entities::update_light_radii(f32 exposure) {
     for (size_t idx = 0; idx < size(); ++idx) {
-        if (flags[idx] & ObjectFlags::EMIT_LIGHT) {
+        if (flags[idx] & EntityFlags::EMIT_LIGHT) {
             light_props[idx].radius(exposure);
         }
     }
 }
 
-void update_light_state(Objects& objs, ClusterData& clusters) {
+void update_light_state(Entities& objs, ClusterData& clusters) {
     std::vector<PtLight> pnt_lights_props;
     std::vector<glm::vec4> pnt_lights_pos;
     u32 n_lights = 0;
 
     // linear search, probably not a big deal for now
     for (size_t idx = 0; idx < objs.size(); ++idx) {
-        if (objs.flags[idx] & ObjectFlags::EMIT_LIGHT) {
+        if (objs.flags[idx] & EntityFlags::EMIT_LIGHT) {
             pnt_lights_pos.push_back(glm::vec4(objs.positions[idx], 1.0f));
             pnt_lights_props.push_back(objs.light_props[idx]);
             n_lights++;

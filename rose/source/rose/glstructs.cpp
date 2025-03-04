@@ -2,12 +2,15 @@
 
 namespace rose {
 
-std::optional<rses> FrameBuf::init(int w, int h, bool has_depth_buf, const std::vector<FrameBufTexCtx>& texs) {
+std::optional<rses> FrameBuf::init(i32 w, i32 h, bool has_depth_buf, const std::vector<FrameBufTexCtx>& texs) {
 
     glCreateFramebuffers(1, &frame_buf);
 
     tex_bufs.resize(texs.size());
     attachments.resize(texs.size());
+
+    width = static_cast<u32>(w);
+    height = static_cast<u32>(h);
 
     for (int i = 0; i < tex_bufs.size(); ++i) {
         glCreateTextures(GL_TEXTURE_2D, 1, &tex_bufs[i]);
