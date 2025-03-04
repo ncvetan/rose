@@ -1,5 +1,5 @@
-#ifndef ROSE_INCLUDE_ALIAS
-#define ROSE_INCLUDE_ALIAS
+#ifndef ROSE_INCLUDE_CORE_ALIAS
+#define ROSE_INCLUDE_CORE_ALIAS
 
 #include <GL/glew.h>
 

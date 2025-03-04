@@ -1,10 +1,10 @@
-﻿#include <rose/shader.hpp>
+﻿#include <rose/gl/shader.hpp>
 
 #include <GL/glew.h>
 #include <glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include <expected>
+#include <optional>
 
 namespace rose {
 
@@ -33,11 +33,11 @@ std::optional<rses> ShaderGL::init(const std::vector<ShaderCtx>& shader_ctxs) {
         shader_code_buf << shader_file.rdbuf();
         std::string shader_code_str = shader_code_buf.str();
         const char* shader_code = shader_code_str.c_str();
-        u32 shader = 0;
+        u32 curr_shader = 0;
 
-        shader = glCreateShader(shader_info.type);
+        curr_shader = glCreateShader(shader_info.type);
 
-        if (!shader) {
+        if (!curr_shader) {
             glDeleteProgram(prg);
             prg = 0;
             for (auto shader : shaders) {
@@ -46,12 +46,12 @@ std::optional<rses> ShaderGL::init(const std::vector<ShaderCtx>& shader_ctxs) {
             return rses().gl("Invalid shader type for shader at path {}", shader_info.path.generic_string());
         }
 
-        glShaderSource(shader, 1, &shader_code, NULL);
-        glCompileShader(shader);
-        glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+        glShaderSource(curr_shader, 1, &shader_code, NULL);
+        glCompileShader(curr_shader);
+        glGetShaderiv(curr_shader, GL_COMPILE_STATUS, &success);
         
         if (!success) {
-            glGetShaderInfoLog(shader, 512, NULL, info_log);
+            glGetShaderInfoLog(curr_shader, 512, NULL, info_log);
             glDeleteProgram(prg);
             prg = 0;
             for (auto shader : shaders) {
@@ -60,8 +60,8 @@ std::optional<rses> ShaderGL::init(const std::vector<ShaderCtx>& shader_ctxs) {
             return rses().gl("Shader compilation failed at path {}: {}", shader_info.path.generic_string(), info_log);
         };
 
-        glAttachShader(prg, shader);
-        shaders.push_back(shader);
+        glAttachShader(prg, curr_shader);
+        shaders.push_back(curr_shader);
     }
     
     glLinkProgram(prg);

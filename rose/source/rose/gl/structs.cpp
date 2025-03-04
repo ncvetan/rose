@@ -1,4 +1,4 @@
-#include <rose/glstructs.hpp>
+#include <rose/gl/structs.hpp>
 
 namespace rose {
 

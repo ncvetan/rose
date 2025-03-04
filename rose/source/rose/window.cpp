@@ -1,7 +1,8 @@
-#include <rose/err.hpp>
 #include <rose/gui.hpp>
 #include <rose/model.hpp>
 #include <rose/window.hpp>
+#include <rose/core/err.hpp>
+#include <rose/gl/gl.hpp>
 
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
@@ -17,7 +18,7 @@
 
 namespace rose {
 
-std::optional<rses> WindowGLFW::init_glfw() {
+static std::optional<rses> init_glfw(WindowGLFW& user_window) {
     if (glfwInit() == GLFW_FALSE) {
         return rses().gl("GLFW failed to initialize");
     }
@@ -34,23 +35,25 @@ std::optional<rses> WindowGLFW::init_glfw() {
     glfwWindowHint(GLFW_CONTEXT_DEBUG, GL_TRUE);
 #endif
 
-    window = glfwCreateWindow(window_data.width, window_data.height, window_data.name.c_str(), NULL, NULL);
+    user_window.window = glfwCreateWindow(user_window.window_data.width, user_window.window_data.height,
+                              user_window.window_data.name.c_str(),
+                              NULL, NULL);
 
-    if (!window) {
+    if (!user_window.window) {
         glfwTerminate();
         return rses().gl("Failed to create GLFW window");
     }
 
     std::println("GLFW window has been successfully created");
 
-    glfwSetWindowUserPointer(window, this);
-    glfwMakeContextCurrent(window);
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetWindowUserPointer(user_window.window, &user_window);
+    glfwMakeContextCurrent(user_window.window);
+    glfwSetInputMode(user_window.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     return std::nullopt;
 }
 
-std::optional<rses> WindowGLFW::init_imgui(GLFWwindow* window) {
+static std::optional<rses> init_imgui(GLFWwindow* window) {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     (void)io;
@@ -71,37 +74,11 @@ std::optional<rses> WindowGLFW::init_imgui(GLFWwindow* window) {
     return std::nullopt;
 }
 
-std::optional<rses> WindowGLFW::init_opengl() {
-    if (GLenum glew_success = glewInit(); glew_success != GLEW_OK) {
-        return rses().gl(std::format("GLEW failed to initialize: {}", (const char*)glewGetErrorString(glew_success)));
-    }
-
-    std::println("GLEW successfully initialized version: {}", (const char*)glewGetString(GLEW_VERSION));
-
-    glViewport(0, 0, window_data.width, window_data.height);
-    glEnable(GL_DEPTH_TEST);
-    glEnable(GL_STENCIL_TEST);
-    glEnable(GL_MULTISAMPLE);
-    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glEnable(GL_CULL_FACE);
-    glFrontFace(GL_CCW);
-
-#ifdef _DEBUG
-    glEnable(GL_DEBUG_OUTPUT);
-    glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW, 0, NULL, GL_FALSE);
-    glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, NULL, GL_FALSE);
-    glDebugMessageCallback(err::gl_debug_callback, nullptr);
-#endif
-
-    return std::nullopt;
-}
-
 std::optional<rses> WindowGLFW::init() {
 
     std::optional<rses> err = std::nullopt;
 
-    if (err = init_glfw()) {
+    if (err = init_glfw(*this)) {
         return err.value().general("Unable to initialize GLFW");
     }
 
@@ -274,7 +251,7 @@ std::optional<rses> WindowGLFW::init() {
 
 // obtains a projection-view matrix for a directional light
 // near and far values should be specific to the cascade
-static glm::mat4 get_light_pv(const CameraGL& camera, const glm::vec3& light_dir, const GlobalState& state, float ar, f32 near, f32 far)
+static glm::mat4 get_light_pv(const Camera& camera, const glm::vec3& light_dir, const GlobalState& state, float ar, f32 near, f32 far)
 {
     std::array<glm::vec4, 8> frustum_corners = {
         glm::vec4(-1.0f, -1.0f, -1.0f, 1.0f),
@@ -327,7 +304,10 @@ void WindowGLFW::run() {
         ImGui::NewFrame();
         
         ImGuiIO& io = ImGui::GetIO();
-        window_data.dock_id = ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
+
+        // TODO: this is only used at a single point in the gui code
+        // should find a better solution
+        window_data.dock_id = ImGui::DockSpaceOverViewport();
         
         handle_events();
         

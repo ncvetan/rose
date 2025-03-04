@@ -82,12 +82,14 @@ void imgui(WindowGLFW& state) {
     ImGui::SetCursorPos({ offset_x, offset_y });
 
     // resize the image based on the size of the viewport
-    ImGui::Image((void*)state.fbuf_out.tex_bufs[0], { scale * (f32)state.window_data.width, scale * (f32)state.window_data.height },
-                 { 0, 1 }, { 1, 0 });
+    
+    ImGui::Image(static_cast<ImTextureID>(state.fbuf_out.tex_bufs[0]), { scale * (f32)state.window_data.width, scale * (f32)state.window_data.height }, { 0, 1 }, { 1, 0 });
+    
     ImGui::End();
 
     // setting an initial docking layout
     if (first_frame) {
+        auto dock_id = ImGui::DockSpaceOverViewport();
         ImGui::DockBuilderAddNode(state.window_data.dock_id);
         ImGui::DockBuilderSetNodePos(state.window_data.dock_id, ImGui::GetWindowPos());
         ImGui::DockBuilderSetNodeSize(state.window_data.dock_id, ImGui::GetWindowSize());

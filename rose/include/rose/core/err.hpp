@@ -1,7 +1,5 @@
-#ifndef ROSE_INCLUDE_ERR
-#define ROSE_INCLUDE_ERR
-
-#include <GL/glew.h>
+#ifndef ROSE_INCLUDE_CORE_ERR
+#define ROSE_INCLUDE_CORE_ERR
 
 #include <format>
 #include <print>
@@ -15,10 +13,6 @@ struct Handle;
 using rses = err::Handle; // rose error stack
 
 namespace err {
-
-void GLAPIENTRY gl_debug_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei len,
-                                  const GLchar* msg,
-                       const void* user_param);
 
 struct Error;
 
@@ -49,7 +43,6 @@ struct Handle {
         return gl(std::vformat(std::move(fmt), std::make_format_args(args...)));
     }
 
-    rses error_code(const std::error_code& ec);
     rses add_error(Error&& err);
 
     std::vector<Error> err_stack;
@@ -64,30 +57,17 @@ struct Error {
         CORE,
         IO,
         GL,
-        ERROR_CODE,
+        N_TYPES
     };
     
     Type ty = Type::INVALID;
 
     std::string msg;
 
-    union {
-        int errcode = 0;
-        std::string gl_err_msg;
-        std::error_code ec;
-    };
-
-    Error() = default;
-    Error(const Error&);
-    Error(Error&&) noexcept;
-    Error& operator=(const Error&);
-    Error& operator=(Error&&) noexcept;
-    ~Error();
-
     std::string str() const;
 };
 
-// banking on this being a no-op...
+// note: banking on this being a no-op...
 inline void print(rses es) {
 #ifndef ROSE_RELEASE_BUILD
     for (const auto& err : es.err_stack) {

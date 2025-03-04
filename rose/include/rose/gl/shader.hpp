@@ -1,8 +1,8 @@
-#ifndef ROSE_INCLUDE_SHADER
-#define ROSE_INCLUDE_SHADER
+#ifndef ROSE_INCLUDE_GL_SHADER
+#define ROSE_INCLUDE_GL_SHADER
 
-#include <rose/alias.hpp>
-#include <rose/err.hpp>
+#include <rose/core/alias.hpp>
+#include <rose/core/err.hpp>
 
 #include <glm.hpp>
 

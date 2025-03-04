@@ -1,5 +1,5 @@
 #include <rose/application.hpp>
-#include <rose/err.hpp>
+#include <rose/core/err.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>

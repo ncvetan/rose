@@ -1,8 +1,8 @@
 #ifndef ROSE_INCLUDE_TEXTURE
 #define ROSE_INCLUDE_TEXTURE
 
-#include <rose/alias.hpp>
-#include <rose/err.hpp>
+#include <rose/core/alias.hpp>
+#include <rose/core/err.hpp>
 
 #include <array>
 #include <expected>

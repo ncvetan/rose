@@ -1,10 +1,10 @@
 #ifndef ROSE_INCLUDE_OBJECT
 #define ROSE_INCLUDE_OBJECT
 
-#include <rose/alias.hpp>
 #include <rose/lighting.hpp>
 #include <rose/model.hpp>
-#include <rose/shader.hpp>
+#include <rose/core/alias.hpp>
+#include <rose/gl/shader.hpp>
 
 #include <glm.hpp>
 

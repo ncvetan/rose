@@ -2,12 +2,12 @@
 //   contains wrappers around some OpenGL constructs
 // =============================================================================
 
-#ifndef ROSE_INCLUDE_GLSTRUCTS
-#define ROSE_INCLUDE_GLSTRUCTS
+#ifndef ROSE_INCLUDE_GL_STRUCTS
+#define ROSE_INCLUDE_GL_STRUCTS
 
-#include <rose/alias.hpp>
-#include <rose/err.hpp>
-#include <rose/shader.hpp>
+#include <rose/core/alias.hpp>
+#include <rose/core/err.hpp>
+#include <rose/gl/shader.hpp>
 
 #include <GL/glew.h>
 

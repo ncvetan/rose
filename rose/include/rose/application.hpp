@@ -1,7 +1,7 @@
 #ifndef ROSE_INCLUDE_APPLICATION
 #define ROSE_INCLUDE_APPLICATION
 
-#include <rose/err.hpp>
+#include <rose/core/err.hpp>
 #include <rose/window.hpp>
 
 #include <concepts>

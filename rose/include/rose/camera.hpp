@@ -1,7 +1,7 @@
 #ifndef ROSE_INCLUDE_CAMERA
 #define ROSE_INCLUDE_CAMERA
 
-#include <rose/alias.hpp>
+#include <rose/core/alias.hpp>
 
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>
@@ -10,7 +10,7 @@ namespace rose {
 
 enum class CameraMovement { FORWARD, BACKWARD, LEFT, RIGHT, UP, DOWN };
 
-struct CameraGL {
+struct Camera {
     glm::mat4 view() const;
     glm::mat4 projection(f32 aspect_ratio) const;
     void handle_keyboard(CameraMovement direction, f32 delta_time);

@@ -1,8 +1,8 @@
 #ifndef ROSE_INCLUDE_MODEL
 #define ROSE_INCLUDE_MODEL
 
-#include <rose/shader.hpp>
 #include <rose/texture.hpp>
+#include <rose/gl/shader.hpp>
 
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>

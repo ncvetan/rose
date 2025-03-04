@@ -2,14 +2,13 @@
 #define ROSE_INCLUDE_WINDOW
 
 #include <rose/camera.hpp>
-#include <rose/err.hpp>
-#include <rose/glstructs.hpp>
-#include <rose/math.hpp>
-#include <rose/model.hpp>
 #include <rose/entities.hpp>
-#include <rose/shader.hpp>
+#include <rose/model.hpp>
+#include <rose/core/err.hpp>
+#include <rose/core/math.hpp>
+#include <rose/gl/shader.hpp>
+#include <rose/gl/structs.hpp>
 
-#include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
@@ -32,34 +31,33 @@ struct WindowData {
     bool vp_captured = true; // indicates whether events should be processed in the viewport
 };
 
-// TODO: This entire thing is much more than a 'window' at this point and needs to be refactored
 struct WindowGLFW {
     
     WindowGLFW() = default;
 
-    [[nodiscard]] std::optional<rses> init();
     void enable_vsync(bool enable);
+
+    [[nodiscard]] std::optional<rses> init();
+
+    GLFWwindow* window = nullptr;
+    WindowData window_data;
+    
     void run();
     void finish();
     void handle_events();
 
-    GLFWwindow* window = nullptr;
-    WindowData window_data;
     FrameBuf gbuf;
     FrameBuf pp1;
     FrameBuf fbuf_out;
     ClusterData clusters;
 
-    CameraGL camera;
+    Camera camera;
     ShadersGL shaders;
     TextureManager texture_manager;
 
     GlobalState app_state;
     Entities entities;
 
-    [[nodiscard]] std::optional<rses> init_glfw();
-    [[nodiscard]] std::optional<rses> init_imgui(GLFWwindow* window);
-    [[nodiscard]] std::optional<rses> init_opengl();
 };
 
 } // namespace rose

@@ -1,4 +1,4 @@
-#include <rose/math.hpp>
+#include <rose/core/math.hpp>
 
 namespace rose {
 

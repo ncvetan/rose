@@ -1,6 +1,6 @@
-#include <rose/err.hpp>
 #include <rose/model.hpp>
 #include <rose/window.hpp>
+#include <rose/core/err.hpp>
 
 #include <GL/glew.h>
 #include <assimp/Importer.hpp>
