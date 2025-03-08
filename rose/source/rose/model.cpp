@@ -88,7 +88,7 @@ Model::~Model() {
     }
 }
 
-void Model::draw(GL_Shader& shader, const GlPlatformState& state) const {
+void Model::draw(GL_Shader& shader, const GL_PlatformState& state) const {
     shader.use();
     shader.set_mat4("model", model_mat);
     glBindVertexArray(vao);
@@ -319,7 +319,7 @@ std::optional<rses> SkyBox::load(TextureManager& manager, const std::array<fs::p
     return std::nullopt;
 }
 
-void SkyBox::draw(GL_Shader& shader, const GlPlatformState& state) const {
+void SkyBox::draw(GL_Shader& shader, const GL_PlatformState& state) const {
     glDepthMask(GL_FALSE);
     shader.use();
     glBindVertexArray(vao);

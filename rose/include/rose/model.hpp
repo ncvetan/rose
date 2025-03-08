@@ -13,7 +13,7 @@
 
 namespace rose {
 
-struct GlPlatformState;
+struct GL_PlatformState;
 
 template <typename T>
 concept Transformable = requires { T::model_mat; };
@@ -56,7 +56,7 @@ struct Model {
     Model& operator=(const Model& other) = delete;
     Model& operator=(Model&& other) noexcept;
     
-    void draw(GL_Shader& shader, const GlPlatformState& state) const;
+    void draw(GL_Shader& shader, const GL_PlatformState& state) const;
     
     std::optional<rses> load(TextureManager& manager, const std::filesystem::path& path);
     
@@ -99,7 +99,7 @@ struct SkyBox {
 
     void init();
     std::optional<rses> load(TextureManager& manager, const std::array<fs::path, 6>& paths);
-    void draw(GL_Shader& shader, const GlPlatformState& state) const;
+    void draw(GL_Shader& shader, const GL_PlatformState& state) const;
     inline void reset() { model_mat = glm::mat4(1.0f); }
 
     TextureRef texture;

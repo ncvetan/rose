@@ -6,11 +6,11 @@
 
 namespace rose {
 
-struct GLPlatform;
+struct GL_Platform;
 
 namespace gui {
 
-void gl_imgui(AppData& app_data, GLPlatform& platform);
+void gl_imgui(AppData& app_data, GL_Platform& platform);
 
 }
 } // namespace rose

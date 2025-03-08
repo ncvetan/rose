@@ -18,7 +18,7 @@
 
 namespace rose {
 
-std::optional<rses> GLPlatform::init(AppData& app_data) {
+std::optional<rses> GL_Platform::init(AppData& app_data) {
 
     std::optional<rses> err = std::nullopt;
 
@@ -187,7 +187,7 @@ std::optional<rses> GLPlatform::init(AppData& app_data) {
 
 // obtains a projection-view matrix for a directional light
 // near and far values should be specific to the cascade
-static glm::mat4 get_light_pv(const Camera& camera, const glm::vec3& light_dir, const GlPlatformState& state, float ar, f32 near, f32 far)
+static glm::mat4 get_light_pv(const Camera& camera, const glm::vec3& light_dir, const GL_PlatformState& state, float ar, f32 near, f32 far)
 {
     std::array<glm::vec4, 8> frustum_corners = {
         glm::vec4(-1.0f, -1.0f, -1.0f, 1.0f),
@@ -227,7 +227,7 @@ static glm::mat4 get_light_pv(const Camera& camera, const glm::vec3& light_dir, 
     return light_proj * light_view;
 }
 
-void GLPlatform::update(AppData& app_data) {
+void GL_Platform::update(AppData& app_data) {
     // frame set up ===============================================================================================
         
     ImGui_ImplOpenGL3_NewFrame();
@@ -504,11 +504,11 @@ void GLPlatform::update(AppData& app_data) {
     }
 };
 
-void GLPlatform::finish() { 
+void GL_Platform::finish() { 
     ImGui_ImplOpenGL3_Shutdown();
 };
 
-void GLPlatform::enable_vsync(bool enable) { (enable) ? glfwSwapInterval(1) : glfwSwapInterval(0); };
+void GL_Platform::enable_vsync(bool enable) { (enable) ? glfwSwapInterval(1) : glfwSwapInterval(0); };
 
 
 } // namespace rose
