@@ -13,18 +13,18 @@
 
 namespace rose {
 
-struct ShaderCtx {
+struct GL_ShaderCtx {
     fs::path path;
     GLenum type = 0;
 };
 
 // wrapper around opengl shaders
-struct ShaderGL {
+struct GL_Shader {
        
-    ShaderGL() = default;
-    ~ShaderGL();
+    GL_Shader() = default;
+    ~GL_Shader();
 
-    std::optional<rses> init(const std::vector<ShaderCtx>& shader_ctxs);
+    std::optional<rses> init(const std::vector<GL_ShaderCtx>& shader_ctxs);
     void use();
 
     void set_bool(const std::string_view& name, bool value) const;
@@ -37,25 +37,25 @@ struct ShaderGL {
     void set_uvec3(const std::string_view& name, const glm::uvec3& value) const;
     void set_vec4(const std::string_view& name, const glm::vec4& value) const;
 
-    gluint prg = 0;
+    u32 prg = 0;
 };
 
 // all shaders used in the application
-struct ShadersGL {
+struct GL_Shaders {
 
     std::optional<rses> init();
     
-    ShaderGL blur;
-    ShaderGL clusters_build;
-    ShaderGL clusters_cull;
-    ShaderGL gbuf;
-    ShaderGL hdr;
-    ShaderGL light;
-    ShaderGL lighting;
-    ShaderGL passthrough;
-    ShaderGL dir_shadow;
-    ShaderGL pt_shadow;
-    ShaderGL skybox;
+    GL_Shader blur;
+    GL_Shader clusters_build;
+    GL_Shader clusters_cull;
+    GL_Shader gbuf;
+    GL_Shader hdr;
+    GL_Shader light;
+    GL_Shader lighting;
+    GL_Shader passthrough;
+    GL_Shader dir_shadow;
+    GL_Shader pt_shadow;
+    GL_Shader skybox;
 };
 
 } // namespace rose

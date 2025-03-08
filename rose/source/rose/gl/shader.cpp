@@ -8,7 +8,7 @@
 
 namespace rose {
 
-std::optional<rses> ShaderGL::init(const std::vector<ShaderCtx>& shader_ctxs) {
+std::optional<rses> GL_Shader::init(const std::vector<GL_ShaderCtx>& shader_ctxs) {
     
     i32 success = 0;
     char info_log[512];
@@ -84,49 +84,49 @@ std::optional<rses> ShaderGL::init(const std::vector<ShaderCtx>& shader_ctxs) {
     return std::nullopt;
 }
 
-ShaderGL::~ShaderGL() {
+GL_Shader::~GL_Shader() {
     if (prg) {
         glDeleteProgram(prg);
     }
 }
 
-void ShaderGL::use() { glUseProgram(prg); }
+void GL_Shader::use() { glUseProgram(prg); }
 
-void ShaderGL::set_bool(const std::string_view& name, bool value) const {
+void GL_Shader::set_bool(const std::string_view& name, bool value) const {
     glProgramUniform1i(prg, glGetUniformLocation(prg, name.data()), (int)value);
 }
-void ShaderGL::set_int(const std::string_view& name, int value) const {
+void GL_Shader::set_int(const std::string_view& name, int value) const {
     glProgramUniform1i(prg, glGetUniformLocation(prg, name.data()), value);
 }
-void ShaderGL::set_float(const std::string_view& name, f32 value) const {
+void GL_Shader::set_float(const std::string_view& name, f32 value) const {
     glProgramUniform1f(prg, glGetUniformLocation(prg, name.data()), value);
 }
 
-void ShaderGL::set_mat4(const std::string_view& name, const glm::mat4& value) const {
+void GL_Shader::set_mat4(const std::string_view& name, const glm::mat4& value) const {
     glProgramUniformMatrix4fv(prg, glGetUniformLocation(prg, name.data()), 1, GL_FALSE, glm::value_ptr(value));
 }
 
-void ShaderGL::set_vec2(const std::string_view& name, const glm::vec2& value) const {
+void GL_Shader::set_vec2(const std::string_view& name, const glm::vec2& value) const {
     glProgramUniform2f(prg, glGetUniformLocation(prg, name.data()), value.x, value.y);
 }
 
-void ShaderGL::set_uvec2(const std::string_view& name, const glm::uvec2& value) const {
+void GL_Shader::set_uvec2(const std::string_view& name, const glm::uvec2& value) const {
     glProgramUniform2ui(prg, glGetUniformLocation(prg, name.data()), value.x, value.y);
 }
 
-void ShaderGL::set_vec3(const std::string_view& name, const glm::vec3& value) const {
+void GL_Shader::set_vec3(const std::string_view& name, const glm::vec3& value) const {
     glProgramUniform3f(prg, glGetUniformLocation(prg, name.data()), value.x, value.y, value.z);
 }
 
-void ShaderGL::set_uvec3(const std::string_view& name, const glm::uvec3& value) const {
+void GL_Shader::set_uvec3(const std::string_view& name, const glm::uvec3& value) const {
     glProgramUniform3ui(prg, glGetUniformLocation(prg, name.data()), value.x, value.y, value.z);
 }
 
-void ShaderGL::set_vec4(const std::string_view& name, const glm::vec4& value) const {
+void GL_Shader::set_vec4(const std::string_view& name, const glm::vec4& value) const {
     glProgramUniform4f(prg, glGetUniformLocation(prg, name.data()), value.w, value.x, value.y, value.z);
 }
 
-std::optional<rses> ShadersGL::init() {
+std::optional<rses> GL_Shaders::init() {
 
     std::optional<rses> err = std::nullopt;
 

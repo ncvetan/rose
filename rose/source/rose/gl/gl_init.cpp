@@ -1,4 +1,4 @@
-#include <rose/gl/gl.hpp>
+#include <rose/gl/gl_init.hpp>
 
 std::optional<rses> init_opengl() {
     if (GLenum glew_success = glewInit(); glew_success != GLEW_OK) {

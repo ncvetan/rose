@@ -12,24 +12,6 @@
 
 namespace rose {
 
-// TODO: This probably shouldn't be here but I'm not sure where I want to put it yet
-
-// bundle of state used throughout the program
-struct GlobalState {
-    SkyBox sky_box;
-    
-    u32 global_ubo = 0;     // ubo storing values available across shaders
-    
-    f32 gamma = 2.2f;
-    f32 exposure = 1.0f;
-
-    bool bloom_on = true;
-    i32 n_bloom_passes = 5;
-
-    DirLight dir_light;
-    ShadowData pt_shadow;
-};
-
 enum class EntityFlags : u32 { 
     NONE       = bit1,  // no effect
     EMIT_LIGHT = bit2,  // make this object a light emitter

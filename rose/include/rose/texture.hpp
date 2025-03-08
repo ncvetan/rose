@@ -19,7 +19,8 @@ enum class TextureType {
     NORMAL, 
     DISPLACE, 
     CUBE_MAP, 
-    INTERNAL 
+    INTERNAL,
+    TEXTURE_COUNT
 };
 
 struct TextureGL {
@@ -29,9 +30,9 @@ struct TextureGL {
     inline void free() { glDeleteTextures(1, &id); }
 };
 
-struct TextureCtx {
+struct TextureCount {
     TextureGL texture;
-    u64 refcnt = 0;
+    u64 ref_count = 0;
 };
 
 struct TextureRef;
@@ -45,8 +46,8 @@ struct TextureManager {
     std::optional<TextureRef> get_ref(const fs::path& path);
     std::optional<TextureRef> get_ref(u32 id);
 
-    std::unordered_map<u32, TextureCtx> loaded_textures;
-    std::unordered_map<fs::path, u32> textures_index;
+    std::unordered_map<u32, TextureCount> loaded_textures;  // [ id,  tex ]
+    std::unordered_map<fs::path, u32> textures_index;       // [ path, id ]
 };
 
 // reference to a texture, will reduce reference count on destruction

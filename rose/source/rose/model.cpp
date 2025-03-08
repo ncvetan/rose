@@ -1,5 +1,5 @@
 #include <rose/model.hpp>
-#include <rose/window.hpp>
+#include <rose/gl/gl_platform.hpp>
 #include <rose/core/err.hpp>
 
 #include <GL/glew.h>
@@ -88,7 +88,7 @@ Model::~Model() {
     }
 }
 
-void Model::draw(ShaderGL& shader, const GlobalState& state) const {
+void Model::draw(GL_Shader& shader, const GlPlatformState& state) const {
     shader.use();
     shader.set_mat4("model", model_mat);
     glBindVertexArray(vao);
@@ -294,8 +294,10 @@ SkyBox& SkyBox::operator=(SkyBox&& other) noexcept {
 }
 
 SkyBox::~SkyBox() {
-    glDeleteVertexArrays(1, &vao);
-    glDeleteBuffers(1, &verts_buf);
+    if (vao) {
+        glDeleteVertexArrays(1, &vao);
+        glDeleteBuffers(1, &verts_buf);
+    }
 }
 
 void SkyBox::init() {
@@ -317,7 +319,7 @@ std::optional<rses> SkyBox::load(TextureManager& manager, const std::array<fs::p
     return std::nullopt;
 }
 
-void SkyBox::draw(ShaderGL& shader, const GlobalState& state) const {
+void SkyBox::draw(GL_Shader& shader, const GlPlatformState& state) const {
     glDepthMask(GL_FALSE);
     shader.use();
     glBindVertexArray(vao);
