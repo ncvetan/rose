@@ -30,6 +30,8 @@ struct GL_Platform {
     void finish();
     void enable_vsync(bool enable);
 
+    // note: destruction order is important
+    // entities must be destructed before texture managers
     TextureManager texture_manager;
     GL_PlatformState platform_state;
     Entities entities;
