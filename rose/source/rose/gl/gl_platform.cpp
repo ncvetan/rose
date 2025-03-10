@@ -415,8 +415,8 @@ void GL_Platform::update(AppData& app_data) {
     shaders.lighting.set_int("gbuf_pos", 0);
     shaders.lighting.set_int("gbuf_norms", 1);
     shaders.lighting.set_int("gbuf_colors", 2);
-    shaders.lighting.set_int("cascade_maps", 11);
-    shaders.lighting.set_int("shadow_map", 12);
+    shaders.lighting.set_int("dir_shadow_maps", 11);
+    shaders.lighting.set_int("pt_shadow_map", 12);
 
     shaders.lighting.set_int("n_cascades", platform_state.dir_light.shadow.n_cascades);
 

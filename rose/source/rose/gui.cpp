@@ -36,7 +36,7 @@ void gl_imgui(AppData& app_data, GL_Platform& platform) {
     ImGui::EndDisabled();
 
     ImGui::SeparatorText("global light");
-    if (ImGui::SliderAngle("angle", &dir_angle, 0.0f, 180.0f)) {
+    if (ImGui::SliderAngle("angle", &dir_angle, 30.0f, 150.0f)) {
         platform.platform_state.dir_light.direction.y = -std::sin(dir_angle) * 1.0f;
         platform.platform_state.dir_light.direction.z = std::cos(dir_angle) * 1.0f;
         platform.platform_state.dir_light.direction = glm::normalize(platform.platform_state.dir_light.direction);
