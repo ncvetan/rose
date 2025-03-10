@@ -1,5 +1,9 @@
-#include <rose/application.hpp>
-#include <rose/err.hpp>
+#include <rose/app.hpp>
+#include <rose/core/err.hpp>
+
+#ifdef OPENGL
+#include <rose/gl/gl_platform.hpp>
+#endif
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -9,20 +13,20 @@
 int main() {
 
 #ifdef OPENGL
-    rose::RoseApp application = rose::RoseApp<rose::WindowGLFW>();
+    rose::GL_Platform platform;
 #else
-    std::println("No platform has been defined");
     return -1;
 #endif
 
-    std::optional<rses> err = application.init();
+    rose::RoseApp application;
+    std::optional<rses> err = application.init(platform);
 
     if (err) { 
         err::print(err.value());    
         return -1;
     }
 
-    application.run();
-    application.finish();
+    application.run(platform);
+    application.finish(platform);
     return 0;
 }

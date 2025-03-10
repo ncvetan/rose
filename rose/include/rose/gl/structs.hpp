@@ -2,12 +2,12 @@
 //   contains wrappers around some OpenGL constructs
 // =============================================================================
 
-#ifndef ROSE_INCLUDE_GLSTRUCTS
-#define ROSE_INCLUDE_GLSTRUCTS
+#ifndef ROSE_INCLUDE_GL_STRUCTS
+#define ROSE_INCLUDE_GL_STRUCTS
 
-#include <rose/alias.hpp>
-#include <rose/err.hpp>
-#include <rose/shader.hpp>
+#include <rose/core/alias.hpp>
+#include <rose/core/err.hpp>
+#include <rose/gl/shader.hpp>
 
 #include <GL/glew.h>
 
@@ -34,7 +34,7 @@ struct FrameBuf {
     }
     
     std::optional<rses> init(i32 w, i32 h, bool has_depth_buf, const std::vector<FrameBufTexCtx>& texs);
-    void draw(ShaderGL& shader);
+    void draw(GL_Shader& shader);
 
     u32 frame_buf = 0;
     u32 render_buf = 0;

@@ -1,8 +1,8 @@
 #ifndef ROSE_INCLUDE_MODEL
 #define ROSE_INCLUDE_MODEL
 
-#include <rose/shader.hpp>
 #include <rose/texture.hpp>
+#include <rose/gl/shader.hpp>
 
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>
@@ -13,7 +13,7 @@
 
 namespace rose {
 
-struct GlobalState;
+struct GL_PlatformState;
 
 template <typename T>
 concept Transformable = requires { T::model_mat; };
@@ -49,14 +49,14 @@ struct Mesh {
 struct Model {
     
     Model() = default;
-
+    Model(const Model& other) = delete;
     Model(Model&& other) noexcept;
-
-    Model& operator=(Model&& other) noexcept;
-
     ~Model();
+
+    Model& operator=(const Model& other) = delete;
+    Model& operator=(Model&& other) noexcept;
     
-    void draw(ShaderGL& shader, const GlobalState& state) const;
+    void draw(GL_Shader& shader, const GL_PlatformState& state) const;
     
     std::optional<rses> load(TextureManager& manager, const std::filesystem::path& path);
     
@@ -99,7 +99,7 @@ struct SkyBox {
 
     void init();
     std::optional<rses> load(TextureManager& manager, const std::array<fs::path, 6>& paths);
-    void draw(ShaderGL& shader, const GlobalState& state) const;
+    void draw(GL_Shader& shader, const GL_PlatformState& state) const;
     inline void reset() { model_mat = glm::mat4(1.0f); }
 
     TextureRef texture;

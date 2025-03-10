@@ -1,4 +1,4 @@
-#include <rose/glstructs.hpp>
+#include <rose/gl/structs.hpp>
 
 namespace rose {
 
@@ -50,7 +50,7 @@ std::optional<rses> FrameBuf::init(i32 w, i32 h, bool has_depth_buf, const std::
     return std::nullopt;
 }
 
-void FrameBuf::draw(ShaderGL& shader) {
+void FrameBuf::draw(GL_Shader& shader) {
     shader.use();
     glBindVertexArray(vertex_arr);
     glDrawArrays(GL_TRIANGLES, 0, verts.size());

@@ -5,8 +5,8 @@
 #ifndef ROSE_INCLUDE_LIGHTING
 #define ROSE_INCLUDE_LIGHTING
 
-#include <rose/alias.hpp>
-#include <rose/glstructs.hpp>
+#include <rose/core/alias.hpp>
+#include <rose/gl/structs.hpp>
 
 #include <glm.hpp>
 

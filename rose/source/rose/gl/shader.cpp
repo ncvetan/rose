@@ -1,14 +1,14 @@
-﻿#include <rose/shader.hpp>
+﻿#include <rose/gl/shader.hpp>
 
 #include <GL/glew.h>
 #include <glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include <expected>
+#include <optional>
 
 namespace rose {
 
-std::optional<rses> ShaderGL::init(const std::vector<ShaderCtx>& shader_ctxs) {
+std::optional<rses> GL_Shader::init(const std::vector<GL_ShaderCtx>& shader_ctxs) {
     
     i32 success = 0;
     char info_log[512];
@@ -33,11 +33,11 @@ std::optional<rses> ShaderGL::init(const std::vector<ShaderCtx>& shader_ctxs) {
         shader_code_buf << shader_file.rdbuf();
         std::string shader_code_str = shader_code_buf.str();
         const char* shader_code = shader_code_str.c_str();
-        u32 shader = 0;
+        u32 curr_shader = 0;
 
-        shader = glCreateShader(shader_info.type);
+        curr_shader = glCreateShader(shader_info.type);
 
-        if (!shader) {
+        if (!curr_shader) {
             glDeleteProgram(prg);
             prg = 0;
             for (auto shader : shaders) {
@@ -46,12 +46,12 @@ std::optional<rses> ShaderGL::init(const std::vector<ShaderCtx>& shader_ctxs) {
             return rses().gl("Invalid shader type for shader at path {}", shader_info.path.generic_string());
         }
 
-        glShaderSource(shader, 1, &shader_code, NULL);
-        glCompileShader(shader);
-        glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+        glShaderSource(curr_shader, 1, &shader_code, NULL);
+        glCompileShader(curr_shader);
+        glGetShaderiv(curr_shader, GL_COMPILE_STATUS, &success);
         
         if (!success) {
-            glGetShaderInfoLog(shader, 512, NULL, info_log);
+            glGetShaderInfoLog(curr_shader, 512, NULL, info_log);
             glDeleteProgram(prg);
             prg = 0;
             for (auto shader : shaders) {
@@ -60,8 +60,8 @@ std::optional<rses> ShaderGL::init(const std::vector<ShaderCtx>& shader_ctxs) {
             return rses().gl("Shader compilation failed at path {}: {}", shader_info.path.generic_string(), info_log);
         };
 
-        glAttachShader(prg, shader);
-        shaders.push_back(shader);
+        glAttachShader(prg, curr_shader);
+        shaders.push_back(curr_shader);
     }
     
     glLinkProgram(prg);
@@ -84,49 +84,49 @@ std::optional<rses> ShaderGL::init(const std::vector<ShaderCtx>& shader_ctxs) {
     return std::nullopt;
 }
 
-ShaderGL::~ShaderGL() {
+GL_Shader::~GL_Shader() {
     if (prg) {
         glDeleteProgram(prg);
     }
 }
 
-void ShaderGL::use() { glUseProgram(prg); }
+void GL_Shader::use() { glUseProgram(prg); }
 
-void ShaderGL::set_bool(const std::string_view& name, bool value) const {
+void GL_Shader::set_bool(const std::string_view& name, bool value) const {
     glProgramUniform1i(prg, glGetUniformLocation(prg, name.data()), (int)value);
 }
-void ShaderGL::set_int(const std::string_view& name, int value) const {
+void GL_Shader::set_int(const std::string_view& name, int value) const {
     glProgramUniform1i(prg, glGetUniformLocation(prg, name.data()), value);
 }
-void ShaderGL::set_float(const std::string_view& name, f32 value) const {
+void GL_Shader::set_float(const std::string_view& name, f32 value) const {
     glProgramUniform1f(prg, glGetUniformLocation(prg, name.data()), value);
 }
 
-void ShaderGL::set_mat4(const std::string_view& name, const glm::mat4& value) const {
+void GL_Shader::set_mat4(const std::string_view& name, const glm::mat4& value) const {
     glProgramUniformMatrix4fv(prg, glGetUniformLocation(prg, name.data()), 1, GL_FALSE, glm::value_ptr(value));
 }
 
-void ShaderGL::set_vec2(const std::string_view& name, const glm::vec2& value) const {
+void GL_Shader::set_vec2(const std::string_view& name, const glm::vec2& value) const {
     glProgramUniform2f(prg, glGetUniformLocation(prg, name.data()), value.x, value.y);
 }
 
-void ShaderGL::set_uvec2(const std::string_view& name, const glm::uvec2& value) const {
+void GL_Shader::set_uvec2(const std::string_view& name, const glm::uvec2& value) const {
     glProgramUniform2ui(prg, glGetUniformLocation(prg, name.data()), value.x, value.y);
 }
 
-void ShaderGL::set_vec3(const std::string_view& name, const glm::vec3& value) const {
+void GL_Shader::set_vec3(const std::string_view& name, const glm::vec3& value) const {
     glProgramUniform3f(prg, glGetUniformLocation(prg, name.data()), value.x, value.y, value.z);
 }
 
-void ShaderGL::set_uvec3(const std::string_view& name, const glm::uvec3& value) const {
+void GL_Shader::set_uvec3(const std::string_view& name, const glm::uvec3& value) const {
     glProgramUniform3ui(prg, glGetUniformLocation(prg, name.data()), value.x, value.y, value.z);
 }
 
-void ShaderGL::set_vec4(const std::string_view& name, const glm::vec4& value) const {
+void GL_Shader::set_vec4(const std::string_view& name, const glm::vec4& value) const {
     glProgramUniform4f(prg, glGetUniformLocation(prg, name.data()), value.w, value.x, value.y, value.z);
 }
 
-std::optional<rses> ShadersGL::init() {
+std::optional<rses> GL_Shaders::init() {
 
     std::optional<rses> err = std::nullopt;
 

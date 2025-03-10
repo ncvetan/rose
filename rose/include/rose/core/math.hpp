@@ -1,7 +1,7 @@
-#ifndef ROSE_INCLUDE_MATH
-#define ROSE_INCLUDE_MATH
+#ifndef ROSE_INCLUDE_CORE_MATH
+#define ROSE_INCLUDE_CORE_MATH
 
-#include <rose/alias.hpp>
+#include <rose/core/alias.hpp>
 
 #include <glm/glm.hpp>
 

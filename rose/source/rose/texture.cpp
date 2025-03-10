@@ -12,7 +12,7 @@ TextureRef::TextureRef(TextureGL* ref, TextureManager* manager) : ref(ref), mana
 TextureRef::TextureRef(const TextureRef& other) {
     ref = other.ref;
     manager = other.manager;
-    manager->loaded_textures[ref->id].refcnt++;
+    manager->loaded_textures[ref->id].ref_count++;
 }
 
 TextureRef& TextureRef::operator=(const TextureRef& other) {
@@ -41,10 +41,12 @@ TextureGL* TextureRef::operator->() {
 }
 
 TextureRef::~TextureRef() {
-    if (ref && manager->loaded_textures.contains(ref->id)) {
-        auto& [texture, refcnt] = manager->loaded_textures[ref->id];
-        refcnt -= 1;
-        if (refcnt == 0) {
+    if (ref && manager && manager->loaded_textures.contains(ref->id)) {
+        auto& [texture, ref_count] = manager->loaded_textures[ref->id];
+        if (ref_count > 0) {
+            ref_count -= 1;
+        }
+        if (ref_count == 0) {
             texture.free();
             manager->loaded_textures.erase(ref->id);
         }
@@ -60,7 +62,7 @@ std::optional<TextureRef> TextureManager::get_ref(const fs::path& path) {
         u32 val = textures_index[path];
         if (loaded_textures.contains(val)) {
             TextureRef ref = TextureRef(&loaded_textures[val].texture, this);
-            loaded_textures[val].refcnt++;
+            loaded_textures[val].ref_count++;
             return ref;
         } 
         else {
@@ -74,7 +76,7 @@ std::optional<TextureRef> TextureManager::get_ref(const fs::path& path) {
 std::optional<TextureRef> TextureManager::get_ref(u32 id) {
     if (loaded_textures.contains(id)) {
         TextureRef ref = TextureRef(&loaded_textures[id].texture, this);
-        loaded_textures[id].refcnt++;
+        loaded_textures[id].ref_count++;
         return ref;
     }
     return std::nullopt;
