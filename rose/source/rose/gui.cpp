@@ -8,6 +8,9 @@
 
 #include <numbers>
 
+#define NOMINMAX
+#include <windows.h>
+
 namespace rose {
 namespace gui {
 
@@ -20,20 +23,73 @@ static bool first_frame = true;
 static bool vp_open = true;
 static bool controls_open = true;
 
+static fs::path open_windows_explorer() {
+    OPENFILENAME ofn; 
+    TCHAR szFile[260] = { 0 };
+
+    ZeroMemory(&ofn, sizeof(ofn));
+
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = NULL;
+    ofn.lpstrFile = szFile;
+    ofn.nMaxFile = sizeof(szFile);
+
+    ofn.lpstrFilter = "All\0*.*\0Text\0*.TXT\0";
+    ofn.nFilterIndex = 1;
+    ofn.lpstrFileTitle = NULL;
+    ofn.nMaxFileTitle = 0;
+    ofn.lpstrInitialDir = NULL;
+    ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+
+    if (GetOpenFileName(&ofn) == TRUE) {
+        return fs::path(ofn.lpstrFile);
+    }
+
+    return "";
+}
+
 void gl_imgui(AppData& app_data, GL_Platform& platform) {
     ImGuiIO& io = ImGui::GetIO();
 
+    // menu bar ===================================================================================
+
+    if (ImGui::BeginMainMenuBar()) {
+        if (ImGui::BeginMenu("File")) {
+            if (ImGui::MenuItem("Import Model")) {
+                fs::path model_path = open_windows_explorer();
+                EntityCtx ent_def = { 
+                    .model_pth = model_path,
+                    .pos = { 0.0f, 0.0f, 0.0f },
+                    .scale = { 1.0f, 1.0f, 1.0f }, 
+                    .light_props = PtLight(), 
+                    .flags = EntityFlags::NONE 
+                };
+                platform.entities.add_object(platform.texture_manager, ent_def);
+            }
+            if (ImGui::MenuItem("Import SkyBox")) {
+                // TODO: Implement this
+            }
+            ImGui::EndMenu();
+        }
+        ImGui::EndMainMenuBar();
+    }
+
+    bool light_changed = false;
     ImGui::Begin("controls", &controls_open, ImGuiWindowFlags_AlwaysAutoResize);
-    ImGui::Text("FPS: %f", io.Framerate);
-    
+    ImGui::Text("FPS: %f (%f ms)", io.Framerate, 1000/ io.Framerate);
+
     ImGui::Text("global controls");
     ImGui::Separator();
-    ImGui::SliderFloat("exposure", &app_data.window_data.exposure, 0.1f, 5.0f);    
+    if (ImGui::SliderFloat("exposure", &app_data.window_data.exposure, 0.1f, 5.0f)) {
+        light_changed = true;
+    }
     ImGui::Checkbox("enable bloom", &app_data.bloom_on);
 
     ImGui::BeginDisabled(!app_data.bloom_on);
     ImGui::SliderInt("num passes", &app_data.n_bloom_passes, 1, 10);
     ImGui::EndDisabled();
+
+    // directional light ==========================================================================
 
     ImGui::SeparatorText("global light");
     if (ImGui::SliderAngle("angle", &dir_angle, 30.0f, 150.0f)) {
@@ -43,22 +99,29 @@ void gl_imgui(AppData& app_data, GL_Platform& platform) {
     }
     ImGui::ColorEdit3("color", glm::value_ptr(platform.platform_state.dir_light.color));
     
-    ImGui::SeparatorText("point lights");
-    bool light_changed = false;
-    if (ImGui::TreeNode("lights")) {
+    // entities ===================================================================================
+
+    ImGui::SeparatorText("entities");
+    if (ImGui::TreeNode("entities")) {
         for (size_t idx = 0; idx < platform.entities.size(); idx++) {
-            
-            if (!(platform.entities.flags[idx] & EntityFlags::EMIT_LIGHT)) {
-                continue;
-            }
-            
-            if (ImGui::TreeNode((void*)(intptr_t)idx, "light %d", idx)) {
-                light_changed = 
-                    ImGui::SliderFloat3("position", glm::value_ptr(platform.entities.positions[idx]), -30.0f, 30.0f) 
-                    || ImGui::ColorEdit3("color", glm::value_ptr(platform.entities.light_props[idx].color)) ||
-                    ImGui::SliderFloat("linear", &platform.entities.light_props[idx].linear, 0.1f, 10.0f) 
-                    || ImGui::SliderFloat("quad", &platform.entities.light_props[idx].quad, 0.1f, 10.0f) ||
-                    ImGui::SliderFloat("intensity", &platform.entities.light_props[idx].intensity, 1.0f, 10.0f);
+            if (ImGui::TreeNode((void*)(intptr_t)idx, "ent %d", idx)) {
+                ImGui::SliderFloat3("position", glm::value_ptr(platform.entities.positions[idx]), -30.0f, 30.0f);
+                if (ImGui::Button("toggle light")) {
+                    if ((platform.entities.flags[idx] & EntityFlags::EMIT_LIGHT) != EntityFlags::NONE)
+                    {
+                        platform.entities.flags[idx] &= ~EntityFlags::EMIT_LIGHT;
+
+                    } 
+                    else {
+                        platform.entities.flags[idx] |= EntityFlags::EMIT_LIGHT;
+                    }
+                }
+                ImGui::BeginDisabled((platform.entities.flags[idx] & EntityFlags::EMIT_LIGHT) == EntityFlags::NONE);
+                light_changed = ImGui::ColorEdit3("color", glm::value_ptr(platform.entities.light_props[idx].color)) ||
+                                ImGui::SliderFloat("linear", &platform.entities.light_props[idx].linear, 0.1f, 10.0f) || 
+                                ImGui::SliderFloat("quad", &platform.entities.light_props[idx].quad, 0.1f, 10.0f) ||
+                                ImGui::SliderFloat("intensity", &platform.entities.light_props[idx].intensity, 1.0f, 10.0f);
+                ImGui::EndDisabled();
                 ImGui::TreePop();
             }
         }
@@ -101,6 +164,8 @@ void gl_imgui(AppData& app_data, GL_Platform& platform) {
         first_frame = false;
     }
 
+    // update entity state
+    // TODO: Not a fan on this, but haven't come up with a better solution yet
     if (light_changed) {
         platform.entities.update_light_radii(app_data.window_data.exposure);
         update_light_state(platform.entities, platform.clusters);

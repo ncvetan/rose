@@ -22,7 +22,7 @@ std::optional<rses> Entities::add_object(TextureManager& manager, const EntityCt
 
 void Entities::update_light_radii(f32 exposure) {
     for (size_t idx = 0; idx < size(); ++idx) {
-        if (flags[idx] & EntityFlags::EMIT_LIGHT) {
+        if ((flags[idx] & EntityFlags::EMIT_LIGHT) != EntityFlags::NONE) {
             light_props[idx].radius(exposure);
         }
     }
@@ -35,7 +35,7 @@ void update_light_state(Entities& objs, ClusterData& clusters) {
 
     // linear search, probably not a big deal for now
     for (size_t idx = 0; idx < objs.size(); ++idx) {
-        if (objs.flags[idx] & EntityFlags::EMIT_LIGHT) {
+        if ((objs.flags[idx] & EntityFlags::EMIT_LIGHT) != EntityFlags::NONE) {
             pnt_lights_pos.push_back(glm::vec4(objs.positions[idx], 1.0f));
             pnt_lights_props.push_back(objs.light_props[idx]);
             n_lights++;

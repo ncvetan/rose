@@ -13,13 +13,30 @@
 namespace rose {
 
 enum class EntityFlags : u32 { 
-    NONE       = bit1,  // no effect
-    EMIT_LIGHT = bit2,  // make this object a light emitter
-    HIDE       = bit3   // don't render this object
+    NONE       = 0,     // no effect
+    EMIT_LIGHT = bit1,  // make this object a light emitter
+    HIDE       = bit2   // don't render this object
 };
 
-inline bool operator&(EntityFlags lhs, EntityFlags rhs) {
-    return (static_cast<u32>(lhs) & static_cast<u32>(rhs)) != 0;
+inline EntityFlags operator&(EntityFlags lhs, EntityFlags rhs) {
+    return static_cast<EntityFlags>(static_cast<u32>(lhs) & static_cast<u32>(rhs));
+}
+
+inline EntityFlags& operator&=(EntityFlags& lhs, EntityFlags rhs) { 
+    return lhs = lhs & rhs; 
+}
+
+inline EntityFlags operator|(EntityFlags lhs, EntityFlags rhs) {
+    return static_cast<EntityFlags>(static_cast<u32>(lhs) | static_cast<u32>(rhs));
+}
+
+inline EntityFlags& operator|=(EntityFlags& lhs, EntityFlags rhs) {
+    return lhs = lhs | rhs;
+}
+
+inline EntityFlags operator~(EntityFlags f) 
+{ 
+    return static_cast<EntityFlags>(~static_cast<u32>(f)); 
 }
 
 // context used to construct an entity

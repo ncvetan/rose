@@ -293,7 +293,7 @@ void GL_Platform::update(AppData& app_data) {
     glEnable(GL_DEPTH_CLAMP);
 
     for (size_t obj_idx = 0; obj_idx < entities.size(); ++obj_idx) {
-        if (!(entities.flags[obj_idx] & EntityFlags::EMIT_LIGHT)) {
+        if ((entities.flags[obj_idx] & EntityFlags::EMIT_LIGHT) == EntityFlags::NONE) {
             translate(entities.models[obj_idx], entities.positions[obj_idx]);
             scale(entities.models[obj_idx], entities.scales[obj_idx]);
             entities.models[obj_idx].draw(shaders.dir_shadow, platform_state);
@@ -323,7 +323,7 @@ void GL_Platform::update(AppData& app_data) {
 
     for (size_t light_idx = 0; light_idx < entities.size(); ++light_idx) {
             
-        if (!(entities.flags[light_idx] & EntityFlags::EMIT_LIGHT)) {
+        if ((entities.flags[light_idx] & EntityFlags::EMIT_LIGHT) == EntityFlags::NONE) {
             continue;
         }
 
@@ -351,7 +351,7 @@ void GL_Platform::update(AppData& app_data) {
         shaders.pt_shadow.set_vec3("light_pos", light_pos);
 
         for (size_t obj_idx = 0; obj_idx < entities.size(); ++obj_idx) {
-            if (!(entities.flags[obj_idx] & EntityFlags::EMIT_LIGHT)) {
+            if ((entities.flags[obj_idx] & EntityFlags::EMIT_LIGHT) == EntityFlags::NONE) {
                 translate(entities.models[obj_idx], entities.positions[obj_idx]);
                 scale(entities.models[obj_idx], entities.scales[obj_idx]);
                 entities.models[obj_idx].draw(shaders.pt_shadow, platform_state);
@@ -388,7 +388,7 @@ void GL_Platform::update(AppData& app_data) {
     glStencilMask(0xFF);
 
     for (size_t idx = 0; idx < entities.size(); ++idx) {
-        if (!(entities.flags[idx] & EntityFlags::EMIT_LIGHT)) {                
+        if ((entities.flags[idx] & EntityFlags::EMIT_LIGHT) == EntityFlags::NONE) {                
             translate(entities.models[idx], entities.positions[idx]);
             scale(entities.models[idx], entities.scales[idx]);
             entities.models[idx].draw(shaders.gbuf, platform_state);
@@ -436,7 +436,7 @@ void GL_Platform::update(AppData& app_data) {
 
     // draw light emitters
     for (size_t idx = 0; idx < entities.size(); ++idx) {
-        if (entities.flags[idx] & EntityFlags::EMIT_LIGHT) {
+        if ((entities.flags[idx] & EntityFlags::EMIT_LIGHT) != EntityFlags::NONE) {
             translate(entities.models[idx], entities.positions[idx]);
             scale(entities.models[idx], entities.scales[idx]);
             entities.models[idx].draw(shaders.light, platform_state);
