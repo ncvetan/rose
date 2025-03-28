@@ -18,10 +18,21 @@ namespace gui {
 // how changing certain parameters impact various graphics components. in the future this should
 // be a cleaner interface with less bugs.
 
+// state used in the gui, global for now
+namespace gui_state {
 static f32 dir_angle = std::numbers::pi / 2;
 static bool first_frame = true;
 static bool vp_open = true;
 static bool controls_open = true;
+
+static char left_path[256] = "";
+static char right_path[256] = "";
+static char top_path[256] = "";
+static char bottom_path[256] = "";
+static char front_path[256] = "";
+static char back_path[256] = "";
+
+} // namespace gui_state
 
 static fs::path open_windows_explorer() {
     OPENFILENAME ofn; 
@@ -50,6 +61,7 @@ static fs::path open_windows_explorer() {
 
 void gl_imgui(AppData& app_data, GL_Platform& platform) {
     ImGuiIO& io = ImGui::GetIO();
+    ImGuiID skybox_popup_id = ImHashStr("import_skybox_popup");
 
     // menu bar ===================================================================================
 
@@ -67,15 +79,77 @@ void gl_imgui(AppData& app_data, GL_Platform& platform) {
                 platform.entities.add_object(platform.texture_manager, ent_def);
             }
             if (ImGui::MenuItem("Import SkyBox")) {
-                // TODO: Implement this
+                ImGui::PushOverrideID(skybox_popup_id);
+                ImGui::OpenPopup("import_skybox_popup");
+                ImGui::PopID();
             }
             ImGui::EndMenu();
         }
         ImGui::EndMainMenuBar();
     }
 
+    ImGui::PushOverrideID(skybox_popup_id);
+    if (ImGui::BeginPopupModal("import_skybox_popup")) {
+        
+        ImGui::InputText("left##skybox", gui_state::left_path, IM_ARRAYSIZE(gui_state::left_path));
+        ImGui::SameLine();
+        if (ImGui::Button("browse##1", ImVec2(50, 0))) {
+            if (auto ret = open_windows_explorer(); ret != "") {
+                std::strncat(gui_state::left_path, ret.string().c_str(), 255);
+            }
+        }
+        ImGui::InputText("right##skybox", gui_state::right_path, IM_ARRAYSIZE(gui_state::right_path));
+        ImGui::SameLine();
+        if (ImGui::Button("browse##2", ImVec2(50, 0))) {
+            if (auto ret = open_windows_explorer(); ret != "") {
+                std::strncat(gui_state::right_path, ret.string().c_str(), 255);
+            }
+        }
+        ImGui::InputText("top##skybox", gui_state::top_path, IM_ARRAYSIZE(gui_state::top_path));
+        ImGui::SameLine();
+        if (ImGui::Button("browse##3", ImVec2(50, 0))) {
+            if (auto ret = open_windows_explorer(); ret != "") {
+                std::strncat(gui_state::top_path, ret.string().c_str(), 255);
+            }
+        }
+        ImGui::InputText("bottom##skybox", gui_state::bottom_path, IM_ARRAYSIZE(gui_state::bottom_path));
+        ImGui::SameLine();
+        if (ImGui::Button("browse##4", ImVec2(50, 0))) {
+            if (auto ret = open_windows_explorer(); ret != "") {
+                std::strncat(gui_state::bottom_path, ret.string().c_str(), 255);
+            }
+        }
+        ImGui::InputText("front##skybox", gui_state::front_path, IM_ARRAYSIZE(gui_state::front_path));
+        ImGui::SameLine();
+        if (ImGui::Button("browse##5", ImVec2(50, 0))) {
+            if (auto ret = open_windows_explorer(); ret != "") {
+                std::strncat(gui_state::front_path, ret.string().c_str(), 255);
+            }
+        }
+        ImGui::InputText("back##skybox", gui_state::back_path, IM_ARRAYSIZE(gui_state::back_path));
+        ImGui::SameLine();
+        if (ImGui::Button("browse##6", ImVec2(50, 0))) {
+            if (auto ret = open_windows_explorer(); ret != "") {
+                std::strncat(gui_state::back_path, ret.string().c_str(), 255);
+            }
+        }
+
+        if (ImGui::Button("import##skybox_popup", ImVec2(50, 0))) {
+            platform.platform_state.sky_box.load(platform.texture_manager, 
+                                                 { gui_state::right_path, gui_state::left_path, gui_state::top_path,
+                                                   gui_state::bottom_path, gui_state::front_path, gui_state::back_path });
+        }
+
+        if (ImGui::Button("close##skybox_popup", ImVec2(50, 0))) {
+			ImGui::CloseCurrentPopup();
+		}
+
+        ImGui::EndPopup();
+    }
+    ImGui::PopID();
+
     bool light_changed = false;
-    ImGui::Begin("controls", &controls_open, ImGuiWindowFlags_AlwaysAutoResize);
+    ImGui::Begin("controls", &gui_state::controls_open, ImGuiWindowFlags_AlwaysAutoResize);
     ImGui::Text("FPS: %f (%f ms)", io.Framerate, 1000/ io.Framerate);
 
     ImGui::Text("global controls");
@@ -92,9 +166,9 @@ void gl_imgui(AppData& app_data, GL_Platform& platform) {
     // directional light ==========================================================================
 
     ImGui::SeparatorText("global light");
-    if (ImGui::SliderAngle("angle", &dir_angle, 30.0f, 150.0f)) {
-        platform.platform_state.dir_light.direction.y = -std::sin(dir_angle) * 1.0f;
-        platform.platform_state.dir_light.direction.z = std::cos(dir_angle) * 1.0f;
+    if (ImGui::SliderAngle("angle", &gui_state::dir_angle, 30.0f, 150.0f)) {
+        platform.platform_state.dir_light.direction.y = -std::sin(gui_state::dir_angle) * 1.0f;
+        platform.platform_state.dir_light.direction.z = std::cos(gui_state::dir_angle) * 1.0f;
         platform.platform_state.dir_light.direction = glm::normalize(platform.platform_state.dir_light.direction);
     }
     ImGui::ColorEdit3("color", glm::value_ptr(platform.platform_state.dir_light.color));
@@ -130,7 +204,7 @@ void gl_imgui(AppData& app_data, GL_Platform& platform) {
     ImGui::End();
 
     // render our framebuffer to an imgui window
-    ImGui::Begin("viewport", &vp_open, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    ImGui::Begin("viewport", &gui_state::vp_open, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     
     app_data.window_data.vp_focused = ImGui::IsWindowFocused();
     app_data.window_data.vp_rect.x_min = ImGui::GetWindowPos().x;
@@ -152,7 +226,7 @@ void gl_imgui(AppData& app_data, GL_Platform& platform) {
     ImGui::End();
 
     // setting an initial docking layout
-    if (first_frame) {
+    if (gui_state::first_frame) {
         ImGui::DockBuilderAddNode(app_data.window_data.dock_id);
         ImGui::DockBuilderSetNodePos(app_data.window_data.dock_id, ImGui::GetWindowPos());
         ImGui::DockBuilderSetNodeSize(app_data.window_data.dock_id, ImGui::GetWindowSize());
@@ -161,7 +235,7 @@ void gl_imgui(AppData& app_data, GL_Platform& platform) {
         ImGui::DockBuilderSplitNode(app_data.window_data.dock_id, ImGuiDir_Right, 0.85f, &viewport_node, &controls_node);
         ImGui::DockBuilderDockWindow("controls", controls_node);
         ImGui::DockBuilderDockWindow("viewport", viewport_node);
-        first_frame = false;
+        gui_state::first_frame = false;
     }
 
     // update entity state

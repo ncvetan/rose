@@ -28,6 +28,7 @@ void Entities::update_light_radii(f32 exposure) {
     }
 }
 
+// TODO: come up with a better solution
 void update_light_state(Entities& objs, ClusterData& clusters) {
     std::vector<PtLight> pnt_lights_props;
     std::vector<glm::vec4> pnt_lights_pos;
