@@ -9,7 +9,7 @@ struct DirLight {
 	vec3 color;
 };
 
-layout (std140, binding = 1) uniform globals {
+layout (std140, binding = 1) uniform globals_ubo {
 	mat4 projection;
 	mat4 view;
 	vec3 camera_pos;

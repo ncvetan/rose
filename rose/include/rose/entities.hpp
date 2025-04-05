@@ -3,7 +3,7 @@
 
 #include <rose/lighting.hpp>
 #include <rose/model.hpp>
-#include <rose/core/alias.hpp>
+#include <rose/core/core.hpp>
 #include <rose/gl/shader.hpp>
 
 #include <glm.hpp>
@@ -13,31 +13,12 @@
 namespace rose {
 
 enum class EntityFlags : u32 { 
-    NONE       = 0,     // no effect
-    EMIT_LIGHT = bit1,  // make this object a light emitter
-    HIDE       = bit2   // don't render this object
+    NONE        = 0,     // no effect
+    EMIT_LIGHT  = bit1,  // make this object a light emitter
+    HIDE        = bit2   // don't render this object
 };
 
-inline EntityFlags operator&(EntityFlags lhs, EntityFlags rhs) {
-    return static_cast<EntityFlags>(static_cast<u32>(lhs) & static_cast<u32>(rhs));
-}
-
-inline EntityFlags& operator&=(EntityFlags& lhs, EntityFlags rhs) { 
-    return lhs = lhs & rhs; 
-}
-
-inline EntityFlags operator|(EntityFlags lhs, EntityFlags rhs) {
-    return static_cast<EntityFlags>(static_cast<u32>(lhs) | static_cast<u32>(rhs));
-}
-
-inline EntityFlags& operator|=(EntityFlags& lhs, EntityFlags rhs) {
-    return lhs = lhs | rhs;
-}
-
-inline EntityFlags operator~(EntityFlags f) 
-{ 
-    return static_cast<EntityFlags>(~static_cast<u32>(f)); 
-}
+ENABLE_ROSE_ENUM_OPS(EntityFlags); 
 
 // context used to construct an entity
 struct EntityCtx {
@@ -55,7 +36,7 @@ struct Entities {
     std::optional<rses> add_object(TextureManager& manager, const EntityCtx& ent_def);
 
     // updates the light radius field of all entities that are set as light emitters
-    void update_light_radii(f32 exposure);
+    void update_light_radii();
 
     // SoA of program objects, should all be equal length
     std::vector<Model> models;
@@ -67,7 +48,7 @@ struct Entities {
 
 // TODO: this function is ugly any probably should not exist + inefficient for large collections
 // temporary until I have a better solution
-void update_light_state(Entities& objs, ClusterData& clusters);
+void update_light_ssbos(Entities& objs, ClusterData& clusters);
 
 }
 

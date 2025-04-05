@@ -66,12 +66,12 @@ FrameBuf::~FrameBuf() {
     }
 }
 
-bool SSBO::init(u32 elem_sz, u32 n_elems, u32 base) { 
+bool SSBO::init(u32 size, u32 base) { 
 	glCreateBuffers(1, &ssbo);
-    glNamedBufferStorage(ssbo, elem_sz * n_elems, nullptr, GL_DYNAMIC_STORAGE_BIT);
+    glNamedBufferStorage(ssbo, size, nullptr, GL_DYNAMIC_STORAGE_BIT);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, base, ssbo);
-    this->sz = elem_sz * n_elems;
-    this->elem_sz = elem_sz;
+    this->capacity = size;
+    this->n_elems = 0;
     this->base = base;
     return true;
 }

@@ -95,6 +95,11 @@ std::expected<TextureRef, rses> TextureManager::load_texture(const fs::path& pat
     i32 width = 0, height = 0, n_channels = 0;
     unsigned char* texture_data = stbi_load(path.generic_string().c_str(), &width, &height, &n_channels, STBI_rgb_alpha);
 
+    if (n_channels == 4) {
+        // this texture has an alpha channel
+        texture.flags = TextureFlags::TRANSPARENT;
+    }
+
     if (texture_data) {
         glCreateTextures(GL_TEXTURE_2D, 1, &texture.id);
         glTextureParameteri(texture.id, GL_TEXTURE_WRAP_S, GL_REPEAT);

@@ -1,7 +1,7 @@
 #ifndef ROSE_INCLUDE_GL_SHADER
 #define ROSE_INCLUDE_GL_SHADER
 
-#include <rose/core/alias.hpp>
+#include <rose/core/core.hpp>
 #include <rose/core/err.hpp>
 
 #include <glm.hpp>
@@ -29,6 +29,7 @@ struct GL_Shader {
 
     void set_bool(const std::string_view& name, bool value) const;
     void set_int(const std::string_view& name, int value) const;
+    void set_tex(const std::string_view& name, int value, u32 tex) const;
     void set_float(const std::string_view& name, f32 value) const;
     void set_mat4(const std::string_view& name, const glm::mat4& value) const;
     void set_vec2(const std::string_view& name, const glm::vec2& value) const;
@@ -51,7 +52,8 @@ struct GL_Shaders {
     GL_Shader gbuf;
     GL_Shader hdr;
     GL_Shader light;
-    GL_Shader lighting;
+    GL_Shader lighting_deferred;
+    GL_Shader lighting_forward;
     GL_Shader passthrough;
     GL_Shader dir_shadow;
     GL_Shader pt_shadow;

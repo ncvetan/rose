@@ -5,7 +5,7 @@
 #ifndef ROSE_INCLUDE_LIGHTING
 #define ROSE_INCLUDE_LIGHTING
 
-#include <rose/core/alias.hpp>
+#include <rose/core/core.hpp>
 #include <rose/gl/structs.hpp>
 
 #include <glm.hpp>
@@ -36,9 +36,9 @@ struct DirLight {
 struct PtLight {
 
     // calculate the radius of the point light
-    inline void radius(f32 exposure) {
+    inline void radius() {
         f32 lum = glm::dot(glm::vec3(color.r, color.g, color.b), glm::vec3(0.2126, 0.7152, 0.0722));
-        f32 threshold = 0.01f / exposure;
+        f32 threshold = 0.01f;
         rad = (-linear + std::sqrtf(linear * linear - 4.0f * quad * (1.0f - lum / threshold)) / (2.0f * quad));
     };
 

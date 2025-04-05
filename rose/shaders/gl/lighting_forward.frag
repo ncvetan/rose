@@ -1,0 +1,216 @@
+#version 460 core
+
+layout (location = 0) out vec4 frag_color;
+layout (location = 1) out vec4 brightness_color;
+
+// inputs =========================================================================================
+
+in vs_data {
+	mat3  tbn;
+	vec3  frag_pos_ws;		// world space
+	vec3  normal;			// tangent space
+	vec2  tex_coords;
+	float frag_pos_z_vs;	// view space z coordinate, used for clustered shading
+	float spec_factor;
+} fs_in;
+
+
+// struct definitions =============================================================================
+
+// directional light properties
+struct DirLight {
+	vec3 direction;
+	vec3 color;
+};
+
+struct Material {
+	sampler2D	diffuse_map;
+	sampler2D	specular_map;
+	sampler2D	normal_map;
+	sampler2D	displace_map;
+	float		shine;
+	bool		has_normal_map;
+	bool		has_specular_map;
+};
+
+// light parameters for a particular point light
+struct PointLight {
+	vec4 color;
+	float linear;
+	float quad;
+	float intensity;
+	float radius;
+};
+
+// uniforms =======================================================================================
+
+uniform sampler2DArray dir_shadow_maps;
+uniform samplerCube pt_shadow_map;
+uniform Material material;
+uniform int n_cascades;
+uniform float cascade_depths[3];
+
+// buffers ========================================================================================
+
+// ubo
+layout (std140, binding = 1) uniform globals_ubo {
+	mat4 projection;
+	mat4 view;
+	vec3 camera_pos;
+	DirLight dir_light;
+	uvec3 grid_sz;				// cluster dimensions (xyz)
+	uvec2 screen_dims;			// screen [ width, height ]
+	float far_z;
+	float near_z;
+};
+
+// global list of lights and their parameters
+layout (std430, binding=3) buffer lights_ssbo {
+    PointLight light_props[];
+};
+
+// global list of light positions (this should always have the same length as lights_ssbo)
+layout (std430, binding=4) buffer light_positions_ssbo {
+    vec4 light_positions[];
+};
+
+struct Cluster {
+    uint count;			// number of lights affecting the cluster
+    uint indices[100];	// indicies of lights up to a maximum of 100
+};
+
+// indices of lights affecting each cluster
+layout (std430, binding=5) buffer clusters_ssbo {
+    Cluster clusters[];
+};
+
+// contains the light space matrix for each shadow map cascade
+layout(std140, binding=6) uniform light_space_mats_ubo {
+	mat4 ls_mats[3];
+};
+
+// functions ======================================================================================
+
+float calc_dir_shadow(DirLight light, vec3 pos, float frag_depth, vec3 normal) {
+
+	vec3 res = step(vec3(cascade_depths[0], cascade_depths[1], cascade_depths[2]), vec3(abs(frag_depth)));
+	int cascade_idx = int(res.x + res.y + res.z);
+
+	// [ world space -> light space ]
+	vec4 pos_ls = ls_mats[cascade_idx] * vec4(pos, 1.0);
+	vec3 proj_coords = pos_ls.xyz / pos_ls.w;
+	proj_coords = proj_coords * 0.5 + 0.5;  // [ -1, 1 ] -> [ 0, 1 ]
+	float curr_depth = proj_coords.z;
+
+	float shadow = 0.0;
+	vec2 tex_sz = 1.0 / vec2(textureSize(dir_shadow_maps, 0));
+	float bias = max(0.05 * (1.0 - dot(normal, light.direction)), 0.005);
+	bias *= 1 / (cascade_depths[cascade_idx] * 0.5f);
+
+	// pcf
+	for (int x = -1; x <= 1; ++x) {
+		for (int y = -1; y <= 1; ++y) {
+			float closest_depth = texture(dir_shadow_maps, vec3(proj_coords.xy + tex_sz * vec2(x, y), cascade_idx)).r;
+			shadow += (curr_depth - bias) > closest_depth ? 1.0 : 0.0;
+		}
+	}
+
+	shadow /= 9;
+	return shadow;
+}
+
+vec3 calc_dir_light(DirLight light, vec3 pos, float frag_depth, vec3 normal, float spec_factor) {
+	
+	float ambient_strength = 0.1;
+	float diffuse_strength = max(dot(-normalize(light.direction), normal), 0.0);
+	float specular_strength = 0.0;
+
+	if (diffuse_strength != 0.0) {
+		vec3 view_dir = normalize(camera_pos - pos);
+		vec3 half_dir = normalize(light.direction + view_dir);
+		specular_strength = pow(max(dot(view_dir, half_dir), 0.0), 16);
+	}
+
+	float shadow = calc_dir_shadow(dir_light, pos, frag_depth, normal);
+	return (ambient_strength + (1.0 - shadow) * (diffuse_strength + spec_factor * specular_strength)) * light.color;
+}
+
+float calc_point_shadow(vec3 pos, vec3 light_pos, samplerCube shadow_map, float far_plane) {
+	vec3 frag_to_light = pos - light_pos;
+	float closest = texture(shadow_map, frag_to_light).r * far_plane;
+	float depth = length(frag_to_light);
+	float bias = 0.05;
+	float shadow = ((depth - bias) > closest) ? 1.0 : 0.0;
+	return shadow;
+}
+
+vec3 calc_point_light(PointLight light_props, vec3 light_pos, vec3 pos, vec3 normal, float spec_factor, samplerCube shadow_map) {
+	// calculate attenuation
+	float dist = length(light_pos - pos);
+	float inner_r = light_props.radius * 0.7;
+	float outer_r = light_props.radius;
+	
+	if (dist > outer_r) {
+		return vec3(0.0);
+	}
+	
+	float attenuation = 1.0 / (1.0 + light_props.linear * dist + light_props.quad * (dist * dist));
+
+	if (dist > inner_r) {
+		attenuation *= smoothstep(outer_r, inner_r, dist);
+	}
+
+	attenuation = min(attenuation * light_props.intensity, 1.0);
+
+	float ambient_strength = 0.1;
+	vec3 light_dir = normalize(light_pos - pos);
+	float diffuse_strength = max(dot(light_dir, normal), 0.0);
+	float specular_strength = 0.0;
+
+	if (diffuse_strength != 0.0) {
+		vec3 view_dir = normalize(camera_pos - pos);
+		vec3 half_dir = normalize(light_dir + view_dir);
+		specular_strength = pow(max(dot(view_dir, half_dir), 0.0), 16);
+	}
+
+	float shadow = calc_point_shadow(pos, light_pos, shadow_map, far_z);
+	return (ambient_strength + (1.0 - shadow) * (diffuse_strength + spec_factor * specular_strength)) * light_props.color.xyz * attenuation * light_props.intensity;
+}
+
+void main() {
+
+	vec4 color = texture(material.diffuse_map, fs_in.tex_coords);
+
+	// discard fragments with low alpha
+	if (color.a < 0.1) {
+		discard;
+	}
+	
+	// determine the cluster this fragment belongs in
+//	uint cluster_z = uint((log(abs(fs_in.frag_pos_z_vs) / near_z) * float(grid_sz.z)) / log(far_z / near_z));
+//	vec2 cluster_sz = screen_dims / grid_sz.xy;
+//	uvec3 cluster_coord = uvec3(gl_FragCoord.xy / cluster_sz, cluster_z);
+//	uint cluster_idx = cluster_coord.x + (cluster_coord.y * grid_sz.x) + (cluster_coord.z * grid_sz.x * grid_sz.y);
+
+	// compute directional light contribution
+	vec3 result = color.rgb * calc_dir_light(dir_light, fs_in.frag_pos_ws, fs_in.frag_pos_z_vs, fs_in.normal, fs_in.spec_factor);
+
+	// compute contributions from point lights
+//	for (uint idx = 0; idx < clusters[cluster_idx].count; ++idx) {
+//		uint light_idx = clusters[cluster_idx].indices[idx];
+//		result += color.rgb * calc_point_light(light_props[light_idx], light_positions[light_idx].xyz, fs_in.frag_pos_ws, fs_in.normal, fs_in.spec_factor, pt_shadow_map);
+//	}
+//	
+	frag_color = vec4(result, 1.0);
+	
+	// write to brightness buffer
+	float brightness = dot(frag_color.rgb, vec3(0.2126, 0.7152, 0.0722));	// rgb -> luminance
+
+	if (brightness > 1.0) {
+		brightness_color = vec4(frag_color.rgb, 0.0);
+	}
+	else { 
+		brightness_color = vec4(0.0, 0.0, 0.0, 0.0);
+	}
+
+}

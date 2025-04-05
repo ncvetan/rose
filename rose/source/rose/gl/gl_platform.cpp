@@ -44,7 +44,7 @@ std::optional<rses> GL_Platform::init(AppData& app_data) {
         return err;
     }
 
-    // models
+    // note: hard coding some model loading for testing, can be removed eventually
     EntityCtx sponza_def = { .model_pth = SOURCE_DIR "/assets/Sponza/glTF/Sponza.gltf",
                              .pos = { 0.0f, 0.0f, 0.0f },
                              .scale = { 0.02f, 0.02f, 0.02f },
@@ -70,14 +70,13 @@ std::optional<rses> GL_Platform::init(AppData& app_data) {
 
     entities.add_object(texture_manager, model2_def);
 
-    EntityCtx light2_def = { .model_pth = SOURCE_DIR "/assets/model1/model1.obj",
+    EntityCtx model3_def = { .model_pth = SOURCE_DIR "/assets/model1/model1.obj",
                              .pos = { 0.0f, 10.0f, 0.0f },
                              .scale = { 1.0f, 1.0f, 1.0f },
                              .light_props = PtLight(),
                              .flags = EntityFlags::EMIT_LIGHT };
 
-    entities.add_object(texture_manager, light2_def);
-    entities.light_props.back().radius(app_data.window_data.exposure);
+    entities.add_object(texture_manager, model3_def);
     entities.light_props.back().color = { 0.35f, 0.1f, 0.1f, 1.0f };
 
     // frame buf initialization ===================================================================
@@ -115,14 +114,11 @@ std::optional<rses> GL_Platform::init(AppData& app_data) {
     // ssbo initialization ========================================================================
 
     i32 n_clusters = clusters.grid_sz.x * clusters.grid_sz.y * clusters.grid_sz.z;
-
-    clusters.clusters_aabb_ssbo.init(sizeof(AABB), n_clusters, 2);
-    // initially allocate memory for 1024 point lights
-    clusters.lights_ssbo.init(sizeof(PtLight), 1024, 3);
-    clusters.lights_pos_ssbo.init(sizeof(glm::vec4), 1024, 4);
-    entities.update_light_radii(app_data.window_data.exposure);
-    update_light_state(entities, clusters);
-    clusters.clusters_ssbo.init(sizeof(u32) * (1 + clusters.max_lights_in_cluster), n_clusters, 5);
+    clusters.clusters_aabb_ssbo.init(sizeof(AABB) * n_clusters, 2);
+    clusters.lights_ssbo.init(sizeof(PtLight) * 1024, 3);
+    clusters.lights_pos_ssbo.init(sizeof(glm::vec4) * 1024, 4);
+    update_light_ssbos(entities, clusters);
+    clusters.clusters_ssbo.init(sizeof(u32) * (1 + clusters.max_lights_in_cluster) * n_clusters, 5);
 
     // shadow map initialization ==================================================================
     
@@ -158,9 +154,8 @@ std::optional<rses> GL_Platform::init(AppData& app_data) {
     // ---- point shadow map ----
 
     glCreateFramebuffers(1, &platform_state.pt_shadow.fbo);
-    glBindFramebuffer(platform_state.pt_shadow.fbo, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, platform_state.pt_shadow.fbo);
     glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &platform_state.pt_shadow.tex);
-
 
     glTextureStorage2D(platform_state.pt_shadow.tex, 1, GL_DEPTH_COMPONENT32F, platform_state.pt_shadow.resolution,
                        platform_state.pt_shadow.resolution);
@@ -170,7 +165,6 @@ std::optional<rses> GL_Platform::init(AppData& app_data) {
     glTextureParameteri(platform_state.pt_shadow.tex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTextureParameteri(platform_state.pt_shadow.tex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTextureParameteri(platform_state.pt_shadow.tex, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
 
     glNamedFramebufferTexture(platform_state.pt_shadow.fbo, GL_DEPTH_ATTACHMENT, platform_state.pt_shadow.tex, 0);
     glNamedFramebufferDrawBuffer(platform_state.pt_shadow.fbo, GL_NONE);
@@ -228,6 +222,7 @@ static glm::mat4 get_light_pv(const Camera& camera, const glm::vec3& light_dir, 
 }
 
 void GL_Platform::update(AppData& app_data) {
+   
     // frame set up ===============================================================================================
         
     ImGui_ImplOpenGL3_NewFrame();
@@ -255,7 +250,7 @@ void GL_Platform::update(AppData& app_data) {
 
     // clustered set-up ===========================================================================================
 
-    // determine the aabb for each cluster
+    // determine the AABB for each cluster
     // note: this only needs to be called once if parameters do not change
     shaders.clusters_build.use();
     shaders.clusters_build.set_mat4("inv_proj", glm::inverse(projection));
@@ -265,6 +260,7 @@ void GL_Platform::update(AppData& app_data) {
 
     // build light lists for each cluster
     shaders.clusters_cull.use();
+    shaders.clusters_cull.set_int("n_lights", clusters.lights_ssbo.n_elems);
 
     glDispatchCompute(27, 1, 1);
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
@@ -293,7 +289,7 @@ void GL_Platform::update(AppData& app_data) {
     glEnable(GL_DEPTH_CLAMP);
 
     for (size_t obj_idx = 0; obj_idx < entities.size(); ++obj_idx) {
-        if ((entities.flags[obj_idx] & EntityFlags::EMIT_LIGHT) == EntityFlags::NONE) {
+        if (!is_set(entities.flags[obj_idx], EntityFlags::EMIT_LIGHT)) {
             translate(entities.models[obj_idx], entities.positions[obj_idx]);
             scale(entities.models[obj_idx], entities.scales[obj_idx]);
             entities.models[obj_idx].draw(shaders.dir_shadow, platform_state);
@@ -304,9 +300,9 @@ void GL_Platform::update(AppData& app_data) {
     glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
     glDisable(GL_DEPTH_CLAMP);
 
-    shaders.lighting.set_float("cascade_depths[0]", c1_far);
-    shaders.lighting.set_float("cascade_depths[1]", c2_far);
-    shaders.lighting.set_float("cascade_depths[2]", app_data.camera.far_plane);
+    shaders.lighting_deferred.set_float("cascade_depths[0]", c1_far);
+    shaders.lighting_deferred.set_float("cascade_depths[1]", c2_far);
+    shaders.lighting_deferred.set_float("cascade_depths[2]", app_data.camera.far_plane);
 
     // ---- point lights ----
 
@@ -323,7 +319,7 @@ void GL_Platform::update(AppData& app_data) {
 
     for (size_t light_idx = 0; light_idx < entities.size(); ++light_idx) {
             
-        if ((entities.flags[light_idx] & EntityFlags::EMIT_LIGHT) == EntityFlags::NONE) {
+        if (!is_set(entities.flags[light_idx], EntityFlags::EMIT_LIGHT)) {
             continue;
         }
 
@@ -351,10 +347,11 @@ void GL_Platform::update(AppData& app_data) {
         shaders.pt_shadow.set_vec3("light_pos", light_pos);
 
         for (size_t obj_idx = 0; obj_idx < entities.size(); ++obj_idx) {
-            if ((entities.flags[obj_idx] & EntityFlags::EMIT_LIGHT) == EntityFlags::NONE) {
+            if (!is_set(entities.flags[obj_idx], EntityFlags::EMIT_LIGHT)) {
                 translate(entities.models[obj_idx], entities.positions[obj_idx]);
                 scale(entities.models[obj_idx], entities.scales[obj_idx]);
-                entities.models[obj_idx].draw(shaders.pt_shadow, platform_state);
+                // for now, not casting shadows from entities that have transparency
+                entities.models[obj_idx].draw(shaders.pt_shadow, platform_state, MeshFlags::TRANSPARENT, true);
                 entities.models[obj_idx].reset();
             }
         }
@@ -364,16 +361,18 @@ void GL_Platform::update(AppData& app_data) {
 
     // geometry pass ==========================================================================
 
-    gbuf.use();
+    gbuf.bind();
     glNamedFramebufferDrawBuffers(gbuf.frame_buf, 3, gbuf.attachments.data());
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-    // draw skybox
+    // note: we are using the stencil buffer to mask out pixels that should
+    // not be impacted by lighting
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
-    glStencilMask(0x00); // do not write to stencil buffer
+    glStencilMask(0x00);
 
+    // mask out and render skybox
     glm::mat4 static_view = view;
     static_view[3] = { 0, 0, 0, 1 }; // removing translation component
     glNamedBufferSubData(platform_state.global_ubo, 64, sizeof(glm::mat4), glm::value_ptr(static_view));
@@ -387,18 +386,19 @@ void GL_Platform::update(AppData& app_data) {
     glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
     glStencilMask(0xFF);
 
+    // render non light emitters
     for (size_t idx = 0; idx < entities.size(); ++idx) {
-        if ((entities.flags[idx] & EntityFlags::EMIT_LIGHT) == EntityFlags::NONE) {                
+        if (!is_set(entities.flags[idx], EntityFlags::EMIT_LIGHT)) {                
             translate(entities.models[idx], entities.positions[idx]);
             scale(entities.models[idx], entities.scales[idx]);
-            entities.models[idx].draw(shaders.gbuf, platform_state);
+            entities.models[idx].draw(shaders.gbuf, platform_state, MeshFlags::TRANSPARENT, true);
             entities.models[idx].reset();
         }
     }
 
     // deferred pass ==========================================================================
 
-    pp1.use();
+    pp1.bind();
     glNamedFramebufferDrawBuffers(pp1.frame_buf, 2, pp1.attachments.data());
 
     // compute lighting for all fragments with stencil value '1'
@@ -406,21 +406,14 @@ void GL_Platform::update(AppData& app_data) {
     glStencilFunc(GL_EQUAL, 1, 0xFF); 
     glStencilOp(GL_ZERO, GL_REPLACE, GL_REPLACE);
 
-    glBindTextureUnit(0, gbuf.tex_bufs[0]); // positions (ws)
-    glBindTextureUnit(1, gbuf.tex_bufs[1]); // normals
-    glBindTextureUnit(2, gbuf.tex_bufs[2]); // colors
-    glBindTextureUnit(11, platform_state.dir_light.shadow.tex);
-    glBindTextureUnit(12, platform_state.pt_shadow.tex);
+    shaders.lighting_deferred.set_tex("gbuf_pos", 0, gbuf.tex_bufs[0]);
+    shaders.lighting_deferred.set_tex("gbuf_norms", 1, gbuf.tex_bufs[1]);
+    shaders.lighting_deferred.set_tex("gbuf_colors", 2, gbuf.tex_bufs[2]);
+    shaders.lighting_deferred.set_tex("dir_shadow_maps", 11, platform_state.dir_light.shadow.tex);
+    shaders.lighting_deferred.set_tex("pt_shadow_map", 12, platform_state.pt_shadow.tex);
+    shaders.lighting_deferred.set_int("n_cascades", platform_state.dir_light.shadow.n_cascades);
 
-    shaders.lighting.set_int("gbuf_pos", 0);
-    shaders.lighting.set_int("gbuf_norms", 1);
-    shaders.lighting.set_int("gbuf_colors", 2);
-    shaders.lighting.set_int("dir_shadow_maps", 11);
-    shaders.lighting.set_int("pt_shadow_map", 12);
-
-    shaders.lighting.set_int("n_cascades", platform_state.dir_light.shadow.n_cascades);
-
-    pp1.draw(shaders.lighting);
+    pp1.draw(shaders.lighting_deferred);
 
     // pass through for all fragments with stencil value '0'
     glStencilFunc(GL_EQUAL, 0, 0xFF); 
@@ -434,12 +427,26 @@ void GL_Platform::update(AppData& app_data) {
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
 
-    // draw light emitters
+    shaders.lighting_forward.set_tex("dir_shadow_maps", 11, platform_state.dir_light.shadow.tex);
+    shaders.lighting_forward.set_tex("pt_shadow_map", 12, platform_state.pt_shadow.tex);
+    shaders.lighting_forward.set_int("n_cascades", platform_state.dir_light.shadow.n_cascades);
+    shaders.lighting_forward.set_float("cascade_depths[0]", c1_far);
+    shaders.lighting_forward.set_float("cascade_depths[1]", c2_far);
+    shaders.lighting_forward.set_float("cascade_depths[2]", app_data.camera.far_plane);
+
     for (size_t idx = 0; idx < entities.size(); ++idx) {
-        if ((entities.flags[idx] & EntityFlags::EMIT_LIGHT) != EntityFlags::NONE) {
+        if (is_set(entities.flags[idx], EntityFlags::EMIT_LIGHT)) {
+            // draw light emitters
             translate(entities.models[idx], entities.positions[idx]);
             scale(entities.models[idx], entities.scales[idx]);
             entities.models[idx].draw(shaders.light, platform_state);
+            entities.models[idx].reset();
+        } 
+        else {
+            // draw transparent components
+            translate(entities.models[idx], entities.positions[idx]);
+            scale(entities.models[idx], entities.scales[idx]);
+            entities.models[idx].draw(shaders.lighting_forward, platform_state, MeshFlags::TRANSPARENT, false);
             entities.models[idx].reset();
         }
     }
@@ -452,43 +459,38 @@ void GL_Platform::update(AppData& app_data) {
         glClear(GL_DEPTH_BUFFER_BIT);
         glDisable(GL_DEPTH_TEST);
         bool horizontal = false;
-        glBindTextureUnit(0, pp1.tex_bufs[1]); // brightness buf
-        shaders.blur.set_int("tex", 0);
+        shaders.blur.set_tex("tex", 0, pp1.tex_bufs[1]);
         pp1.draw(shaders.blur);
 
         for (int i = 0; i < app_data.n_bloom_passes * 2 - 1; ++i) {
             if (horizontal) {
-                pp1.use();
+                pp1.bind();
                 glNamedFramebufferDrawBuffer(pp1.frame_buf, GL_COLOR_ATTACHMENT1);
-                glBindTextureUnit(0, gbuf.tex_bufs[0]);
+                shaders.blur.set_tex("tex", 0, gbuf.tex_bufs[0]);
                 shaders.blur.set_bool("horizontal", true);
-                shaders.blur.set_int("tex", 0);
                 pp1.draw(shaders.blur);
             } else {
                 // note: reusing the gbuf position buf for bloom calculations
-                gbuf.use();
+                gbuf.bind();
                 glNamedFramebufferDrawBuffer(gbuf.frame_buf, GL_COLOR_ATTACHMENT0);
-                glBindTextureUnit(0, pp1.tex_bufs[1]);
+                shaders.blur.set_tex("tex", 0, pp1.tex_bufs[1]);
                 shaders.blur.set_bool("horizontal", false);
-                shaders.blur.set_int("tex", 0);
                 gbuf.draw(shaders.blur);
             }
             horizontal = !horizontal;
         }
     }
 
-    fbuf_out.use();
+    fbuf_out.bind();
     glClear(GL_DEPTH_BUFFER_BIT);
     glDisable(GL_DEPTH_TEST);
 
-    glBindTextureUnit(0, pp1.tex_bufs[0]); // color
-    glBindTextureUnit(1, pp1.tex_bufs[1]); // blur
-
-    shaders.hdr.set_int("scene_tex", 0);
-    shaders.hdr.set_int("blur_tex", 1);
+    shaders.hdr.set_tex("scene_tex", 0, pp1.tex_bufs[0]);
+    shaders.hdr.set_tex("blur_tex", 1, pp1.tex_bufs[1]);
     shaders.hdr.set_float("gamma", app_data.window_data.gamma);
     shaders.hdr.set_float("exposure", app_data.window_data.exposure);
     shaders.hdr.set_bool("bloom_enabled", app_data.bloom_on);
+
     fbuf_out.draw(shaders.hdr);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);

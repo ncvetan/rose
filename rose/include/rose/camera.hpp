@@ -1,7 +1,7 @@
 #ifndef ROSE_INCLUDE_CAMERA
 #define ROSE_INCLUDE_CAMERA
 
-#include <rose/core/alias.hpp>
+#include <rose/core/core.hpp>
 
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>

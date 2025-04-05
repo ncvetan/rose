@@ -15,40 +15,37 @@ std::optional<rses> Entities::add_object(TextureManager& manager, const EntityCt
     positions.push_back(ent_def.pos);
     scales.push_back(ent_def.scale);
     light_props.push_back(ent_def.light_props);
+    light_props.back().radius();
     flags.push_back(ent_def.flags);
-
+    
     return std::nullopt;
 }
 
-void Entities::update_light_radii(f32 exposure) {
+void Entities::update_light_radii() {
     for (size_t idx = 0; idx < size(); ++idx) {
-        if ((flags[idx] & EntityFlags::EMIT_LIGHT) != EntityFlags::NONE) {
-            light_props[idx].radius(exposure);
+        if (is_set(flags[idx], EntityFlags::EMIT_LIGHT)) {
+            light_props[idx].radius();
         }
     }
 }
 
 // TODO: come up with a better solution
-void update_light_state(Entities& objs, ClusterData& clusters) {
+void update_light_ssbos(Entities& objs, ClusterData& clusters) {
     std::vector<PtLight> pnt_lights_props;
     std::vector<glm::vec4> pnt_lights_pos;
     u32 n_lights = 0;
 
     // linear search, probably not a big deal for now
     for (size_t idx = 0; idx < objs.size(); ++idx) {
-        if ((objs.flags[idx] & EntityFlags::EMIT_LIGHT) != EntityFlags::NONE) {
+        if (is_set(objs.flags[idx], EntityFlags::EMIT_LIGHT)) {
             pnt_lights_pos.push_back(glm::vec4(objs.positions[idx], 1.0f));
             pnt_lights_props.push_back(objs.light_props[idx]);
             n_lights++;
         }
     }
 
-    clusters.lights_ssbo.update(0, std::span(pnt_lights_props.begin(), pnt_lights_props.end()));
-    clusters.lights_pos_ssbo.update(0, std::span(pnt_lights_pos.begin(), pnt_lights_pos.end()));
-
-    // zero out the rest of the buffer
-    clusters.lights_ssbo.zero(n_lights);
-    clusters.lights_pos_ssbo.zero(n_lights);
+    clusters.lights_ssbo.update(std::span(pnt_lights_props.begin(), pnt_lights_props.end()));
+    clusters.lights_pos_ssbo.update(std::span(pnt_lights_pos.begin(), pnt_lights_pos.end()));
 }
 
 }

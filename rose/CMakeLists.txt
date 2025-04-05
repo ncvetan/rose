@@ -9,7 +9,7 @@ set(SOURCES
     "include/rose/lighting.hpp"
     "include/rose/model.hpp"
     "include/rose/texture.hpp"
-    "include/rose/core/alias.hpp"
+    "include/rose/core/core.hpp"
     "include/rose/core/err.hpp"
     "include/rose/core/math.hpp"
 

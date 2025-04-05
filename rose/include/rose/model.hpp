@@ -38,12 +38,20 @@ void rotate(T& obj, f32 deg, const glm::vec3& axis) {
     obj.model_mat = glm::rotate(obj.model_mat, glm::radians(deg), axis);
 }
 
+enum class MeshFlags : u32 {
+    NONE = 0,            // no effect
+    TRANSPARENT = bit1,  // this mesh contains transparent textures
+};
+
+ENABLE_ROSE_ENUM_OPS(MeshFlags); 
+
 struct Mesh {
     u64 n_indices = 0;
     u64 base_vert = 0;
     u64 base_idx = 0;
     u32 matl_offset = 0;
     u32 n_matls = 0;
+    MeshFlags flags = MeshFlags::NONE;
 };
 
 struct Model {
@@ -57,6 +65,7 @@ struct Model {
     Model& operator=(Model&& other) noexcept;
     
     void draw(GL_Shader& shader, const GL_PlatformState& state) const;
+    void draw(GL_Shader& shader, const GL_PlatformState& state, MeshFlags mesh_cond, bool invert_cond) const;
     
     std::optional<rses> load(TextureManager& manager, const std::filesystem::path& path);
     
