@@ -29,7 +29,7 @@ struct Cluster {
     uint indices[100];
 };
 
-layout (std140, binding = 1) uniform globals {
+layout (std140, binding = 1) uniform globals_ubo {
 	mat4 projection;
 	mat4 view;
 	vec3 camera_pos;
@@ -71,15 +71,16 @@ bool sphere_aabb_test(vec3 light_pos, float light_radius, AABB aabb) {
     return dist <= light_radius * light_radius;
 }
 
+uniform int n_lights;
+
 void main() {
 
-    uint n_total_lights = lights.length();
     uint cluster_idx = gl_WorkGroupID.x * 128 + gl_LocalInvocationID.x;
 
     AABB aabb = cluster_aabb[cluster_idx];
     clusters[cluster_idx].count = 0;
 
-    for (uint idx = 0; idx < n_total_lights; ++idx) {
+    for (uint idx = 0; idx < n_lights; ++idx) {
         vec3 light_pos = vec3(view * lights_pos[idx]);
         if (sphere_aabb_test(light_pos, lights[idx].radius, aabb) && clusters[cluster_idx].count < 100) {
             clusters[cluster_idx].indices[clusters[cluster_idx].count] = idx;

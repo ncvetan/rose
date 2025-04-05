@@ -5,7 +5,7 @@
 #ifndef ROSE_INCLUDE_GL_STRUCTS
 #define ROSE_INCLUDE_GL_STRUCTS
 
-#include <rose/core/alias.hpp>
+#include <rose/core/core.hpp>
 #include <rose/core/err.hpp>
 #include <rose/gl/shader.hpp>
 
@@ -28,7 +28,7 @@ struct FrameBuf {
 
     ~FrameBuf();
 
-    inline void use() {
+    inline void bind() {
         glBindFramebuffer(GL_FRAMEBUFFER, frame_buf);
         glViewport(0, 0, width, height);
     }
@@ -57,41 +57,33 @@ struct FrameBuf {
 
 struct SSBO {
 
-    bool init(u32 elem_sz, u32 n_elems, u32 base);
+    // constructs ssbo given size in bytes and a binding point
+    bool init(u32 size, u32 base);
 
     template <typename T>
-    void update(u32 offset, std::span<T> data) {
+    void update(std::span<T> data) {
 
         // check if we have exceeded the capacity of the SSBO and need to resize it
-        // 
-        // note: if using the .length() function in GLSL, it will return the capacity and
-        // not the actual number of elements initialized in the buffer, therefore might
-        // want to also keep track of the number of elements
-        if (elem_sz * offset + data.size_bytes() > sz) {
+        if (data.size_bytes() > capacity) {
             u32 realloced_ssbo = 0;
             glCreateBuffers(1, &realloced_ssbo);
-            glNamedBufferStorage(realloced_ssbo, sz * 2, nullptr, GL_DYNAMIC_STORAGE_BIT);
-            glCopyNamedBufferSubData(ssbo, realloced_ssbo, 0, 0, sz);
+            glNamedBufferStorage(realloced_ssbo, capacity * 2, nullptr, GL_DYNAMIC_STORAGE_BIT);
             glDeleteBuffers(1, &ssbo);
             glBindBufferBase(GL_SHADER_STORAGE_BUFFER, base, realloced_ssbo);
-            sz *= 2;
+            capacity *= 2;
             ssbo = realloced_ssbo;
         }
 
-        glNamedBufferSubData(ssbo, elem_sz * offset, data.size_bytes(), static_cast<void*>(data.data()));
+        n_elems = data.size();
+        glNamedBufferSubData(ssbo, 0, data.size_bytes(), static_cast<void*>(data.data()));
     }
-
-    // zero out all the memory after the given offset
-    inline void zero(u32 offset) {
-        glNamedBufferSubData(ssbo, elem_sz * offset, (sz - elem_sz * offset), nullptr);
-    };
 
     ~SSBO();
 
-    u32 ssbo = 0;       // ssbo identifier
-    u32 elem_sz;        // size of each ssbo element in bytes
-    u32 sz = 0;         // size of the ssbo in bytes
-    u32 base = 0;       // bind idx
+    u32 ssbo = 0;      // ssbo identifier
+    u32 n_elems = 0;   // number of elements
+    u32 capacity = 0;  // size of the ssbo in bytes
+    u32 base = 0;      // bind idx
 };
 
 }

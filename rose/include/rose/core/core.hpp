@@ -1,11 +1,13 @@
-#ifndef ROSE_INCLUDE_CORE_ALIAS
-#define ROSE_INCLUDE_CORE_ALIAS
+#ifndef ROSE_INCLUDE_CORE_CORE
+#define ROSE_INCLUDE_CORE_CORE
 
 #include <GL/glew.h>
 
 #include <glm.hpp>
 
 #include <filesystem>
+
+// typedefs =======================================================================================
 
 namespace fs = std::filesystem;
 
@@ -67,4 +69,41 @@ namespace constants {
     constexpr glm::vec3 vec3_max = { f32_max, f32_max, f32_max };
 }
 
+// utilities ======================================================================================
+
+template <typename T>
+struct enable_rose_enum_ops : std::false_type {};
+
+#define ENABLE_ROSE_ENUM_OPS(E)                                                                                          \
+    template <>                                                                                                          \
+    struct enable_rose_enum_ops<E> : std::true_type {};
+
+template <typename T>
+concept RoseEnumT = std::is_enum_v<T> && enable_rose_enum_ops<T>::value;
+
+template<RoseEnumT T>
+T operator&(T lhs, T rhs) {
+    return static_cast<T>(static_cast<std::underlying_type_t<T>>(lhs) & static_cast<std::underlying_type_t<T>>(rhs));
+}
+
+template <RoseEnumT T>
+T& operator&=(T& lhs, T rhs) { return lhs = lhs & rhs; }
+
+template <RoseEnumT T>
+T operator|(T lhs, T rhs) {
+    return static_cast<T>(static_cast<std::underlying_type_t<T>>(lhs) | static_cast<std::underlying_type_t<T>>(rhs));
+}
+
+template <RoseEnumT T>
+T& operator|=(T& lhs, T rhs) { return lhs = lhs | rhs; }
+
+template <RoseEnumT T>
+T operator~(T f) {
+    return static_cast<T>(~static_cast<std::underlying_type_t<T>>(f));
+}
+
+template <RoseEnumT T>
+bool is_set(T flag, T compare) {
+    return ((flag & compare) != T::NONE);
+}
 #endif

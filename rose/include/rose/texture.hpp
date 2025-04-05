@@ -1,7 +1,7 @@
 #ifndef ROSE_INCLUDE_TEXTURE
 #define ROSE_INCLUDE_TEXTURE
 
-#include <rose/core/alias.hpp>
+#include <rose/core/core.hpp>
 #include <rose/core/err.hpp>
 
 #include <array>
@@ -23,9 +23,17 @@ enum class TextureType {
     TEXTURE_COUNT
 };
 
+enum class TextureFlags : u32 {
+    NONE = 0,            // no effect
+    TRANSPARENT = bit1   // this texture has some degree of transparency
+};
+
+ENABLE_ROSE_ENUM_OPS(TextureFlags);
+
 struct TextureGL {
     u32 id = 0;
     TextureType ty = TextureType::NONE;
+    TextureFlags flags = TextureFlags::NONE;
 
     inline void free() { glDeleteTextures(1, &id); }
 };
