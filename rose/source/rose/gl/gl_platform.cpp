@@ -18,7 +18,7 @@
 
 namespace rose {
 
-std::optional<rses> GL_Platform::init(AppData& app_data) {
+std::optional<rses> GL_Platform::init(AppState& app_state) {
 
     std::optional<rses> err = std::nullopt;
 
@@ -84,18 +84,18 @@ std::optional<rses> GL_Platform::init(AppData& app_data) {
     // TODO: optimize size of framebuffers
 
     // (position, normal, albedo)
-    if (err = gbuf.init(app_data.window_data.width, app_data.window_data.height, true, { { GL_RGBA16F }, { GL_RGBA16F }, { GL_RGBA8 } })) {
+    if (err = gbuf_fbuf.init(app_state.window_state.width, app_state.window_state.height, true, { { GL_RGBA16F }, { GL_RGBA16F }, { GL_RGBA8 } })) {
         return err;
     }
 
-    if (err = pp1.init(app_data.window_data.width, app_data.window_data.height, false, { { GL_RGBA16F }, { GL_RGBA16F } })) {
+    if (err = int_fbuf.init(app_state.window_state.width, app_state.window_state.height, false, { { GL_RGBA16F } })) {
         return err;
     }
 
     // note: pp1 uses the render buffer of gbuf to perform masking with the stencil buffer
-    glNamedFramebufferRenderbuffer(pp1.frame_buf, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, gbuf.render_buf);
+    glNamedFramebufferRenderbuffer(int_fbuf.frame_buf, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, gbuf_fbuf.render_buf);
 
-    if (err = fbuf_out.init(app_data.window_data.width, app_data.window_data.height, false, { { GL_RGBA8 } })) {
+    if (err = out_fbuf.init(app_state.window_state.width, app_state.window_state.height, false, { { GL_RGBA8 } })) {
         return err;
     }
 
@@ -105,11 +105,11 @@ std::optional<rses> GL_Platform::init(AppData& app_data) {
     glNamedBufferStorage(platform_state.global_ubo, 208, nullptr, GL_DYNAMIC_STORAGE_BIT);
     glBindBufferBase(GL_UNIFORM_BUFFER, 1, platform_state.global_ubo);
 
-    glm::uvec2 screen_dims = { app_data.window_data.width, app_data.window_data.height };
+    glm::uvec2 screen_dims = { app_state.window_state.width, app_state.window_state.height };
     glNamedBufferSubData(platform_state.global_ubo, 176, 16, glm::value_ptr(clusters.grid_sz));
     glNamedBufferSubData(platform_state.global_ubo, 192, 8, glm::value_ptr(screen_dims));
-    glNamedBufferSubData(platform_state.global_ubo, 200, 4, &app_data.camera.far_plane);
-    glNamedBufferSubData(platform_state.global_ubo, 204, 4, &app_data.camera.near_plane);
+    glNamedBufferSubData(platform_state.global_ubo, 200, 4, &app_state.camera.far_plane);
+    glNamedBufferSubData(platform_state.global_ubo, 204, 4, &app_state.camera.near_plane);
 
     // ssbo initialization ========================================================================
 
@@ -176,6 +176,11 @@ std::optional<rses> GL_Platform::init(AppData& app_data) {
     
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+    // remaining set up ===========================================================================
+
+    shaders.brightness.set_f32("bloom_threshold", app_state.bloom_threshold);
+    shaders.bloom.set_f32("bloom_threshold", app_state.bloom_threshold);
+
     return std::nullopt;
 };
 
@@ -221,7 +226,7 @@ static glm::mat4 get_light_pv(const Camera& camera, const glm::vec3& light_dir, 
     return light_proj * light_view;
 }
 
-void GL_Platform::update(AppData& app_data) {
+void GL_Platform::update(AppState& app_state) {
    
     // frame set up ===============================================================================================
         
@@ -233,18 +238,18 @@ void GL_Platform::update(AppData& app_data) {
 
     // TODO: this is only used at a single point in the gui code
     // should find a better solution
-    app_data.window_data.dock_id = ImGui::DockSpaceOverViewport();
+    app_state.window_state.dock_id = ImGui::DockSpaceOverViewport();
 
     glEnable(GL_DEPTH_TEST);
 
-    f32 ar = (f32)app_data.window_data.width / (f32)app_data.window_data.height;
-    glm::mat4 projection = app_data.camera.projection(ar);
-    glm::mat4 view = app_data.camera.view();
+    f32 ar = (f32)app_state.window_state.width / (f32)app_state.window_state.height;
+    glm::mat4 projection = app_state.camera.projection(ar);
+    glm::mat4 view = app_state.camera.view();
 
     // update ubo state
     glNamedBufferSubData(platform_state.global_ubo, 0, 64, glm::value_ptr(projection));
     glNamedBufferSubData(platform_state.global_ubo, 64, 64, glm::value_ptr(view));
-    glNamedBufferSubData(platform_state.global_ubo, 128, 16, glm::value_ptr(app_data.camera.position));
+    glNamedBufferSubData(platform_state.global_ubo, 128, 16, glm::value_ptr(app_state.camera.position));
     glNamedBufferSubData(platform_state.global_ubo, 144, 16, glm::value_ptr(platform_state.dir_light.direction));
     glNamedBufferSubData(platform_state.global_ubo, 160, 16, glm::value_ptr(platform_state.dir_light.color));
 
@@ -260,7 +265,7 @@ void GL_Platform::update(AppData& app_data) {
 
     // build light lists for each cluster
     shaders.clusters_cull.use();
-    shaders.clusters_cull.set_int("n_lights", clusters.lights_ssbo.n_elems);
+    shaders.clusters_cull.set_i32("n_lights", clusters.lights_ssbo.n_elems);
 
     glDispatchCompute(27, 1, 1);
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
@@ -278,9 +283,9 @@ void GL_Platform::update(AppData& app_data) {
     f32 c1_far = 10.0f;
     f32 c2_far = 30.0f;
 
-    glm::mat4 c1_map = get_light_pv(app_data.camera, platform_state.dir_light.direction, platform_state, ar, app_data.camera.near_plane, c1_far);
-    glm::mat4 c2_map = get_light_pv(app_data.camera, platform_state.dir_light.direction, platform_state, ar, c1_far, c2_far);
-    glm::mat4 c3_map = get_light_pv(app_data.camera, platform_state.dir_light.direction, platform_state, ar, c2_far, app_data.camera.far_plane);
+    glm::mat4 c1_map = get_light_pv(app_state.camera, platform_state.dir_light.direction, platform_state, ar, app_state.camera.near_plane, c1_far);
+    glm::mat4 c2_map = get_light_pv(app_state.camera, platform_state.dir_light.direction, platform_state, ar, c1_far, c2_far);
+    glm::mat4 c3_map = get_light_pv(app_state.camera, platform_state.dir_light.direction, platform_state, ar, c2_far, app_state.camera.far_plane);
 
     glNamedBufferSubData(platform_state.dir_light.light_mats_ubo, 0, 64, glm::value_ptr(c1_map));
     glNamedBufferSubData(platform_state.dir_light.light_mats_ubo, 64, 64, glm::value_ptr(c2_map));
@@ -300,22 +305,22 @@ void GL_Platform::update(AppData& app_data) {
     glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
     glDisable(GL_DEPTH_CLAMP);
 
-    shaders.lighting_deferred.set_float("cascade_depths[0]", c1_far);
-    shaders.lighting_deferred.set_float("cascade_depths[1]", c2_far);
-    shaders.lighting_deferred.set_float("cascade_depths[2]", app_data.camera.far_plane);
+    shaders.lighting_deferred.set_f32("cascade_depths[0]", c1_far);
+    shaders.lighting_deferred.set_f32("cascade_depths[1]", c2_far);
+    shaders.lighting_deferred.set_f32("cascade_depths[2]", app_state.camera.far_plane);
 
     // ---- point lights ----
 
     glm::mat4 shadow_proj = glm::perspective(
         glm::radians(90.0f), (f32)platform_state.pt_shadow.resolution / (f32)platform_state.pt_shadow.resolution,
-        app_data.camera.near_plane, app_data.camera.far_plane);
+        app_state.camera.near_plane, app_state.camera.far_plane);
 
     std::array<glm::mat4, 6> shadow_transforms;
 
     glBindFramebuffer(GL_FRAMEBUFFER, platform_state.pt_shadow.fbo);
     glViewport(0, 0, platform_state.pt_shadow.resolution, platform_state.pt_shadow.resolution);
     glClear(GL_DEPTH_BUFFER_BIT);
-    shaders.pt_shadow.set_float("far_plane", app_data.camera.far_plane);
+    shaders.pt_shadow.set_f32("far_plane", app_state.camera.far_plane);
 
     for (size_t light_idx = 0; light_idx < entities.size(); ++light_idx) {
             
@@ -361,8 +366,8 @@ void GL_Platform::update(AppData& app_data) {
 
     // geometry pass ==========================================================================
 
-    gbuf.bind();
-    glNamedFramebufferDrawBuffers(gbuf.frame_buf, 3, gbuf.attachments.data());
+    gbuf_fbuf.bind();
+    glNamedFramebufferDrawBuffers(gbuf_fbuf.frame_buf, 3, gbuf_fbuf.attachments.data());
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
@@ -398,29 +403,28 @@ void GL_Platform::update(AppData& app_data) {
 
     // deferred pass ==========================================================================
 
-    pp1.bind();
-    glNamedFramebufferDrawBuffers(pp1.frame_buf, 2, pp1.attachments.data());
+    int_fbuf.bind();
 
     // compute lighting for all fragments with stencil value '1'
     glDisable(GL_DEPTH_TEST);
     glStencilFunc(GL_EQUAL, 1, 0xFF); 
     glStencilOp(GL_ZERO, GL_REPLACE, GL_REPLACE);
 
-    shaders.lighting_deferred.set_tex("gbuf_pos", 0, gbuf.tex_bufs[0]);
-    shaders.lighting_deferred.set_tex("gbuf_norms", 1, gbuf.tex_bufs[1]);
-    shaders.lighting_deferred.set_tex("gbuf_colors", 2, gbuf.tex_bufs[2]);
+    shaders.lighting_deferred.set_tex("gbuf_pos", 0, gbuf_fbuf.tex_bufs[0]);
+    shaders.lighting_deferred.set_tex("gbuf_norms", 1, gbuf_fbuf.tex_bufs[1]);
+    shaders.lighting_deferred.set_tex("gbuf_colors", 2, gbuf_fbuf.tex_bufs[2]);
     shaders.lighting_deferred.set_tex("dir_shadow_maps", 11, platform_state.dir_light.shadow.tex);
     shaders.lighting_deferred.set_tex("pt_shadow_map", 12, platform_state.pt_shadow.tex);
-    shaders.lighting_deferred.set_int("n_cascades", platform_state.dir_light.shadow.n_cascades);
+    shaders.lighting_deferred.set_i32("n_cascades", platform_state.dir_light.shadow.n_cascades);
 
-    pp1.draw(shaders.lighting_deferred);
+    int_fbuf.draw(shaders.lighting_deferred);
 
     // pass through for all fragments with stencil value '0'
     glStencilFunc(GL_EQUAL, 0, 0xFF); 
     glStencilOp(GL_REPLACE, GL_ZERO, GL_ZERO);
-    shaders.passthrough.set_int("gbuf_colors", 2);
+    shaders.passthrough.set_i32("gbuf_colors", 2);
 
-    pp1.draw(shaders.passthrough);
+    int_fbuf.draw(shaders.passthrough);
 
     // forward pass ===========================================================================
         
@@ -429,10 +433,10 @@ void GL_Platform::update(AppData& app_data) {
 
     shaders.lighting_forward.set_tex("dir_shadow_maps", 11, platform_state.dir_light.shadow.tex);
     shaders.lighting_forward.set_tex("pt_shadow_map", 12, platform_state.pt_shadow.tex);
-    shaders.lighting_forward.set_int("n_cascades", platform_state.dir_light.shadow.n_cascades);
-    shaders.lighting_forward.set_float("cascade_depths[0]", c1_far);
-    shaders.lighting_forward.set_float("cascade_depths[1]", c2_far);
-    shaders.lighting_forward.set_float("cascade_depths[2]", app_data.camera.far_plane);
+    shaders.lighting_forward.set_i32("n_cascades", platform_state.dir_light.shadow.n_cascades);
+    shaders.lighting_forward.set_f32("cascade_depths[0]", c1_far);
+    shaders.lighting_forward.set_f32("cascade_depths[1]", c2_far);
+    shaders.lighting_forward.set_f32("cascade_depths[2]", app_state.camera.far_plane);
 
     for (size_t idx = 0; idx < entities.size(); ++idx) {
         if (is_set(entities.flags[idx], EntityFlags::EMIT_LIGHT)) {
@@ -454,47 +458,49 @@ void GL_Platform::update(AppData& app_data) {
     // post processing passes =================================================================
 
     // compute bloom
-    if (app_data.bloom_on) {
-        glNamedFramebufferDrawBuffer(pp1.frame_buf, GL_COLOR_ATTACHMENT1);
-        glClear(GL_DEPTH_BUFFER_BIT);
+    if (app_state.bloom_enabled) {
         glDisable(GL_DEPTH_TEST);
-        bool horizontal = false;
-        shaders.blur.set_tex("tex", 0, pp1.tex_bufs[1]);
-        pp1.draw(shaders.blur);
+        gbuf_fbuf.bind();
+        glNamedFramebufferDrawBuffer(gbuf_fbuf.frame_buf, GL_COLOR_ATTACHMENT0);
+        glClear(GL_COLOR_BUFFER_BIT);
 
-        for (int i = 0; i < app_data.n_bloom_passes * 2 - 1; ++i) {
+        // render colors that pass brightness test
+        glNamedFramebufferDrawBuffer(gbuf_fbuf.frame_buf, GL_COLOR_ATTACHMENT1);
+        glClear(GL_COLOR_BUFFER_BIT);
+        shaders.brightness.set_tex("tex", 0, int_fbuf.tex_bufs[0]);
+        gbuf_fbuf.draw(shaders.brightness);
+
+        bool horizontal = true;
+        for (int idx = 0; idx < app_state.n_bloom_passes * 2; ++idx) {
             if (horizontal) {
-                pp1.bind();
-                glNamedFramebufferDrawBuffer(pp1.frame_buf, GL_COLOR_ATTACHMENT1);
-                shaders.blur.set_tex("tex", 0, gbuf.tex_bufs[0]);
-                shaders.blur.set_bool("horizontal", true);
-                pp1.draw(shaders.blur);
+                glNamedFramebufferDrawBuffer(gbuf_fbuf.frame_buf, GL_COLOR_ATTACHMENT0);
+                shaders.bloom.set_tex("tex", 0, gbuf_fbuf.tex_bufs[1]);
+                shaders.bloom.set_bool("horizontal", true);
+                gbuf_fbuf.draw(shaders.bloom);
             } else {
-                // note: reusing the gbuf position buf for bloom calculations
-                gbuf.bind();
-                glNamedFramebufferDrawBuffer(gbuf.frame_buf, GL_COLOR_ATTACHMENT0);
-                shaders.blur.set_tex("tex", 0, pp1.tex_bufs[1]);
-                shaders.blur.set_bool("horizontal", false);
-                gbuf.draw(shaders.blur);
+                glNamedFramebufferDrawBuffer(gbuf_fbuf.frame_buf, GL_COLOR_ATTACHMENT1);
+                shaders.bloom.set_tex("tex", 0, gbuf_fbuf.tex_bufs[0]);
+                shaders.bloom.set_bool("horizontal", false);
+                gbuf_fbuf.draw(shaders.bloom);
             }
             horizontal = !horizontal;
         }
-    }
+    } 
 
-    fbuf_out.bind();
+    out_fbuf.bind();
     glClear(GL_DEPTH_BUFFER_BIT);
     glDisable(GL_DEPTH_TEST);
 
-    shaders.hdr.set_tex("scene_tex", 0, pp1.tex_bufs[0]);
-    shaders.hdr.set_tex("blur_tex", 1, pp1.tex_bufs[1]);
-    shaders.hdr.set_float("gamma", app_data.window_data.gamma);
-    shaders.hdr.set_float("exposure", app_data.window_data.exposure);
-    shaders.hdr.set_bool("bloom_enabled", app_data.bloom_on);
+    shaders.out.set_tex("bloom_tex", 0, gbuf_fbuf.tex_bufs[1]);
+    shaders.out.set_tex("tex", 1, int_fbuf.tex_bufs[0]);
+    shaders.out.set_bool("bloom_enabled", app_state.bloom_enabled);
+    shaders.out.set_f32("gamma", app_state.window_state.gamma);
+    shaders.out.set_f32("exposure", app_state.window_state.exposure);
 
-    fbuf_out.draw(shaders.hdr);
+    out_fbuf.draw(shaders.out);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    gui::gl_imgui(app_data, *this);
+    gui::gl_imgui(app_state, *this);
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 

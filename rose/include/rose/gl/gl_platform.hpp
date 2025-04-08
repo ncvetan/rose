@@ -1,3 +1,7 @@
+// =============================================================================
+//   code specific to the OpenGL platform
+// =============================================================================
+
 #ifndef ROSE_INCLUDE_GL_PLATFORM
 #define ROSE_INCLUDE_GL_PLATFORM
 
@@ -13,6 +17,8 @@
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
+// TODO: There is still a ton of unnecessary coupling going on here
+
 namespace rose {
 
 // state specific to the OpenGL platform
@@ -25,8 +31,8 @@ struct GL_PlatformState {
 
 struct GL_Platform {
     
-    [[nodiscard]] std::optional<rses> init(AppData& app_data);
-    void update(AppData& app_data);
+    [[nodiscard]] std::optional<rses> init(AppState& app_state);
+    void update(AppState& app_state);
     void finish();
     void enable_vsync(bool enable);
 
@@ -37,9 +43,9 @@ struct GL_Platform {
     Entities entities;
     GL_Shaders shaders;
 
-    FrameBuf gbuf;
-    FrameBuf pp1;
-    FrameBuf fbuf_out;
+    FrameBuf gbuf_fbuf;  // gbuffers
+    FrameBuf int_fbuf;   // intermediate
+    FrameBuf out_fbuf;   // output
     ClusterData clusters;
 };
 

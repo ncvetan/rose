@@ -10,7 +10,7 @@
 
 namespace rose {
 
-std::optional<rses> init_glfw(WindowData& window_data) {
+std::optional<rses> init_glfw(WindowState& window_state) {
     if (glfwInit() == GLFW_FALSE) {
         return rses().gl("GLFW failed to initialize");
     }
@@ -27,19 +27,19 @@ std::optional<rses> init_glfw(WindowData& window_data) {
     glfwWindowHint(GLFW_CONTEXT_DEBUG, GL_TRUE);
 #endif
 
-    window_data.window_handle = glfwCreateWindow(window_data.width, window_data.height,
-                                          window_data.name.c_str(), NULL, NULL);
+    window_state.window_handle = glfwCreateWindow(window_state.width, window_state.height,
+                                          window_state.name.c_str(), NULL, NULL);
 
-    if (!window_data.window_handle) {
+    if (!window_state.window_handle) {
         glfwTerminate();
         return rses().gl("Failed to create GLFW window");
     }
 
     std::println("GLFW window has been successfully created");
 
-    glfwSetWindowUserPointer(window_data.window_handle, &window_data);
-    glfwMakeContextCurrent(window_data.window_handle);
-    glfwSetInputMode(window_data.window_handle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetWindowUserPointer(window_state.window_handle, &window_state);
+    glfwMakeContextCurrent(window_state.window_handle);
+    glfwSetInputMode(window_state.window_handle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     return std::nullopt;
 }
@@ -118,7 +118,7 @@ static void set_imgui_theme() {
 }
 
 
-std::optional<rses> init_imgui(WindowData& window_data) {
+std::optional<rses> init_imgui(WindowState& window_state) {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     (void)io;
@@ -129,7 +129,7 @@ std::optional<rses> init_imgui(WindowData& window_data) {
 
     set_imgui_theme();
 
-    ImGui_ImplGlfw_InitForOpenGL(window_data.window_handle, true);
+    ImGui_ImplGlfw_InitForOpenGL(window_state.window_handle, true);
     ImGui_ImplOpenGL3_Init("#version 460");
 
     return std::nullopt;
@@ -138,26 +138,26 @@ std::optional<rses> init_imgui(WindowData& window_data) {
 void RoseApp::handle_events() {
 
     ImGuiIO& io = ImGui::GetIO();
-    app_data.window_data.mouse_xy = { io.MousePos.x, io.MousePos.y };
+    app_data.window_state.mouse_xy = { io.MousePos.x, io.MousePos.y };
 
     if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-        if (app_data.window_data.vp_rect.contains(app_data.window_data.mouse_xy) && app_data.window_data.vp_focused) {
-            app_data.window_data.vp_captured = true;
-            glfwSetInputMode(app_data.window_data.window_handle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        if (app_data.window_state.vp_rect.contains(app_data.window_state.mouse_xy) && app_data.window_state.vp_focused) {
+            app_data.window_state.vp_captured = true;
+            glfwSetInputMode(app_data.window_state.window_handle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         }
     }
 
     if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
-        app_data.window_data.vp_captured = false;
-        glfwSetInputMode(app_data.window_data.window_handle, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        app_data.window_state.vp_captured = false;
+        glfwSetInputMode(app_data.window_state.window_handle, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     }
 
-    if (app_data.window_data.vp_captured) {
-        if (app_data.window_data.last_xy != app_data.window_data.mouse_xy) {
-            f32 xoffset = app_data.window_data.mouse_xy.x - app_data.window_data.last_xy.x;
-            f32 yoffset = app_data.window_data.last_xy.y - app_data.window_data.mouse_xy.y;
+    if (app_data.window_state.vp_captured) {
+        if (app_data.window_state.last_xy != app_data.window_state.mouse_xy) {
+            f32 xoffset = app_data.window_state.mouse_xy.x - app_data.window_state.last_xy.x;
+            f32 yoffset = app_data.window_state.last_xy.y - app_data.window_state.mouse_xy.y;
             app_data.camera.handle_mouse(xoffset, yoffset);
-            app_data.window_data.last_xy = app_data.window_data.mouse_xy;
+            app_data.window_state.last_xy = app_data.window_state.mouse_xy;
         }
 
         f32 delta_time = io.DeltaTime;

@@ -1,3 +1,8 @@
+// =============================================================================
+//   applies core lighting algorithms to forward rendered objects
+//   this enables the ability to do things like rendering transparent objects
+// =============================================================================
+
 #version 460 core
 
 layout (location = 0) in vec3 pos;

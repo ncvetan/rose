@@ -96,7 +96,7 @@ void GL_Shader::set_bool(const std::string_view& name, bool value) const {
     glProgramUniform1i(prg, glGetUniformLocation(prg, name.data()), (int)value);
 }
 
-void GL_Shader::set_int(const std::string_view& name, int value) const {
+void GL_Shader::set_i32(const std::string_view& name, int value) const {
     glProgramUniform1i(prg, glGetUniformLocation(prg, name.data()), value);
 }
 
@@ -104,7 +104,7 @@ void GL_Shader::set_tex(const std::string_view& name, int value, u32 tex) const 
     glProgramUniform1i(prg, glGetUniformLocation(prg, name.data()), value);
     glBindTextureUnit(value, tex);
 }
-void GL_Shader::set_float(const std::string_view& name, f32 value) const {
+void GL_Shader::set_f32(const std::string_view& name, f32 value) const {
     glProgramUniform1f(prg, glGetUniformLocation(prg, name.data()), value);
 }
 
@@ -136,8 +136,12 @@ std::optional<rses> GL_Shaders::init() {
 
     std::optional<rses> err = std::nullopt;
 
-    if (err = blur.init({ { SOURCE_DIR "/rose/shaders/gl/hdr.vert", GL_VERTEX_SHADER },
-                          { SOURCE_DIR "/rose/shaders/gl/gaussian.frag", GL_FRAGMENT_SHADER } })) {
+    if (err = bloom.init({ { SOURCE_DIR "/rose/shaders/gl/quad.vert", GL_VERTEX_SHADER },
+                          { SOURCE_DIR "/rose/shaders/gl/bloom.frag", GL_FRAGMENT_SHADER } })) {
+        return err;
+    }
+    if (err = brightness.init({ { SOURCE_DIR "/rose/shaders/gl/quad.vert", GL_VERTEX_SHADER },
+                                { SOURCE_DIR "/rose/shaders/gl/brightness.frag", GL_FRAGMENT_SHADER } })) {
         return err;
     }
     if (err = clusters_build.init({ { SOURCE_DIR "/rose/shaders/gl/compute/clusters_build.comp", GL_COMPUTE_SHADER } })) {
@@ -150,15 +154,15 @@ std::optional<rses> GL_Shaders::init() {
                           { SOURCE_DIR "/rose/shaders/gl/gbuf.frag", GL_FRAGMENT_SHADER } })) {
         return err;
     }
-    if (err = hdr.init({ { SOURCE_DIR "/rose/shaders/gl/hdr.vert", GL_VERTEX_SHADER   },
-                         { SOURCE_DIR "/rose/shaders/gl/hdr.frag", GL_FRAGMENT_SHADER } })) {
+    if (err = out.init({ { SOURCE_DIR "/rose/shaders/gl/quad.vert", GL_VERTEX_SHADER   },
+                         { SOURCE_DIR "/rose/shaders/gl/out.frag", GL_FRAGMENT_SHADER } })) {
         return err;
     }
     if (err = light.init({ { SOURCE_DIR "/rose/shaders/gl/light.vert", GL_VERTEX_SHADER   },
                            { SOURCE_DIR "/rose/shaders/gl/light.frag", GL_FRAGMENT_SHADER } })) {
         return err;
     }
-    if (err = lighting_deferred.init({ { SOURCE_DIR "/rose/shaders/gl/lighting_deferred.vert", GL_VERTEX_SHADER   },
+    if (err = lighting_deferred.init({ { SOURCE_DIR "/rose/shaders/gl/quad.vert", GL_VERTEX_SHADER   },
                                        { SOURCE_DIR "/rose/shaders/gl/lighting_deferred.frag", GL_FRAGMENT_SHADER } })) {
         return err;
     }
@@ -166,7 +170,7 @@ std::optional<rses> GL_Shaders::init() {
                                       { SOURCE_DIR "/rose/shaders/gl/lighting_forward.frag", GL_FRAGMENT_SHADER } })) {
         return err;
     }
-    if (err = passthrough.init({ { SOURCE_DIR "/rose/shaders/gl/passthrough.vert", GL_VERTEX_SHADER   },
+    if (err = passthrough.init({ { SOURCE_DIR "/rose/shaders/gl/quad.vert", GL_VERTEX_SHADER   },
                                  { SOURCE_DIR "/rose/shaders/gl/passthrough.frag", GL_FRAGMENT_SHADER } })) {
         return err;
     }

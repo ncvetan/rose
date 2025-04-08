@@ -1,3 +1,7 @@
+// =============================================================================
+//   ImGui gui code for Rose
+// =============================================================================
+
 #ifndef ROSE_INCLUDE_GUI
 #define ROSE_INCLUDE_GUI
 
@@ -10,7 +14,7 @@ struct GL_Platform;
 
 namespace gui {
 
-void gl_imgui(AppData& app_data, GL_Platform& platform);
+void gl_imgui(AppState& app_state, GL_Platform& platform);
 
 }
 } // namespace rose

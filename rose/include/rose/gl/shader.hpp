@@ -1,3 +1,7 @@
+// =============================================================================
+//   abstractions over OpenGL shaders
+// =============================================================================
+
 #ifndef ROSE_INCLUDE_GL_SHADER
 #define ROSE_INCLUDE_GL_SHADER
 
@@ -28,9 +32,9 @@ struct GL_Shader {
     void use();
 
     void set_bool(const std::string_view& name, bool value) const;
-    void set_int(const std::string_view& name, int value) const;
+    void set_i32(const std::string_view& name, int value) const;
     void set_tex(const std::string_view& name, int value, u32 tex) const;
-    void set_float(const std::string_view& name, f32 value) const;
+    void set_f32(const std::string_view& name, f32 value) const;
     void set_mat4(const std::string_view& name, const glm::mat4& value) const;
     void set_vec2(const std::string_view& name, const glm::vec2& value) const;
     void set_uvec2(const std::string_view& name, const glm::uvec2& value) const;
@@ -46,11 +50,12 @@ struct GL_Shaders {
 
     std::optional<rses> init();
     
-    GL_Shader blur;
+    GL_Shader bloom;
+    GL_Shader brightness;
     GL_Shader clusters_build;
     GL_Shader clusters_cull;
     GL_Shader gbuf;
-    GL_Shader hdr;
+    GL_Shader out;
     GL_Shader light;
     GL_Shader lighting_deferred;
     GL_Shader lighting_forward;
