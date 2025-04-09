@@ -39,6 +39,7 @@ struct Material {
 	sampler2D	normal_map;
 	sampler2D	displace_map;
 	float		shine;
+	bool		has_diffuse_map;
 	bool		has_normal_map;
 	bool		has_specular_map;
 };

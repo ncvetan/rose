@@ -33,6 +33,7 @@ struct Material {
 	sampler2D	normal_map;
 	sampler2D	displace_map;
 	float		shine;
+	bool		has_diffuse_map;
 	bool		has_normal_map;
 	bool		has_specular_map;
 };
@@ -183,7 +184,7 @@ vec3 calc_point_light(PointLight light_props, vec3 light_pos, vec3 pos, vec3 nor
 
 void main() {
 
-	vec4 color = texture(material.diffuse_map, fs_in.tex_coords);
+	vec4 color = (material.has_diffuse_map) ? texture(material.diffuse_map, fs_in.tex_coords) : vec4(0.5, 0.5, 0.5, 1.0);
 
 	// discard fragments with low alpha
 	if (color.a < 0.1) {

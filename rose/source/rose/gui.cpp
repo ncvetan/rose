@@ -179,12 +179,18 @@ void gl_imgui(AppState& app_state, GL_Platform& platform) {
                 if (is_set(platform.entities.flags[idx], EntityFlags::EMIT_LIGHT))
                 {
                     light_changed = light_changed || ImGui::SliderFloat3("position", glm::value_ptr(platform.entities.positions[idx]), -30.0f, 30.0f);
+                    if (ImGui::SliderFloat("scale", &platform.entities.scales[idx].x, 0.1f, 10.0f)) {
+                        platform.entities.scales[idx] = { platform.entities.scales[idx].x,
+                                                          platform.entities.scales[idx].x,
+                                                          platform.entities.scales[idx].x };
+                    }
+
                     if (ImGui::Button("toggle light")) {
                         platform.entities.flags[idx] &= ~EntityFlags::EMIT_LIGHT;
                         light_changed = light_changed || true;
                     } 
                     light_changed = light_changed || 
-                                     ImGui::ColorEdit3("color", glm::value_ptr(platform.entities.light_props[idx].color)) ||
+                                     ImGui::ColorEdit3("color", &platform.entities.light_props[idx].color.x) ||
                                      ImGui::SliderFloat("linear", &platform.entities.light_props[idx].linear, 0.1f, 10.0f) || 
                                      ImGui::SliderFloat("quad", &platform.entities.light_props[idx].quad, 0.1f, 10.0f) ||
                                      ImGui::SliderFloat("intensity", &platform.entities.light_props[idx].intensity, 1.0f, 10.0f);
@@ -192,12 +198,17 @@ void gl_imgui(AppState& app_state, GL_Platform& platform) {
                 } 
                 else {
                     ImGui::SliderFloat3("position", glm::value_ptr(platform.entities.positions[idx]), -30.0f, 30.0f);
+                    if (ImGui::SliderFloat("scale", &platform.entities.scales[idx].x, 0.001f, 100.0f)) {
+                        platform.entities.scales[idx] = { platform.entities.scales[idx].x,
+                                                          platform.entities.scales[idx].x,
+                                                          platform.entities.scales[idx].x };
+                    }
                     if (ImGui::Button("toggle light")) {
                         platform.entities.flags[idx] |= EntityFlags::EMIT_LIGHT;
                         light_changed = light_changed || true;
                     }
                     ImGui::BeginDisabled(true);
-                    ImGui::ColorEdit3("color", glm::value_ptr(platform.entities.light_props[idx].color)) ||
+                    ImGui::ColorEdit3("color", &platform.entities.light_props[idx].color.x) ||
                     ImGui::SliderFloat("linear", &platform.entities.light_props[idx].linear, 0.1f, 10.0f) ||
                     ImGui::SliderFloat("quad", &platform.entities.light_props[idx].quad, 0.1f, 10.0f) ||
                     ImGui::SliderFloat("intensity", &platform.entities.light_props[idx].intensity, 1.0f, 10.0f);

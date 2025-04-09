@@ -22,6 +22,7 @@ struct Material {
 	sampler2D	normal_map;
 	sampler2D	displace_map;
 	float		shine;
+	bool		has_diffuse_map;
 	bool		has_normal_map;
 	bool		has_specular_map;
 };
@@ -31,20 +32,13 @@ uniform Material material;
 void main() {
 	
 	// if no normal map is present use surface normal otherwise convert normal to world space
-	vec3 norm = fs_in.normal;
-	float spec = 0.0;
-
-	if (material.has_normal_map) {
-		norm = fs_in.tbn * (texture(material.normal_map, fs_in.tex_coords).rgb * 2.0 - 1.0);
-	}
-	if (material.has_specular_map) {
-		spec = texture(material.specular_map, fs_in.tex_coords).r;
-	}
+	vec3 norm = (material.has_normal_map) ? fs_in.tbn * (texture(material.normal_map, fs_in.tex_coords).rgb * 2.0 - 1.0) : fs_in.normal;
+	float spec = (material.has_specular_map) ? texture(material.specular_map, fs_in.tex_coords).r : 0.0;
 
 	// write positions, normals, colors, and specular instensities to the g-buffer
 	gbuf_pos.rgb = fs_in.frag_pos_ws;
 	gbuf_pos.a = fs_in.frag_pos_z_vs;
 	gbuf_norm = normalize(norm);
-	gbuf_color.rgb = texture(material.diffuse_map, fs_in.tex_coords).rgb;
+	gbuf_color.rgb = (material.has_diffuse_map) ? texture(material.diffuse_map, fs_in.tex_coords).rgb : vec3(0.5, 0.5, 0.5);
 	gbuf_color.a = spec;	
 }

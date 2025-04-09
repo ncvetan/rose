@@ -129,7 +129,7 @@ void GL_Shader::set_uvec3(const std::string_view& name, const glm::uvec3& value)
 }
 
 void GL_Shader::set_vec4(const std::string_view& name, const glm::vec4& value) const {
-    glProgramUniform4f(prg, glGetUniformLocation(prg, name.data()), value.w, value.x, value.y, value.z);
+    glProgramUniform4f(prg, glGetUniformLocation(prg, name.data()), value.x, value.y, value.z, value.w);
 }
 
 std::optional<rses> GL_Shaders::init() {

@@ -53,30 +53,14 @@ std::optional<rses> GL_Platform::init(AppState& app_state) {
 
     entities.add_object(texture_manager, sponza_def);
     
-    EntityCtx model1_def = { .model_pth = SOURCE_DIR "/assets/model1/model1.obj",
-                             .pos = { 0.0f, 3.0f, 0.0f },
-                             .scale = { 1.0f, 1.0f, 1.0f },
-                             .light_props = PtLight(),
-                             .flags = EntityFlags::NONE 
-                           };
-
-    entities.add_object(texture_manager, model1_def);
-
-    EntityCtx model2_def = { .model_pth = SOURCE_DIR "/assets/model1/model1.obj",
-                             .pos = { 0.0f, 7.0f, 0.0f },
-                             .scale = { 1.0f, 1.0f, 1.0f },
-                             .light_props = PtLight(),
-                             .flags = EntityFlags::NONE };
-
-    entities.add_object(texture_manager, model2_def);
-
-    EntityCtx model3_def = { .model_pth = SOURCE_DIR "/assets/model1/model1.obj",
-                             .pos = { 0.0f, 10.0f, 0.0f },
-                             .scale = { 1.0f, 1.0f, 1.0f },
+    EntityCtx model2_def = {
+                             .model_pth = SOURCE_DIR "/assets/sphere/scene.gltf",
+                             .pos = { 0.0f, 3.5f, 0.0f },
+                             .scale = { 0.1f, 0.1f, 0.1f },
                              .light_props = PtLight(),
                              .flags = EntityFlags::EMIT_LIGHT };
 
-    entities.add_object(texture_manager, model3_def);
+    entities.add_object(texture_manager, model2_def);
     entities.light_props.back().color = { 0.35f, 0.1f, 0.1f, 1.0f };
 
     // frame buf initialization ===================================================================
@@ -443,6 +427,8 @@ void GL_Platform::update(AppState& app_state) {
             // draw light emitters
             translate(entities.models[idx], entities.positions[idx]);
             scale(entities.models[idx], entities.scales[idx]);
+            shaders.light.set_vec4("color", entities.light_props[idx].color);
+            shaders.light.set_f32("intensity", entities.light_props[idx].intensity);
             entities.models[idx].draw(shaders.light, platform_state);
             entities.models[idx].reset();
         } 
