@@ -1,7 +1,10 @@
+// =============================================================================
+//   applies core lighting algorithms to gbuf fragments
+// =============================================================================
+
 #version 460 core
 
 layout (location = 0) out vec4 frag_color;
-layout (location = 1) out vec4 brightness_color;
 
 in vs_data {
 	vec2 tex_coords;
@@ -180,14 +183,4 @@ void main() {
 	}
 	
 	frag_color = vec4(result, 1.0);
-	
-	// write to brightness buffer
-	float brightness = dot(frag_color.rgb, vec3(0.2126, 0.7152, 0.0722));	// rgb -> luminance
-
-	if (brightness > 1.0) {
-		brightness_color = vec4(frag_color.rgb, 0.0);
-	}
-	else { 
-		brightness_color = vec4(0.0, 0.0, 0.0, 0.0);
-	}
 }

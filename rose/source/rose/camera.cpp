@@ -11,8 +11,8 @@ glm::mat4 Camera::projection(f32 aspect_ratio) const {
     return glm::perspective(glm::radians(zoom), aspect_ratio, near_plane, far_plane);
 }
 
-void Camera::handle_keyboard(CameraMovement direction, f32 delta_time) {
-    f32 velocity = speed * delta_time;
+void Camera::handle_keyboard(CameraMovement direction, f32 dt) {
+    f32 velocity = speed * dt;
     switch (direction) {
     case CameraMovement::FORWARD:
         position += front * velocity;

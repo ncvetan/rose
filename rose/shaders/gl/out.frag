@@ -1,3 +1,7 @@
+// =============================================================================
+//   final shader stage, adds effects and corrections to the output
+// =============================================================================
+
 #version 460
 
 in vs_data {
@@ -6,19 +10,18 @@ in vs_data {
 
 out vec4 frag_color;
 
-uniform sampler2D scene_tex;
-uniform sampler2D blur_tex;
+uniform sampler2D tex;
+uniform sampler2D bloom_tex;
 uniform float gamma;
 uniform float exposure;
 uniform bool bloom_enabled;
 
 void main() {
 	
-	vec3 hdr_color = texture(scene_tex, fs_in.tex_coords).rgb;
+	vec3 hdr_color = texture(tex, fs_in.tex_coords).rgb;
 
 	if (bloom_enabled) {
-		vec3 bloom_color = texture(blur_tex, fs_in.tex_coords).rgb;
-		hdr_color += bloom_color;
+		hdr_color += texture(bloom_tex, fs_in.tex_coords).rgb;
 	}
 
 	// tone mapping

@@ -1,3 +1,7 @@
+// =============================================================================
+//   structures for loading and rendering 3D models
+// =============================================================================
+
 #ifndef ROSE_INCLUDE_MODEL
 #define ROSE_INCLUDE_MODEL
 

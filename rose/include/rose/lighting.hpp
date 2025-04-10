@@ -10,6 +10,8 @@
 
 #include <glm.hpp>
 
+// TODO: decouple OpenGL buffers from non platform specific state of lighting system
+
 namespace rose {
 
 struct DirShadowData {

@@ -1,3 +1,7 @@
+// =============================================================================
+//   structures for Rose's error handling system
+// =============================================================================
+
 #ifndef ROSE_INCLUDE_CORE_ERR
 #define ROSE_INCLUDE_CORE_ERR
 
@@ -61,13 +65,11 @@ struct Error {
     };
     
     Type ty = Type::INVALID;
-
     std::string msg;
 
     std::string str() const;
 };
 
-// note: banking on this being a no-op...
 inline void print(rses es) {
 #ifndef ROSE_RELEASE_BUILD
     for (const auto& err : es.err_stack) {

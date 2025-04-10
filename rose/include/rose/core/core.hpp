@@ -1,3 +1,7 @@
+// =============================================================================
+//   typedefs and utilities used across Rose
+// =============================================================================
+
 #ifndef ROSE_INCLUDE_CORE_CORE
 #define ROSE_INCLUDE_CORE_CORE
 

@@ -175,9 +175,15 @@ static void process_assimp_node(TextureManager& manager, aiNode* ai_node, const 
         for (int j = 0; j < ai_mesh->mNumVertices; ++j) {
             model.pos.push_back({ ai_mesh->mVertices[j].x, ai_mesh->mVertices[j].y, ai_mesh->mVertices[j].z });
             model.norm.push_back({ ai_mesh->mNormals[j].x, ai_mesh->mNormals[j].y, ai_mesh->mNormals[j].z });
-            model.tangent.push_back({ ai_mesh->mTangents[j].x, ai_mesh->mTangents[j].y, ai_mesh->mTangents[j].z });
+            // note: right now I am just using nil values for these if not present
+            // can be changed in the future to reduce memory consumption
+            glm::vec3 tan = { 0.0f, 0.0f, 0.0f };
+            if (ai_mesh->mTangents) {
+                tan = { ai_mesh->mTangents[j].x, ai_mesh->mTangents[j].y, ai_mesh->mTangents[j].z };
+            }
+            model.tangent.push_back(tan);
             glm::vec2 uv = { 0.0f, 0.0f };
-            if (ai_mesh->mTextureCoords) {
+            if (ai_mesh->mTextureCoords[0]) {
                 uv = { ai_mesh->mTextureCoords[0][j].x, ai_mesh->mTextureCoords[0][j].y };
             }
             model.uv.push_back(uv);
@@ -210,10 +216,11 @@ static void process_assimp_node(TextureManager& manager, aiNode* ai_node, const 
 std::optional<rses> Model::load(TextureManager& manager, const fs::path& path) {
     Assimp::Importer import;
 
-    // note: for dx12 this will need the aiProcess_MakeLeftHanded flag set
+    auto flags = aiProcess_GenSmoothNormals | aiProcess_Triangulate | aiProcess_CalcTangentSpace |
+                 aiProcess_JoinIdenticalVertices | aiProcess_FlipUVs;
+
     const aiScene* scene =
-        import.ReadFile(path.generic_string(), aiProcess_GenSmoothNormals | aiProcess_Triangulate |
-                                                   aiProcess_CalcTangentSpace | aiProcess_JoinIdenticalVertices);
+        import.ReadFile(path.generic_string(), flags);
 
     if (!scene) {
         return rses().io("Error importing scene : {}", import.GetErrorString());
@@ -253,11 +260,13 @@ void Model::draw(GL_Shader& shader, const GL_PlatformState& state) const {
     glBindVertexArray(vao);
 
     for (auto& mesh : meshes) {
+        shader.set_bool("material.has_diffuse_map", false);
         shader.set_bool("material.has_normal_map", false);
         shader.set_bool("material.has_specular_map", false);
         for (u32 idx = mesh.matl_offset; idx < mesh.matl_offset + mesh.n_matls; ++idx) {
             switch (textures[idx].ref->ty) {
             case TextureType::DIFFUSE:
+                shader.set_bool("material.has_diffuse_map", true);
                 shader.set_tex("material.diffuse_map", 0, textures[idx].ref->id);
                 break;
             case TextureType::SPECULAR:
@@ -294,11 +303,13 @@ void Model::draw(GL_Shader& shader, const GL_PlatformState& state, MeshFlags mes
             continue;
         }
 
+        shader.set_bool("material.has_diffuse_map", false);
         shader.set_bool("material.has_normal_map", false);
         shader.set_bool("material.has_specular_map", false);
         for (u32 idx = mesh.matl_offset; idx < mesh.matl_offset + mesh.n_matls; ++idx) {
             switch (textures[idx].ref->ty) {
             case TextureType::DIFFUSE:
+                shader.set_bool("material.has_diffuse_map", true);
                 shader.set_tex("material.diffuse_map", 0, textures[idx].ref->id);
                 break;
             case TextureType::SPECULAR:

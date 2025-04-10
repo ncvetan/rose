@@ -1,3 +1,8 @@
+// =============================================================================
+//   applies core lighting algorithms to forward rendered objects
+//   this enables the ability to do things like rendering transparent objects
+// =============================================================================
+
 #version 460 core
 
 layout (location = 0) in vec3 pos;
@@ -25,6 +30,7 @@ struct Material {
 	sampler2D	normal_map;
 	sampler2D	displace_map;
 	float		shine;
+	bool		has_diffuse_map;
 	bool		has_normal_map;
 	bool		has_specular_map;
 };

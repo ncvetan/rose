@@ -1,9 +1,12 @@
+// =============================================================================
+//   highest level code in Rose, used to handle the running of the application
+// =============================================================================
+
 #ifndef ROSE_INCLUDE_APPLICATION
 #define ROSE_INCLUDE_APPLICATION
 
 #include <rose/app_state.hpp>
 #include <rose/core/err.hpp>
-#include <rose/gl/gl_platform.hpp>
 
 #include <backends/imgui_impl_glfw.h>
 
@@ -12,21 +15,21 @@
 
 namespace rose {
 
-std::optional<rses> init_glfw(WindowData& window_data);
-std::optional<rses> init_imgui(WindowData& window_data);
+std::optional<rses> init_glfw(WindowState& window_state);
+std::optional<rses> init_imgui(WindowState& window_state);
 
 struct RoseApp {
-    AppData app_data;
+    AppState app_data;
 
     template <typename T>
     std::optional<rses> init(T& platform) {
         std::optional<rses> err = std::nullopt;
 
-        if (err = init_glfw(app_data.window_data)) {
+        if (err = init_glfw(app_data.window_state)) {
             return err.value().general("Unable to initialize GLFW");
         }
 
-        if (err = init_imgui(app_data.window_data)) {
+        if (err = init_imgui(app_data.window_state)) {
             return err.value().general("Unable to initialize Dear ImGui");
         }
 
@@ -38,11 +41,13 @@ struct RoseApp {
     
     template <typename T>
     void run(T& platform) {
-        while (!glfwWindowShouldClose(app_data.window_data.window_handle)) {
-            handle_events();
-            platform.update(app_data);
-            glfwSwapBuffers(app_data.window_data.window_handle);
+        while (!glfwWindowShouldClose(app_data.window_state.window_handle)) {
             glfwPollEvents();
+            platform.new_frame(app_data);
+            update();
+            platform.render(app_data);
+            platform.end_frame(app_data.window_state.window_handle);
+            glfwSwapBuffers(app_data.window_state.window_handle);
         }
     }
 
@@ -51,11 +56,11 @@ struct RoseApp {
         platform.finish();
         ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();
-        glfwDestroyWindow(app_data.window_data.window_handle);
+        glfwDestroyWindow(app_data.window_state.window_handle);
         glfwTerminate();    
     }
     
-    void handle_events();
+    void update();
 
 };
 } // namespace rose

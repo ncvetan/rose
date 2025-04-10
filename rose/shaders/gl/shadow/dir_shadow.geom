@@ -1,3 +1,9 @@
+// =============================================================================
+//   shader for rendering to cascaded shadow maps for directional lighting
+// =============================================================================
+
+// note: this shader enables layered rendering to textures for each cascade
+
 #version 460 core
 
 layout(triangles, invocations = 3) in;

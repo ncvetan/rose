@@ -1,7 +1,11 @@
+// =============================================================================
+//   applies core lighting algorithms to forward rendered objects
+//   this enables the ability to do things like rendering transparent objects
+// =============================================================================
+
 #version 460 core
 
 layout (location = 0) out vec4 frag_color;
-layout (location = 1) out vec4 brightness_color;
 
 // inputs =========================================================================================
 
@@ -29,6 +33,7 @@ struct Material {
 	sampler2D	normal_map;
 	sampler2D	displace_map;
 	float		shine;
+	bool		has_diffuse_map;
 	bool		has_normal_map;
 	bool		has_specular_map;
 };
@@ -179,7 +184,7 @@ vec3 calc_point_light(PointLight light_props, vec3 light_pos, vec3 pos, vec3 nor
 
 void main() {
 
-	vec4 color = texture(material.diffuse_map, fs_in.tex_coords);
+	vec4 color = (material.has_diffuse_map) ? texture(material.diffuse_map, fs_in.tex_coords) : vec4(0.5, 0.5, 0.5, 1.0);
 
 	// discard fragments with low alpha
 	if (color.a < 0.1) {
@@ -187,30 +192,19 @@ void main() {
 	}
 	
 	// determine the cluster this fragment belongs in
-//	uint cluster_z = uint((log(abs(fs_in.frag_pos_z_vs) / near_z) * float(grid_sz.z)) / log(far_z / near_z));
-//	vec2 cluster_sz = screen_dims / grid_sz.xy;
-//	uvec3 cluster_coord = uvec3(gl_FragCoord.xy / cluster_sz, cluster_z);
-//	uint cluster_idx = cluster_coord.x + (cluster_coord.y * grid_sz.x) + (cluster_coord.z * grid_sz.x * grid_sz.y);
+	uint cluster_z = uint((log(abs(fs_in.frag_pos_z_vs) / near_z) * float(grid_sz.z)) / log(far_z / near_z));
+	vec2 cluster_sz = screen_dims / grid_sz.xy;
+	uvec3 cluster_coord = uvec3(gl_FragCoord.xy / cluster_sz, cluster_z);
+	uint cluster_idx = cluster_coord.x + (cluster_coord.y * grid_sz.x) + (cluster_coord.z * grid_sz.x * grid_sz.y);
 
 	// compute directional light contribution
 	vec3 result = color.rgb * calc_dir_light(dir_light, fs_in.frag_pos_ws, fs_in.frag_pos_z_vs, fs_in.normal, fs_in.spec_factor);
 
 	// compute contributions from point lights
-//	for (uint idx = 0; idx < clusters[cluster_idx].count; ++idx) {
-//		uint light_idx = clusters[cluster_idx].indices[idx];
-//		result += color.rgb * calc_point_light(light_props[light_idx], light_positions[light_idx].xyz, fs_in.frag_pos_ws, fs_in.normal, fs_in.spec_factor, pt_shadow_map);
-//	}
-//	
-	frag_color = vec4(result, 1.0);
+	for (uint idx = 0; idx < clusters[cluster_idx].count; ++idx) {
+		uint light_idx = clusters[cluster_idx].indices[idx];
+		result += color.rgb * calc_point_light(light_props[light_idx], light_positions[light_idx].xyz, fs_in.frag_pos_ws, fs_in.normal, fs_in.spec_factor, pt_shadow_map);
+	}
 	
-	// write to brightness buffer
-	float brightness = dot(frag_color.rgb, vec3(0.2126, 0.7152, 0.0722));	// rgb -> luminance
-
-	if (brightness > 1.0) {
-		brightness_color = vec4(frag_color.rgb, 0.0);
-	}
-	else { 
-		brightness_color = vec4(0.0, 0.0, 0.0, 0.0);
-	}
-
+	frag_color = vec4(result, 1.0);
 }
