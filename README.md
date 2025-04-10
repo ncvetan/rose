@@ -19,17 +19,26 @@ cmake <path to top level CMakeLists.txt>
 cmake --build .
 ```
 
-## Details
+## Features
 
 Some features that Rose supports includes...
 
 - Phong illumination
 - Skyboxes
-- Shadow mapping
+- Cascaded shadow mapping
 - normal & parallax mapping
-- HDR
+- Clustered deferred rendering
+- Bloom
 
-Rose uses a mix of deferred and forward rendering techniques
+## Roadmap
+
+Some future features and improvements to be made...
+
+- Linux support
+- Better support for multiple graphics APIs
+- PBR
+- AO
+- And plenty of improvements to existing systems...
 
 ## Contributing
 

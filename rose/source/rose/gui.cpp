@@ -15,8 +15,7 @@ namespace rose {
 namespace gui {
 
 // note: right now, the gui is a bit hacked together. it is primarily used for debugging and observing
-// how changing certain parameters impact various graphics components. in the future this should
-// be a cleaner interface with less bugs.
+// how changing certain parameters impact various graphics components.
 
 // state used in the gui, global for now
 namespace gui_state {
@@ -144,6 +143,8 @@ void gl_imgui(AppState& app_state, GL_Platform& platform) {
     }
     ImGui::PopID();
 
+    // global controls ============================================================================
+
     bool light_changed = false; // TODO: Not a huge fan of this but not a big deal right now
     ImGui::Begin("controls", &gui_state::controls_open, ImGuiWindowFlags_AlwaysAutoResize);
     ImGui::Text("FPS: %f (%f ms)", io.Framerate, 1000/ io.Framerate);
@@ -151,7 +152,10 @@ void gl_imgui(AppState& app_state, GL_Platform& platform) {
     ImGui::Text("global controls");
     ImGui::Separator();
     ImGui::SliderFloat("exposure", &app_state.window_state.exposure, 0.01f, 2.5f);
-    ImGui::Checkbox("enable bloom", &app_state.bloom_enabled);
+    if (ImGui::Checkbox("toggle vsync", &app_state.window_state.vsync_enabled)) {
+        (app_state.window_state.vsync_enabled) ? glfwSwapInterval(1) : glfwSwapInterval(0);
+    }
+    ImGui::Checkbox("toggle bloom", &app_state.bloom_enabled);
     ImGui::BeginDisabled(!app_state.bloom_enabled);
     if (ImGui::SliderInt("num passes", &app_state.n_bloom_passes, 1, 10));
     if (ImGui::SliderFloat("threshold", &app_state.bloom_threshold, 0.1f, 5.0f)) {
@@ -176,45 +180,44 @@ void gl_imgui(AppState& app_state, GL_Platform& platform) {
     if (ImGui::TreeNode("entities")) {
         for (size_t idx = 0; idx < platform.entities.size(); idx++) {
             if (ImGui::TreeNode((void*)(intptr_t)idx, "ent %d", idx)) {
-                if (is_set(platform.entities.flags[idx], EntityFlags::EMIT_LIGHT))
-                {
-                    light_changed = light_changed || ImGui::SliderFloat3("position", glm::value_ptr(platform.entities.positions[idx]), -30.0f, 30.0f);
-                    if (ImGui::SliderFloat("scale", &platform.entities.scales[idx].x, 0.1f, 10.0f)) {
-                        platform.entities.scales[idx] = { platform.entities.scales[idx].x,
-                                                          platform.entities.scales[idx].x,
-                                                          platform.entities.scales[idx].x };
-                    }
 
-                    if (ImGui::Button("toggle light")) {
-                        platform.entities.flags[idx] &= ~EntityFlags::EMIT_LIGHT;
-                        light_changed = light_changed || true;
-                    } 
-                    light_changed = light_changed || 
-                                     ImGui::ColorEdit3("color", &platform.entities.light_props[idx].color.x) ||
-                                     ImGui::SliderFloat("linear", &platform.entities.light_props[idx].linear, 0.1f, 10.0f) || 
-                                     ImGui::SliderFloat("quad", &platform.entities.light_props[idx].quad, 0.1f, 10.0f) ||
-                                     ImGui::SliderFloat("intensity", &platform.entities.light_props[idx].intensity, 1.0f, 10.0f);
-                    ImGui::TreePop();
-                } 
-                else {
-                    ImGui::SliderFloat3("position", glm::value_ptr(platform.entities.positions[idx]), -30.0f, 30.0f);
-                    if (ImGui::SliderFloat("scale", &platform.entities.scales[idx].x, 0.001f, 100.0f)) {
-                        platform.entities.scales[idx] = { platform.entities.scales[idx].x,
-                                                          platform.entities.scales[idx].x,
-                                                          platform.entities.scales[idx].x };
+                if (ImGui::SliderFloat3("position", glm::value_ptr(platform.entities.positions[idx]), -30.0f, 30.0f)) {
+                    if (is_set(platform.entities.flags[idx], EntityFlags::EMIT_LIGHT)) {
+                        light_changed = true;
                     }
-                    if (ImGui::Button("toggle light")) {
-                        platform.entities.flags[idx] |= EntityFlags::EMIT_LIGHT;
-                        light_changed = light_changed || true;
-                    }
-                    ImGui::BeginDisabled(true);
-                    ImGui::ColorEdit3("color", &platform.entities.light_props[idx].color.x) ||
-                    ImGui::SliderFloat("linear", &platform.entities.light_props[idx].linear, 0.1f, 10.0f) ||
-                    ImGui::SliderFloat("quad", &platform.entities.light_props[idx].quad, 0.1f, 10.0f) ||
-                    ImGui::SliderFloat("intensity", &platform.entities.light_props[idx].intensity, 1.0f, 10.0f);
-                    ImGui::EndDisabled();
-                    ImGui::TreePop();
                 }
+                if (ImGui::SliderFloat("scale", &platform.entities.scales[idx].x, 0.1f, 10.0f)) {
+                    // note: using a single float slider to set all values in a vec3
+                    platform.entities.scales[idx] = {   platform.entities.scales[idx].x,
+                                                        platform.entities.scales[idx].x,
+                                                        platform.entities.scales[idx].x };
+                }
+
+                if (ImGui::Button("toggle light")) {
+                    if (is_set(platform.entities.flags[idx], EntityFlags::EMIT_LIGHT)) {
+                        platform.entities.flags[idx] &= ~EntityFlags::EMIT_LIGHT;
+                    } 
+                    else {
+                        platform.entities.flags[idx] |= EntityFlags::EMIT_LIGHT;
+                    }
+                    light_changed = true;
+                } 
+
+                ImGui::BeginDisabled(!is_set(platform.entities.flags[idx], EntityFlags::EMIT_LIGHT));
+                if (ImGui::ColorEdit3("color", &platform.entities.light_props[idx].color.x)) {
+                    light_changed = true;
+                }
+                if (ImGui::SliderFloat("linear", &platform.entities.light_props[idx].linear, 0.1f, 10.0f)) {
+                    light_changed = true;
+                }
+                if (ImGui::SliderFloat("quad", &platform.entities.light_props[idx].quad, 0.1f, 10.0f)) {
+                    light_changed = true;
+                }
+                if (ImGui::SliderFloat("intensity", &platform.entities.light_props[idx].intensity, 1.0f, 10.0f)) {
+                    light_changed = true;
+                }
+                ImGui::EndDisabled();
+                ImGui::TreePop();
             }
         }
         ImGui::TreePop();
@@ -245,17 +248,18 @@ void gl_imgui(AppState& app_state, GL_Platform& platform) {
 
     // setting an initial docking layout
     if (gui_state::first_frame) {
-        ImGui::DockBuilderAddNode(app_state.window_state.dock_id);
-        ImGui::DockBuilderSetNodePos(app_state.window_state.dock_id, ImGui::GetWindowPos());
-        ImGui::DockBuilderSetNodeSize(app_state.window_state.dock_id, ImGui::GetWindowSize());
-        ImGuiID controls_node;
-        ImGuiID viewport_node;
-        ImGui::DockBuilderSplitNode(app_state.window_state.dock_id, ImGuiDir_Right, 0.85f, &viewport_node, &controls_node);
-        ImGui::DockBuilderDockWindow("controls", controls_node);
-        ImGui::DockBuilderDockWindow("viewport", viewport_node);
+        if (!std::filesystem::exists("imgui.ini")) {
+            ImGui::DockBuilderAddNode(app_state.window_state.dock_id);
+            ImGui::DockBuilderSetNodePos(app_state.window_state.dock_id, ImGui::GetWindowPos());
+            ImGui::DockBuilderSetNodeSize(app_state.window_state.dock_id, ImGui::GetWindowSize());
+            ImGuiID controls_node;
+            ImGuiID viewport_node;
+            ImGui::DockBuilderSplitNode(app_state.window_state.dock_id, ImGuiDir_Right, 0.85f, &viewport_node, &controls_node);
+            ImGui::DockBuilderDockWindow("controls", controls_node);
+            ImGui::DockBuilderDockWindow("viewport", viewport_node);
+        }
         gui_state::first_frame = false;
     }
-
     // update entity state
     // TODO: Not a fan on this, but haven't come up with a better solution yet
     if (light_changed) {

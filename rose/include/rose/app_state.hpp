@@ -24,12 +24,13 @@ struct WindowState {
     vec2f last_xy;
     vec2f mouse_xy;
 
+    f32 gamma = 2.2f;
+    f32 exposure = 1.0f;
+    bool vsync_enabled = true;
+
     Rectf vp_rect;
     bool vp_focused = false;
     bool vp_captured = true; // indicates whether events should be processed in the viewport
-
-    f32 gamma = 2.2f;
-    f32 exposure = 1.0f;
 };
 
 struct AppState {

@@ -65,7 +65,6 @@ struct Error {
     };
     
     Type ty = Type::INVALID;
-
     std::string msg;
 
     std::string str() const;

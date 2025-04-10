@@ -32,7 +32,11 @@ struct GL_PlatformState {
 struct GL_Platform {
     
     [[nodiscard]] std::optional<rses> init(AppState& app_state);
-    void update(AppState& app_state);
+    
+    void new_frame(AppState& app_state);
+    void end_frame(GLFWwindow* window_handle);
+
+    void render(AppState& app_state);
     void finish();
     void enable_vsync(bool enable);
 

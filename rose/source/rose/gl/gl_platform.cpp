@@ -168,6 +168,25 @@ std::optional<rses> GL_Platform::init(AppState& app_state) {
     return std::nullopt;
 };
 
+void GL_Platform::new_frame(AppState& app_state) {
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+    app_state.window_state.dock_id = ImGui::DockSpaceOverViewport();
+}
+
+void GL_Platform::end_frame(GLFWwindow* window_handle) {
+    ImGui::Render();
+
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+        GLFWwindow* backup_current_context = glfwGetCurrentContext();
+        ImGui::UpdatePlatformWindows();
+        ImGui::RenderPlatformWindowsDefault();
+        glfwMakeContextCurrent(backup_current_context);
+    }
+}
+
 // obtains a projection-view matrix for a directional light
 // near and far values should be specific to the cascade
 static glm::mat4 get_light_pv(const Camera& camera, const glm::vec3& light_dir, const GL_PlatformState& state, float ar, f32 near, f32 far)
@@ -210,20 +229,10 @@ static glm::mat4 get_light_pv(const Camera& camera, const glm::vec3& light_dir, 
     return light_proj * light_view;
 }
 
-void GL_Platform::update(AppState& app_state) {
+void GL_Platform::render(AppState& app_state) {
    
     // frame set up ===============================================================================================
-        
-    ImGui_ImplOpenGL3_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
-        
-    ImGuiIO& io = ImGui::GetIO();
-
-    // TODO: this is only used at a single point in the gui code
-    // should find a better solution
-    app_state.window_state.dock_id = ImGui::DockSpaceOverViewport();
-
+            
     glEnable(GL_DEPTH_TEST);
 
     f32 ar = (f32)app_state.window_state.width / (f32)app_state.window_state.height;
@@ -487,15 +496,6 @@ void GL_Platform::update(AppState& app_state) {
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     gui::gl_imgui(app_state, *this);
-    ImGui::Render();
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-    if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
-        GLFWwindow* backup_current_context = glfwGetCurrentContext();
-        ImGui::UpdatePlatformWindows();
-        ImGui::RenderPlatformWindowsDefault();
-        glfwMakeContextCurrent(backup_current_context);
-    }
 };
 
 void GL_Platform::finish() { 

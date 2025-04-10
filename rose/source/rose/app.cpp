@@ -22,6 +22,7 @@ std::optional<rses> init_glfw(WindowState& window_state) {
     glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
+    glfwSwapInterval(1); // Enable vsync
 
 #ifdef _DEBUG
     glfwWindowHint(GLFW_CONTEXT_DEBUG, GL_TRUE);
@@ -129,13 +130,19 @@ std::optional<rses> init_imgui(WindowState& window_state) {
 
     set_imgui_theme();
 
+    ImGuiStyle& style = ImGui::GetStyle();
+    if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+        style.WindowRounding = 0.0f;
+        style.Colors[ImGuiCol_WindowBg].w = 1.0f;
+    }
+
     ImGui_ImplGlfw_InitForOpenGL(window_state.window_handle, true);
     ImGui_ImplOpenGL3_Init("#version 460");
 
     return std::nullopt;
 }
 
-void RoseApp::handle_events() {
+void RoseApp::update() {
 
     ImGuiIO& io = ImGui::GetIO();
     app_data.window_state.mouse_xy = { io.MousePos.x, io.MousePos.y };

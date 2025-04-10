@@ -42,10 +42,12 @@ struct RoseApp {
     template <typename T>
     void run(T& platform) {
         while (!glfwWindowShouldClose(app_data.window_state.window_handle)) {
-            handle_events();
-            platform.update(app_data);
-            glfwSwapBuffers(app_data.window_state.window_handle);
             glfwPollEvents();
+            platform.new_frame(app_data);
+            update();
+            platform.render(app_data);
+            platform.end_frame(app_data.window_state.window_handle);
+            glfwSwapBuffers(app_data.window_state.window_handle);
         }
     }
 
@@ -58,7 +60,7 @@ struct RoseApp {
         glfwTerminate();    
     }
     
-    void handle_events();
+    void update();
 
 };
 } // namespace rose
