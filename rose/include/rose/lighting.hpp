@@ -17,22 +17,26 @@ namespace rose {
 struct DirShadowData {
     u32 fbo = 0;
     u32 tex = 0;
+    u32 light_mats_ubo = 0; // transforms matrices to directional light space
     u16 resolution = 2048;
     u8 n_cascades = 3;
 };
 
-struct ShadowData {
+std::optional<rses> init_dir_shadow(DirShadowData& shadow);
+
+struct DirLight {
+    glm::vec3 direction = { 0.0f, -0.999848f, -0.0174525f };
+    glm::vec3 color = { 0.55f, 0.55f, 0.55f };
+    DirShadowData shadow_data;
+};
+
+struct PtShadowData {
     u32 fbo = 0;
     u32 tex = 0;
     u16 resolution = 2048;
 };
 
-struct DirLight {
-    glm::vec3 direction = { 0.0f, -0.999848f, -0.0174525f };
-    glm::vec3 color = { 0.55f, 0.55f, 0.55f };
-    DirShadowData shadow;
-    u32 light_mats_ubo = 0;     // transforms matrices to directional light space
-};
+std::optional<rses> init_pt_shadow(PtShadowData& shadow);
 
 // state for a singular point light
 struct PtLight {
