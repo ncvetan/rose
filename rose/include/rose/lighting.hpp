@@ -30,6 +30,9 @@ struct DirLight {
     DirShadowData shadow_data;
 };
 
+// obtains a projection-view matrix for a directional light
+glm::mat4 get_dir_light_mat(const glm::mat4& proj, const glm::mat4& view, const DirLight& light);
+
 struct PtShadowData {
     u32 fbo = 0;
     u32 tex = 0;

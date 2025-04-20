@@ -147,7 +147,7 @@ void gl_imgui(AppState& app_state, GL_Platform& platform) {
 
     bool light_changed = false; // TODO: Not a huge fan of this but not a big deal right now
     ImGui::Begin("controls", &gui_state::controls_open, ImGuiWindowFlags_AlwaysAutoResize);
-    ImGui::Text("FPS: %f (%f ms)", io.Framerate, 1000/ io.Framerate);
+    ImGui::Text("FPS: %.2f (%.2f ms)", io.Framerate, 1000.0f / io.Framerate);
 
     ImGui::Text("global controls");
     ImGui::Separator();

@@ -145,52 +145,6 @@ void GL_Platform::end_frame(GLFWwindow* window_handle) {
     }
 }
 
-// obtains a projection-view matrix for a directional light
-// near and far values should be specific to the cascade
-static glm::mat4 get_light_pv(const Camera& camera, const glm::vec3& light_dir, const GL_PlatformState& state, f32 ar, f32 near, f32 far)
-{
-    std::array<glm::vec4, 8> frustum_corners = {
-        glm::vec4(-1.0f, -1.0f, -1.0f, 1.0f),
-        glm::vec4( 1.0f, -1.0f, -1.0f, 1.0f),
-        glm::vec4(-1.0f,  1.0f, -1.0f, 1.0f),
-        glm::vec4( 1.0f,  1.0f, -1.0f, 1.0f),
-        glm::vec4(-1.0f, -1.0f,  1.0f, 1.0f),
-        glm::vec4( 1.0f, -1.0f,  1.0f, 1.0f),
-        glm::vec4(-1.0f,  1.0f,  1.0f, 1.0f),
-        glm::vec4( 1.0f,  1.0f,  1.0f, 1.0f)
-    };
-
-    glm::mat4 proj = glm::perspective(glm::radians(camera.zoom), ar, near, far);
-    glm::mat4 pv_inv = glm::inverse(proj * camera.view());
-    glm::vec4 frust_center;
-
-    // [ clip -> world ]
-    for (auto& corner : frustum_corners) {        
-        corner = pv_inv * corner;
-        corner /= corner.w;
-        frust_center += corner;
-    }
-
-    frust_center /= 8.0f;
-
-    f32 frust_radius = glm::length(frustum_corners[0] - frustum_corners[7]) / 2.0f;
-    f32 tex_per_unit = state.dir_light.shadow_data.resolution / (frust_radius * 2.0f);
-    glm::mat4 scale = glm::scale(glm::mat4(1.0f), { tex_per_unit, tex_per_unit, tex_per_unit });
-    glm::mat4 look_at = scale * glm::lookAt({ 0.0f, 0.0f, 0.0f }, -light_dir, { 0.0f, 1.0f, 0.0f });
-    glm::mat4 look_at_inv = glm::inverse(look_at);
-
-    frust_center = frust_center * look_at;
-    frust_center.x = std::floor(frust_center.x);
-    frust_center.y = std::floor(frust_center.y);
-    frust_center = frust_center * look_at_inv;
-
-    glm::mat4 light_view = glm::lookAt(glm::vec3(frust_center) - (light_dir * frust_radius * 2.0f),
-                                       glm::vec3(frust_center), { 0.0f, 1.0f, 0.0f });
-
-    glm::mat4 light_proj = glm::ortho(-frust_radius, frust_radius, -frust_radius, frust_radius, -frust_radius * 5.0f, frust_radius * 5.0f);
-    return light_proj * light_view;
-}
-
 void GL_Platform::render(AppState& app_state) {
    
     // frame set up ===============================================================================================
@@ -235,12 +189,17 @@ void GL_Platform::render(AppState& app_state) {
     glViewport(0, 0, platform_state.dir_light.shadow_data.resolution, platform_state.dir_light.shadow_data.resolution);
     glClear(GL_DEPTH_BUFFER_BIT);
 
+    // cascades: [0.1, 10.0], [10.0, 30.0], [30.0, 100.0]
     f32 c1_far = 10.0f;
     f32 c2_far = 30.0f;
 
-    glm::mat4 c1_map = get_light_pv(app_state.camera, platform_state.dir_light.direction, platform_state, ar, app_state.camera.near_plane, c1_far);
-    glm::mat4 c2_map = get_light_pv(app_state.camera, platform_state.dir_light.direction, platform_state, ar, c1_far, c2_far);
-    glm::mat4 c3_map = get_light_pv(app_state.camera, platform_state.dir_light.direction, platform_state, ar, c2_far, app_state.camera.far_plane);
+    auto p1 = glm::perspective(glm::radians(app_state.camera.zoom), ar, app_state.camera.near_plane, c1_far);
+    auto p2 = glm::perspective(glm::radians(app_state.camera.zoom), ar, c1_far, c2_far);
+    auto p3 = glm::perspective(glm::radians(app_state.camera.zoom), ar, c2_far, app_state.camera.far_plane);
+
+    glm::mat4 c1_map = get_dir_light_mat(p1, app_state.camera.view(), platform_state.dir_light);
+    glm::mat4 c2_map = get_dir_light_mat(p2, app_state.camera.view(), platform_state.dir_light);
+    glm::mat4 c3_map = get_dir_light_mat(p3, app_state.camera.view(), platform_state.dir_light);
 
     glNamedBufferSubData(platform_state.dir_light.shadow_data.light_mats_ubo, 0, 64, glm::value_ptr(c1_map));
     glNamedBufferSubData(platform_state.dir_light.shadow_data.light_mats_ubo, 64, 64, glm::value_ptr(c2_map));
@@ -248,6 +207,7 @@ void GL_Platform::render(AppState& app_state) {
 
     glEnable(GL_DEPTH_CLAMP);
 
+    // render occluders
     for (size_t obj_idx = 0; obj_idx < entities.size(); ++obj_idx) {
         if (!is_set(entities.flags[obj_idx], EntityFlags::EMIT_LIGHT)) {
             translate(entities.models[obj_idx], entities.positions[obj_idx]);
@@ -335,9 +295,8 @@ void GL_Platform::render(AppState& app_state) {
     // mask out and render skybox
     glm::mat4 static_view = view;
     static_view[3] = { 0, 0, 0, 1 }; // removing translation component
-    glNamedBufferSubData(platform_state.global_ubo, 64, sizeof(glm::mat4), glm::value_ptr(static_view));
+    shaders.skybox.set_mat4("static_view", static_view);
     platform_state.sky_box.draw(shaders.skybox, platform_state);
-    glNamedBufferSubData(platform_state.global_ubo, 64, sizeof(glm::mat4), glm::value_ptr(view));
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_STENCIL_TEST);
