@@ -73,8 +73,8 @@ layout(std140, binding=6) uniform light_space_mats_ubo {
 
 float calc_dir_shadow(DirLight light, vec3 pos, float frag_depth, vec3 normal) {
 
-	vec3 res = step(vec3(cascade_depths[0], cascade_depths[1], cascade_depths[2]), vec3(abs(frag_depth)));
-	int cascade_idx = int(res.x + res.y + res.z);
+	 vec3 res = step(vec3(cascade_depths[0], cascade_depths[1], cascade_depths[2]), vec3(abs(frag_depth)));
+	 int cascade_idx = int(res.x + res.y + res.z);
 
 	// [ world space -> light space ]
 	vec4 pos_ls = ls_mats[cascade_idx] * vec4(pos, 1.0);

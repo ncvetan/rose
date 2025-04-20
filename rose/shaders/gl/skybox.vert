@@ -24,7 +24,9 @@ layout (std140, binding = 1) uniform globals_ubo {
 	float near_z;
 };
 
+uniform mat4 static_view;
+
 void main() {
     tex_dir = a_pos;    
-    gl_Position = projection * view * vec4(a_pos, 1.0);
+    gl_Position = projection * static_view * vec4(a_pos, 1.0);
 }

@@ -108,57 +108,15 @@ std::optional<rses> GL_Platform::init(AppState& app_state) {
     
     // ---- directional shadow map ----
 
-    glCreateFramebuffers(1, &platform_state.dir_light.shadow.fbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, platform_state.dir_light.shadow.fbo);
-    glCreateTextures(GL_TEXTURE_2D_ARRAY, 1, &platform_state.dir_light.shadow.tex);
-
-    // TODO: Resolution could vary between cascades to save memory
-    glTextureStorage3D(platform_state.dir_light.shadow.tex, 1, GL_DEPTH_COMPONENT32F, 
-                       platform_state.dir_light.shadow.resolution,
-                       platform_state.dir_light.shadow.resolution, platform_state.dir_light.shadow.n_cascades);
-
-    glTextureParameteri(platform_state.dir_light.shadow.tex, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTextureParameteri(platform_state.dir_light.shadow.tex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTextureParameteri(platform_state.dir_light.shadow.tex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(platform_state.dir_light.shadow.tex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(platform_state.dir_light.shadow.tex, GL_TEXTURE_COMPARE_MODE, GL_NONE);
-
-    glNamedFramebufferTexture(platform_state.dir_light.shadow.fbo, GL_DEPTH_ATTACHMENT, platform_state.dir_light.shadow.tex, 0);
-    glNamedFramebufferDrawBuffer(platform_state.dir_light.shadow.fbo, GL_NONE);
-    glNamedFramebufferReadBuffer(platform_state.dir_light.shadow.fbo, GL_NONE);
-
-    if (glCheckNamedFramebufferStatus(platform_state.dir_light.shadow.fbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-        return rses().gl("directional shadow framebuffer is incomplete");
+    if (err = init_dir_shadow(platform_state.dir_light.shadow_data)) {
+        return err;
     }
-
-    glCreateBuffers(1, &platform_state.dir_light.light_mats_ubo);
-    glNamedBufferStorage(platform_state.dir_light.light_mats_ubo, 192, nullptr, GL_DYNAMIC_STORAGE_BIT);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 6, platform_state.dir_light.light_mats_ubo);
 
     // ---- point shadow map ----
 
-    glCreateFramebuffers(1, &platform_state.pt_shadow.fbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, platform_state.pt_shadow.fbo);
-    glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &platform_state.pt_shadow.tex);
-
-    glTextureStorage2D(platform_state.pt_shadow.tex, 1, GL_DEPTH_COMPONENT32F, platform_state.pt_shadow.resolution,
-                       platform_state.pt_shadow.resolution);
-
-    glTextureParameteri(platform_state.pt_shadow.tex, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTextureParameteri(platform_state.pt_shadow.tex, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(platform_state.pt_shadow.tex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(platform_state.pt_shadow.tex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(platform_state.pt_shadow.tex, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
-    glNamedFramebufferTexture(platform_state.pt_shadow.fbo, GL_DEPTH_ATTACHMENT, platform_state.pt_shadow.tex, 0);
-    glNamedFramebufferDrawBuffer(platform_state.pt_shadow.fbo, GL_NONE);
-    glNamedFramebufferReadBuffer(platform_state.pt_shadow.fbo, GL_NONE);
-    
-    if (glCheckNamedFramebufferStatus(platform_state.pt_shadow.fbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-        return rses().gl("point shadow framebuffer is incomplete");
+    if (err = init_pt_shadow(platform_state.pt_shadow_data)) {
+        return err;
     }
-    
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     // remaining set up ===========================================================================
 
@@ -185,48 +143,6 @@ void GL_Platform::end_frame(GLFWwindow* window_handle) {
         ImGui::RenderPlatformWindowsDefault();
         glfwMakeContextCurrent(backup_current_context);
     }
-}
-
-// obtains a projection-view matrix for a directional light
-// near and far values should be specific to the cascade
-static glm::mat4 get_light_pv(const Camera& camera, const glm::vec3& light_dir, const GL_PlatformState& state, float ar, f32 near, f32 far)
-{
-    std::array<glm::vec4, 8> frustum_corners = {
-        glm::vec4(-1.0f, -1.0f, -1.0f, 1.0f),
-        glm::vec4( 1.0f, -1.0f, -1.0f, 1.0f),
-        glm::vec4(-1.0f,  1.0f, -1.0f, 1.0f),
-        glm::vec4( 1.0f,  1.0f, -1.0f, 1.0f),
-        glm::vec4(-1.0f, -1.0f,  1.0f, 1.0f),
-        glm::vec4( 1.0f, -1.0f,  1.0f, 1.0f),
-        glm::vec4(-1.0f,  1.0f,  1.0f, 1.0f),
-        glm::vec4( 1.0f,  1.0f,  1.0f, 1.0f)
-    };
-
-    glm::mat4 proj = glm::perspective(glm::radians(camera.zoom), ar, near, far);
-    glm::mat4 pv_inv = glm::inverse(proj * camera.view());
-
-    glm::vec3 frust_center;
-    // [ clip -> world ]
-    for (auto& corner : frustum_corners) {        
-        corner = pv_inv * corner;
-        corner /= corner.w;
-        frust_center += glm::vec3(corner);
-    }
-
-    frust_center /= frustum_corners.size();
-    glm::mat4 light_view = glm::lookAt(frust_center - light_dir * 10.0f, frust_center, { 0.0f, 1.0f, 0.0f });
-
-    // find tight bounds for the frustum
-    glm::vec3 min_pt = constants::vec3_max;
-    glm::vec3 max_pt = constants::vec3_min;
-    for (const auto& corner : frustum_corners) {
-        glm::vec4 pt = light_view * corner; // [ world -> light view ]
-        min_pt = { std::min(min_pt.x, pt.x), std::min(min_pt.y, pt.y), std::min(min_pt.z, pt.z) };
-        max_pt = { std::max(max_pt.x, pt.x), std::max(max_pt.y, pt.y), std::max(max_pt.z, pt.z) };
-    }
-
-    glm::mat4 light_proj = glm::ortho(min_pt.x, max_pt.x, min_pt.y, max_pt.y, -max_pt.z, -min_pt.z);
-    return light_proj * light_view;
 }
 
 void GL_Platform::render(AppState& app_state) {
@@ -269,23 +185,29 @@ void GL_Platform::render(AppState& app_state) {
 
     // ---- directional light ----
 
-    glBindFramebuffer(GL_FRAMEBUFFER, platform_state.dir_light.shadow.fbo);
-    glViewport(0, 0, platform_state.dir_light.shadow.resolution, platform_state.dir_light.shadow.resolution);
+    glBindFramebuffer(GL_FRAMEBUFFER, platform_state.dir_light.shadow_data.fbo);
+    glViewport(0, 0, platform_state.dir_light.shadow_data.resolution, platform_state.dir_light.shadow_data.resolution);
     glClear(GL_DEPTH_BUFFER_BIT);
 
+    // cascades: [0.1, 10.0], [10.0, 30.0], [30.0, 100.0]
     f32 c1_far = 10.0f;
     f32 c2_far = 30.0f;
 
-    glm::mat4 c1_map = get_light_pv(app_state.camera, platform_state.dir_light.direction, platform_state, ar, app_state.camera.near_plane, c1_far);
-    glm::mat4 c2_map = get_light_pv(app_state.camera, platform_state.dir_light.direction, platform_state, ar, c1_far, c2_far);
-    glm::mat4 c3_map = get_light_pv(app_state.camera, platform_state.dir_light.direction, platform_state, ar, c2_far, app_state.camera.far_plane);
+    auto p1 = glm::perspective(glm::radians(app_state.camera.zoom), ar, app_state.camera.near_plane, c1_far);
+    auto p2 = glm::perspective(glm::radians(app_state.camera.zoom), ar, c1_far, c2_far);
+    auto p3 = glm::perspective(glm::radians(app_state.camera.zoom), ar, c2_far, app_state.camera.far_plane);
 
-    glNamedBufferSubData(platform_state.dir_light.light_mats_ubo, 0, 64, glm::value_ptr(c1_map));
-    glNamedBufferSubData(platform_state.dir_light.light_mats_ubo, 64, 64, glm::value_ptr(c2_map));
-    glNamedBufferSubData(platform_state.dir_light.light_mats_ubo, 128, 64, glm::value_ptr(c3_map));
+    glm::mat4 c1_map = get_dir_light_mat(p1, app_state.camera.view(), platform_state.dir_light);
+    glm::mat4 c2_map = get_dir_light_mat(p2, app_state.camera.view(), platform_state.dir_light);
+    glm::mat4 c3_map = get_dir_light_mat(p3, app_state.camera.view(), platform_state.dir_light);
+
+    glNamedBufferSubData(platform_state.dir_light.shadow_data.light_mats_ubo, 0, 64, glm::value_ptr(c1_map));
+    glNamedBufferSubData(platform_state.dir_light.shadow_data.light_mats_ubo, 64, 64, glm::value_ptr(c2_map));
+    glNamedBufferSubData(platform_state.dir_light.shadow_data.light_mats_ubo, 128, 64, glm::value_ptr(c3_map));
 
     glEnable(GL_DEPTH_CLAMP);
 
+    // render occluders
     for (size_t obj_idx = 0; obj_idx < entities.size(); ++obj_idx) {
         if (!is_set(entities.flags[obj_idx], EntityFlags::EMIT_LIGHT)) {
             translate(entities.models[obj_idx], entities.positions[obj_idx]);
@@ -305,13 +227,13 @@ void GL_Platform::render(AppState& app_state) {
     // ---- point lights ----
 
     glm::mat4 shadow_proj = glm::perspective(
-        glm::radians(90.0f), (f32)platform_state.pt_shadow.resolution / (f32)platform_state.pt_shadow.resolution,
+        glm::radians(90.0f), (f32)platform_state.pt_shadow_data.resolution / (f32)platform_state.pt_shadow_data.resolution,
         app_state.camera.near_plane, app_state.camera.far_plane);
 
     std::array<glm::mat4, 6> shadow_transforms;
 
-    glBindFramebuffer(GL_FRAMEBUFFER, platform_state.pt_shadow.fbo);
-    glViewport(0, 0, platform_state.pt_shadow.resolution, platform_state.pt_shadow.resolution);
+    glBindFramebuffer(GL_FRAMEBUFFER, platform_state.pt_shadow_data.fbo);
+    glViewport(0, 0, platform_state.pt_shadow_data.resolution, platform_state.pt_shadow_data.resolution);
     glClear(GL_DEPTH_BUFFER_BIT);
     shaders.pt_shadow.set_f32("far_plane", app_state.camera.far_plane);
 
@@ -373,9 +295,8 @@ void GL_Platform::render(AppState& app_state) {
     // mask out and render skybox
     glm::mat4 static_view = view;
     static_view[3] = { 0, 0, 0, 1 }; // removing translation component
-    glNamedBufferSubData(platform_state.global_ubo, 64, sizeof(glm::mat4), glm::value_ptr(static_view));
+    shaders.skybox.set_mat4("static_view", static_view);
     platform_state.sky_box.draw(shaders.skybox, platform_state);
-    glNamedBufferSubData(platform_state.global_ubo, 64, sizeof(glm::mat4), glm::value_ptr(view));
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_STENCIL_TEST);
@@ -406,9 +327,9 @@ void GL_Platform::render(AppState& app_state) {
     shaders.lighting_deferred.set_tex("gbuf_pos", 0, gbuf_fbuf.tex_bufs[0]);
     shaders.lighting_deferred.set_tex("gbuf_norms", 1, gbuf_fbuf.tex_bufs[1]);
     shaders.lighting_deferred.set_tex("gbuf_colors", 2, gbuf_fbuf.tex_bufs[2]);
-    shaders.lighting_deferred.set_tex("dir_shadow_maps", 11, platform_state.dir_light.shadow.tex);
-    shaders.lighting_deferred.set_tex("pt_shadow_map", 12, platform_state.pt_shadow.tex);
-    shaders.lighting_deferred.set_i32("n_cascades", platform_state.dir_light.shadow.n_cascades);
+    shaders.lighting_deferred.set_tex("dir_shadow_maps", 11, platform_state.dir_light.shadow_data.tex);
+    shaders.lighting_deferred.set_tex("pt_shadow_map", 12, platform_state.pt_shadow_data.tex);
+    shaders.lighting_deferred.set_i32("n_cascades", platform_state.dir_light.shadow_data.n_cascades);
 
     int_fbuf.draw(shaders.lighting_deferred);
 
@@ -424,9 +345,9 @@ void GL_Platform::render(AppState& app_state) {
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
 
-    shaders.lighting_forward.set_tex("dir_shadow_maps", 11, platform_state.dir_light.shadow.tex);
-    shaders.lighting_forward.set_tex("pt_shadow_map", 12, platform_state.pt_shadow.tex);
-    shaders.lighting_forward.set_i32("n_cascades", platform_state.dir_light.shadow.n_cascades);
+    shaders.lighting_forward.set_tex("dir_shadow_maps", 11, platform_state.dir_light.shadow_data.tex);
+    shaders.lighting_forward.set_tex("pt_shadow_map", 12, platform_state.pt_shadow_data.tex);
+    shaders.lighting_forward.set_i32("n_cascades", platform_state.dir_light.shadow_data.n_cascades);
     shaders.lighting_forward.set_f32("cascade_depths[0]", c1_far);
     shaders.lighting_forward.set_f32("cascade_depths[1]", c2_far);
     shaders.lighting_forward.set_f32("cascade_depths[2]", app_state.camera.far_plane);

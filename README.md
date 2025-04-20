@@ -52,3 +52,4 @@ Some of the resources used that helped me develop Rose. I'd like to give my than
 - [Real Time Rendering](https://www.realtimerendering.com/)
 - [A Primer of Efficient Rendering Algorithms & Clustered Shading](https://www.aortiz.me/2018/12/21/CG.html)
 - [Clustered Shading](https://github.com/DaveH355/clustered-shading)
+- [Shadow Mapping](https://alextardif.com/shadowmapping.html)

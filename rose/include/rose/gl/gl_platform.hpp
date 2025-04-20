@@ -26,7 +26,7 @@ struct GL_PlatformState {
     SkyBox sky_box;
     u32 global_ubo = 0; // ubo storing values available across shaders
     DirLight dir_light;
-    ShadowData pt_shadow;
+    PtShadowData pt_shadow_data;
 };
 
 struct GL_Platform {
