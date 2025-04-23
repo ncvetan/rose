@@ -179,10 +179,29 @@ void gl_imgui(AppState& app_state, GL_Platform& platform) {
     ImGui::SeparatorText("entities");
     if (ImGui::TreeNode("entities")) {
         for (size_t idx = 0; idx < platform.entities.size(); idx++) {
-            if (ImGui::TreeNode((void*)(intptr_t)idx, "ent %d", idx)) {
 
+            if (!platform.entities.is_alive(idx)) {
+                continue;
+            }
+            
+            if (ImGui::TreeNode((void*)(intptr_t)idx, "ent %d", platform.entities.ids[idx])) {
+                
+                if (ImGui::Button("+")) {  // duplicate
+                    if (platform.entities.is_light(idx)) {
+                        light_changed = true;
+                    }
+                    platform.entities.dup_object(idx);
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("-")) {  // delete
+                    if (platform.entities.is_light(idx)) {
+                        light_changed = true;
+                    }
+                    platform.entities.del_object(idx);
+                }
+                
                 if (ImGui::SliderFloat3("position", glm::value_ptr(platform.entities.positions[idx]), -30.0f, 30.0f)) {
-                    if (is_set(platform.entities.flags[idx], EntityFlags::EMIT_LIGHT)) {
+                    if (platform.entities.is_light(idx)) {
                         light_changed = true;
                     }
                 }
@@ -194,16 +213,21 @@ void gl_imgui(AppState& app_state, GL_Platform& platform) {
                 }
 
                 if (ImGui::Button("toggle light")) {
-                    if (is_set(platform.entities.flags[idx], EntityFlags::EMIT_LIGHT)) {
-                        platform.entities.flags[idx] &= ~EntityFlags::EMIT_LIGHT;
+                    if (platform.entities.is_light(idx)) {
+                        set_flag(platform.entities.flags[idx], EntityFlags::EMIT_LIGHT);
                     } 
                     else {
-                        platform.entities.flags[idx] |= EntityFlags::EMIT_LIGHT;
+                        turn_off_flag(platform.entities.flags[idx], EntityFlags::EMIT_LIGHT);
                     }
                     light_changed = true;
                 } 
 
-                ImGui::BeginDisabled(!is_set(platform.entities.flags[idx], EntityFlags::EMIT_LIGHT));
+                ImGui::BeginDisabled(!platform.entities.is_light(idx));
+                if (ImGui::Button("set as caster")) {
+                    platform.entities.pt_caster_idx = idx;
+                    platform.shaders.lighting_deferred.set_u32("pt_caster_id", platform.entities.ids[platform.entities.pt_caster_idx]);
+                    platform.shaders.lighting_forward.set_u32("pt_caster_id", platform.entities.ids[platform.entities.pt_caster_idx]);
+                }
                 if (ImGui::ColorEdit3("color", &platform.entities.light_props[idx].color.x)) {
                     light_changed = true;
                 }

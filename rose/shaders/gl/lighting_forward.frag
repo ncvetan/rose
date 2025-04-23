@@ -18,7 +18,6 @@ in vs_data {
 	float spec_factor;
 } fs_in;
 
-
 // struct definitions =============================================================================
 
 // directional light properties
@@ -49,15 +48,14 @@ struct PointLight {
 
 // uniforms =======================================================================================
 
-uniform sampler2DArray dir_shadow_maps;
-uniform samplerCube pt_shadow_map;
 uniform Material material;
-uniform int n_cascades;
-uniform float cascade_depths[3];
 
-// buffers ========================================================================================
+uniform sampler2DArray dir_shadow_maps;	 // shadow map for each cascade
+uniform int n_cascades;					 // number of shadow cascades
+uniform float cascade_depths[3];		 // far depth of each shadow cascade
+uniform samplerCube pt_shadow_map;		 // shadow map for point lights
+uniform uint pt_caster_id;				 // id of the current shadow casting point light
 
-// ubo
 layout (std140, binding = 1) uniform globals_ubo {
 	mat4 projection;
 	mat4 view;
@@ -68,6 +66,8 @@ layout (std140, binding = 1) uniform globals_ubo {
 	float far_z;
 	float near_z;
 };
+
+// buffers ========================================================================================
 
 // global list of lights and their parameters
 layout (std430, binding=3) buffer lights_ssbo {
@@ -92,6 +92,11 @@ layout (std430, binding=5) buffer clusters_ssbo {
 // contains the light space matrix for each shadow map cascade
 layout(std140, binding=6) uniform light_space_mats_ubo {
 	mat4 ls_mats[3];
+};
+
+// contains identifiers for each light
+layout(std430, binding=7) buffer lights_ids {
+	uint light_ids[];
 };
 
 // functions ======================================================================================
@@ -140,7 +145,7 @@ vec3 calc_dir_light(DirLight light, vec3 pos, float frag_depth, vec3 normal, flo
 	return (ambient_strength + (1.0 - shadow) * (diffuse_strength + spec_factor * specular_strength)) * light.color;
 }
 
-float calc_point_shadow(vec3 pos, vec3 light_pos, samplerCube shadow_map, float far_plane) {
+float calc_pt_shadow(vec3 pos, vec3 light_pos, samplerCube shadow_map, float far_plane) {
 	vec3 frag_to_light = pos - light_pos;
 	float closest = texture(shadow_map, frag_to_light).r * far_plane;
 	float depth = length(frag_to_light);
@@ -149,7 +154,7 @@ float calc_point_shadow(vec3 pos, vec3 light_pos, samplerCube shadow_map, float 
 	return shadow;
 }
 
-vec3 calc_point_light(PointLight light_props, vec3 light_pos, vec3 pos, vec3 normal, float spec_factor, samplerCube shadow_map) {
+vec3 calc_pt_light(PointLight light_props, vec3 light_pos, uint light_id, vec3 pos, vec3 normal, float spec_factor, samplerCube shadow_map) {
 	// calculate attenuation
 	float dist = length(light_pos - pos);
 	float inner_r = light_props.radius * 0.7;
@@ -178,7 +183,7 @@ vec3 calc_point_light(PointLight light_props, vec3 light_pos, vec3 pos, vec3 nor
 		specular_strength = pow(max(dot(view_dir, half_dir), 0.0), 16);
 	}
 
-	float shadow = calc_point_shadow(pos, light_pos, shadow_map, far_z);
+	float shadow = (light_id == pt_caster_id) ? calc_pt_shadow(pos, light_pos, shadow_map, far_z) : 0.0;
 	return (ambient_strength + (1.0 - shadow) * (diffuse_strength + spec_factor * specular_strength)) * light_props.color.xyz * attenuation * light_props.intensity;
 }
 
@@ -203,7 +208,7 @@ void main() {
 	// compute contributions from point lights
 	for (uint idx = 0; idx < clusters[cluster_idx].count; ++idx) {
 		uint light_idx = clusters[cluster_idx].indices[idx];
-		result += color.rgb * calc_point_light(light_props[light_idx], light_positions[light_idx].xyz, fs_in.frag_pos_ws, fs_in.normal, fs_in.spec_factor, pt_shadow_map);
+		result += color.rgb * calc_pt_light(light_props[light_idx], light_positions[light_idx].xyz, light_ids[light_idx], fs_in.frag_pos_ws, fs_in.normal, fs_in.spec_factor, pt_shadow_map);
 	}
 	
 	frag_color = vec4(result, 1.0);

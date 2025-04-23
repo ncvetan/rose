@@ -64,6 +64,7 @@ struct ClusterData {
     SSBO lights_ssbo;                    // light parameters for each light in the scene
     SSBO lights_pos_ssbo;                // light positions for each light in the scene
     SSBO clusters_ssbo;                  // light for each cluster
+    SSBO lights_ids_ssbo;                // IDs for each point light, TODO: probably not the place for this
     glm::uvec3 grid_sz = { 16, 9, 24 };  // size of cluster grid (xyz)
     u32 max_lights_in_cluster = 100;     // number of lights that will be considered for a single cluster
 };

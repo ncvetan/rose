@@ -32,6 +32,7 @@ struct GL_Shader {
     void use();
 
     void set_bool(const std::string_view& name, bool value) const;
+    void set_u32(const std::string_view& name, u32 value) const;
     void set_i32(const std::string_view& name, int value) const;
     void set_tex(const std::string_view& name, int value, u32 tex) const;
     void set_f32(const std::string_view& name, f32 value) const;

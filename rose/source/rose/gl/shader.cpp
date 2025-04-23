@@ -96,6 +96,10 @@ void GL_Shader::set_bool(const std::string_view& name, bool value) const {
     glProgramUniform1i(prg, glGetUniformLocation(prg, name.data()), (int)value);
 }
 
+void GL_Shader::set_u32(const std::string_view& name, u32 value) const {
+    glProgramUniform1ui(prg, glGetUniformLocation(prg, name.data()), value);
+}
+
 void GL_Shader::set_i32(const std::string_view& name, int value) const {
     glProgramUniform1i(prg, glGetUniformLocation(prg, name.data()), value);
 }

@@ -68,6 +68,9 @@ struct Model {
     Model& operator=(const Model& other) = delete;
     Model& operator=(Model&& other) noexcept;
     
+    // returns a copy of this model
+    Model copy();
+
     void draw(GL_Shader& shader, const GL_PlatformState& state) const;
     void draw(GL_Shader& shader, const GL_PlatformState& state, MeshFlags mesh_cond, bool invert_cond) const;
     

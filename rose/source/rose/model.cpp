@@ -123,7 +123,7 @@ static void load_matl_textures(TextureManager& manager, Model& model, aiMaterial
         }
 
         // TODO: a bit hacky, would like to refactor model loading to better handle these sorts of cases
-        if (is_set(texture->ref->flags, TextureFlags::TRANSPARENT)) {
+        if (is_flag_set(texture->ref->flags, TextureFlags::TRANSPARENT)) {
             model.meshes[mesh_idx].flags |= MeshFlags::TRANSPARENT;
         }
     }
@@ -252,6 +252,23 @@ std::optional<rses> Model::load(TextureManager& manager, const fs::path& path) {
     init_gl();
 
     return std::nullopt;
+}
+
+Model Model::copy() { 
+    Model model;
+
+    model.model_mat = model_mat;
+    model.meshes = meshes;
+    model.textures = textures;
+    model.indices = indices;
+    model.pos = pos;
+    model.norm = norm;
+    model.tangent = tangent;
+    model.uv = uv;
+
+    model.init_gl();
+
+    return model;
 }
 
 void Model::draw(GL_Shader& shader, const GL_PlatformState& state) const {

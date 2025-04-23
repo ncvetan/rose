@@ -101,6 +101,7 @@ std::optional<rses> GL_Platform::init(AppState& app_state) {
     clusters.clusters_aabb_ssbo.init(sizeof(AABB) * n_clusters, 2);
     clusters.lights_ssbo.init(sizeof(PtLight) * 1024, 3);
     clusters.lights_pos_ssbo.init(sizeof(glm::vec4) * 1024, 4);
+    clusters.lights_ids_ssbo.init(sizeof(u64) * 1024, 7); // TODO: fill in
     update_light_ssbos(entities, clusters);
     clusters.clusters_ssbo.init(sizeof(u32) * (1 + clusters.max_lights_in_cluster) * n_clusters, 5);
 
@@ -122,6 +123,8 @@ std::optional<rses> GL_Platform::init(AppState& app_state) {
 
     shaders.brightness.set_f32("bloom_threshold", app_state.bloom_threshold);
     shaders.bloom.set_f32("bloom_threshold", app_state.bloom_threshold);
+    shaders.lighting_deferred.set_u32("pt_caster_id", entities.ids[entities.pt_caster_idx]);
+    shaders.lighting_forward.set_u32("pt_caster_id", entities.ids[entities.pt_caster_idx]);
 
     return std::nullopt;
 };
@@ -209,7 +212,7 @@ void GL_Platform::render(AppState& app_state) {
 
     // render occluders
     for (size_t obj_idx = 0; obj_idx < entities.size(); ++obj_idx) {
-        if (!is_set(entities.flags[obj_idx], EntityFlags::EMIT_LIGHT)) {
+        if (entities.is_alive(obj_idx) && !entities.is_light(obj_idx)) {
             translate(entities.models[obj_idx], entities.positions[obj_idx]);
             scale(entities.models[obj_idx], entities.scales[obj_idx]);
             entities.models[obj_idx].draw(shaders.dir_shadow, platform_state);
@@ -237,13 +240,9 @@ void GL_Platform::render(AppState& app_state) {
     glClear(GL_DEPTH_BUFFER_BIT);
     shaders.pt_shadow.set_f32("far_plane", app_state.camera.far_plane);
 
-    for (size_t light_idx = 0; light_idx < entities.size(); ++light_idx) {
-            
-        if (!is_set(entities.flags[light_idx], EntityFlags::EMIT_LIGHT)) {
-            continue;
-        }
-
-        glm::vec3 light_pos = entities.positions[light_idx];
+    if (!entities.empty() && entities.is_alive(entities.pt_caster_idx) && entities.is_light(entities.pt_caster_idx)) {
+        
+        glm::vec3 light_pos = entities.positions[entities.pt_caster_idx];
             
         shadow_transforms[0] = shadow_proj * glm::lookAt(light_pos, light_pos + glm::vec3(1.0f, 0.0f, 0.0f),
                                                             glm::vec3(0.0f, -1.0f, 0.0f));
@@ -267,7 +266,7 @@ void GL_Platform::render(AppState& app_state) {
         shaders.pt_shadow.set_vec3("light_pos", light_pos);
 
         for (size_t obj_idx = 0; obj_idx < entities.size(); ++obj_idx) {
-            if (!is_set(entities.flags[obj_idx], EntityFlags::EMIT_LIGHT)) {
+            if (entities.is_alive(obj_idx) && !entities.is_light(obj_idx)) {
                 translate(entities.models[obj_idx], entities.positions[obj_idx]);
                 scale(entities.models[obj_idx], entities.scales[obj_idx]);
                 // for now, not casting shadows from entities that have transparency
@@ -307,7 +306,7 @@ void GL_Platform::render(AppState& app_state) {
 
     // render non light emitters
     for (size_t idx = 0; idx < entities.size(); ++idx) {
-        if (!is_set(entities.flags[idx], EntityFlags::EMIT_LIGHT)) {                
+        if (entities.is_alive(idx) && !entities.is_light(idx)) {                
             translate(entities.models[idx], entities.positions[idx]);
             scale(entities.models[idx], entities.scales[idx]);
             entities.models[idx].draw(shaders.gbuf, platform_state, MeshFlags::TRANSPARENT, true);
@@ -353,7 +352,10 @@ void GL_Platform::render(AppState& app_state) {
     shaders.lighting_forward.set_f32("cascade_depths[2]", app_state.camera.far_plane);
 
     for (size_t idx = 0; idx < entities.size(); ++idx) {
-        if (is_set(entities.flags[idx], EntityFlags::EMIT_LIGHT)) {
+        if (!entities.is_alive(idx)) {
+            continue;
+        }
+        if (entities.is_light(idx)) {
             // draw light emitters
             translate(entities.models[idx], entities.positions[idx]);
             scale(entities.models[idx], entities.scales[idx]);
@@ -387,7 +389,7 @@ void GL_Platform::render(AppState& app_state) {
         gbuf_fbuf.draw(shaders.brightness);
 
         bool horizontal = true;
-        for (int idx = 0; idx < app_state.n_bloom_passes * 2; ++idx) {
+        for (i32 idx = 0; idx < app_state.n_bloom_passes * 2; ++idx) {
             if (horizontal) {
                 glNamedFramebufferDrawBuffer(gbuf_fbuf.frame_buf, GL_COLOR_ATTACHMENT0);
                 shaders.bloom.set_tex("tex", 0, gbuf_fbuf.tex_bufs[1]);

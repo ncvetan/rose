@@ -107,7 +107,17 @@ T operator~(T f) {
 }
 
 template <RoseEnumT T>
-bool is_set(T flag, T compare) {
+bool is_flag_set(T flag, T compare) {
     return ((flag & compare) != T::NONE);
+}
+
+template <RoseEnumT T>
+void set_flag(T& flag, T compare) {
+    flag &= ~compare;
+}
+
+template <RoseEnumT T>
+void turn_off_flag(T& flag, T compare) {
+    flag |= compare;
 }
 #endif
