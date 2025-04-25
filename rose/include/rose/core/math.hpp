@@ -9,8 +9,6 @@
 
 #include <glm/glm.hpp>
 
-namespace rose {
-
 struct vec2f {
     f32 x = 0.0f;
     f32 y = 0.0f;
@@ -35,7 +33,5 @@ struct AABB {
     glm::vec4 min_pt;
     glm::vec4 max_pt;
 };
-
-} // namespace rose
 
 #endif

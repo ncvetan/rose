@@ -1,8 +1,8 @@
 #include <rose/gui.hpp>
 #include <rose/model.hpp>
 #include <rose/core/err.hpp>
-#include <rose/gl/gl_init.hpp>
-#include <rose/gl/gl_platform.hpp>
+#include <rose/gl/init.hpp>
+#include <rose/gl/platform.hpp>
 
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
@@ -16,13 +16,13 @@
 #include <iostream>
 #include <print>
 
-namespace rose {
+namespace gl {
 
-std::optional<rses> GL_Platform::init(AppState& app_state) {
+std::optional<rses> Platform::init(AppState& app_state) {
 
     std::optional<rses> err = std::nullopt;
 
-    if (err = init_opengl()) {
+    if (err = gl::init_opengl()) {
         return err.value().general("Unable to initialize GLEW and OpenGL");
     }
 
@@ -31,10 +31,10 @@ std::optional<rses> GL_Platform::init(AppState& app_state) {
     }
 
     // object initialization ======================================================================
-    
-    // note: these models are manually loaded here for my ease of use. if someone wanted to run the executable on their own,
-    // they need to modify these paths for their own system. eventually, I'd like a format for savings scenes as well as
-    // the ability to load models through the gui
+
+    // note: these models are manually loaded here for my ease of use. if someone wanted to run the executable on their
+    // own, they need to modify these paths for their own system. eventually, I'd like a format for savings scenes as
+    // well as the ability to load models through the gui
 
     platform_state.sky_box.init();
     if (err = platform_state.sky_box.load(
@@ -52,23 +52,23 @@ std::optional<rses> GL_Platform::init(AppState& app_state) {
                              .flags = EntityFlags::NONE };
 
     entities.add_object(texture_manager, sponza_def);
-    
-    EntityCtx model2_def = {
-                             .model_pth = SOURCE_DIR "/assets/sphere/scene.gltf",
+
+    EntityCtx model2_def = { .model_pth = SOURCE_DIR "/assets/sphere/scene.gltf",
                              .pos = { 0.0f, 3.5f, 0.0f },
                              .scale = { 0.1f, 0.1f, 0.1f },
                              .light_props = PtLight(),
-                             .flags = EntityFlags::EMIT_LIGHT };
+                             .flags = EntityFlags::NONE };
 
     entities.add_object(texture_manager, model2_def);
     entities.light_props.back().color = { 0.35f, 0.1f, 0.1f, 1.0f };
 
     // frame buf initialization ===================================================================
-    
+
     // TODO: optimize size of framebuffers
 
     // (position, normal, albedo)
-    if (err = gbuf_fbuf.init(app_state.window_state.width, app_state.window_state.height, true, { { GL_RGBA16F }, { GL_RGBA16F }, { GL_RGBA8 } })) {
+    if (err = gbuf_fbuf.init(app_state.window_state.width, app_state.window_state.height, true,
+                             { { GL_RGBA16F }, { GL_RGBA16F }, { GL_RGBA8 } })) {
         return err;
     }
 
@@ -77,7 +77,8 @@ std::optional<rses> GL_Platform::init(AppState& app_state) {
     }
 
     // note: pp1 uses the render buffer of gbuf to perform masking with the stencil buffer
-    glNamedFramebufferRenderbuffer(int_fbuf.frame_buf, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, gbuf_fbuf.render_buf);
+    glNamedFramebufferRenderbuffer(int_fbuf.frame_buf, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER,
+                                   gbuf_fbuf.render_buf);
 
     if (err = out_fbuf.init(app_state.window_state.width, app_state.window_state.height, false, { { GL_RGBA8 } })) {
         return err;
@@ -101,12 +102,11 @@ std::optional<rses> GL_Platform::init(AppState& app_state) {
     clusters.clusters_aabb_ssbo.init(sizeof(AABB) * n_clusters, 2);
     clusters.lights_ssbo.init(sizeof(PtLight) * 1024, 3);
     clusters.lights_pos_ssbo.init(sizeof(glm::vec4) * 1024, 4);
-    clusters.lights_ids_ssbo.init(sizeof(u64) * 1024, 7); // TODO: fill in
-    update_light_ssbos(entities, clusters);
+    lights_ids_ssbo.init(sizeof(u64) * 1024, 7); // TODO: fill in
     clusters.clusters_ssbo.init(sizeof(u32) * (1 + clusters.max_lights_in_cluster) * n_clusters, 5);
 
     // shadow map initialization ==================================================================
-    
+
     // ---- directional shadow map ----
 
     if (err = init_dir_shadow(platform_state.dir_light.shadow_data)) {
@@ -121,6 +121,8 @@ std::optional<rses> GL_Platform::init(AppState& app_state) {
 
     // remaining set up ===========================================================================
 
+    entities.update_light_radii();
+
     shaders.brightness.set_f32("bloom_threshold", app_state.bloom_threshold);
     shaders.bloom.set_f32("bloom_threshold", app_state.bloom_threshold);
     shaders.lighting_deferred.set_u32("pt_caster_id", entities.ids[entities.pt_caster_idx]);
@@ -129,14 +131,14 @@ std::optional<rses> GL_Platform::init(AppState& app_state) {
     return std::nullopt;
 };
 
-void GL_Platform::new_frame(AppState& app_state) {
+void Platform::new_frame(AppState& app_state) {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
     app_state.window_state.dock_id = ImGui::DockSpaceOverViewport();
 }
 
-void GL_Platform::end_frame(GLFWwindow* window_handle) {
+void Platform::end_frame(GLFWwindow* window_handle) {
     ImGui::Render();
 
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -148,10 +150,10 @@ void GL_Platform::end_frame(GLFWwindow* window_handle) {
     }
 }
 
-void GL_Platform::render(AppState& app_state) {
-   
+void Platform::render(AppState& app_state) {
+
     // frame set up ===============================================================================================
-            
+
     glEnable(GL_DEPTH_TEST);
 
     f32 ar = (f32)app_state.window_state.width / (f32)app_state.window_state.height;
@@ -183,8 +185,8 @@ void GL_Platform::render(AppState& app_state) {
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
     // shadow pass ================================================================================================
-        
-    glCullFace(GL_FRONT);  // prevent peter panning
+
+    glCullFace(GL_FRONT); // prevent peter panning
 
     // ---- directional light ----
 
@@ -215,11 +217,11 @@ void GL_Platform::render(AppState& app_state) {
         if (entities.is_alive(obj_idx) && !entities.is_light(obj_idx)) {
             translate(entities.models[obj_idx], entities.positions[obj_idx]);
             scale(entities.models[obj_idx], entities.scales[obj_idx]);
-            entities.models[obj_idx].draw(shaders.dir_shadow, platform_state);
+            entities.models[obj_idx].GL_render(shaders.dir_shadow, platform_state);
             entities.models[obj_idx].reset();
         }
     }
-        
+
     glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
     glDisable(GL_DEPTH_CLAMP);
 
@@ -229,9 +231,10 @@ void GL_Platform::render(AppState& app_state) {
 
     // ---- point lights ----
 
-    glm::mat4 shadow_proj = glm::perspective(
-        glm::radians(90.0f), (f32)platform_state.pt_shadow_data.resolution / (f32)platform_state.pt_shadow_data.resolution,
-        app_state.camera.near_plane, app_state.camera.far_plane);
+    glm::mat4 shadow_proj =
+        glm::perspective(glm::radians(90.0f),
+                         (f32)platform_state.pt_shadow_data.resolution / (f32)platform_state.pt_shadow_data.resolution,
+                         app_state.camera.near_plane, app_state.camera.far_plane);
 
     std::array<glm::mat4, 6> shadow_transforms;
 
@@ -241,21 +244,21 @@ void GL_Platform::render(AppState& app_state) {
     shaders.pt_shadow.set_f32("far_plane", app_state.camera.far_plane);
 
     if (!entities.empty() && entities.is_alive(entities.pt_caster_idx) && entities.is_light(entities.pt_caster_idx)) {
-        
+
         glm::vec3 light_pos = entities.positions[entities.pt_caster_idx];
-            
-        shadow_transforms[0] = shadow_proj * glm::lookAt(light_pos, light_pos + glm::vec3(1.0f, 0.0f, 0.0f),
-                                                            glm::vec3(0.0f, -1.0f, 0.0f));
+
+        shadow_transforms[0] =
+            shadow_proj * glm::lookAt(light_pos, light_pos + glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
         shadow_transforms[1] = shadow_proj * glm::lookAt(light_pos, light_pos + glm::vec3(-1.0f, 0.0f, 0.0f),
-                                                            glm::vec3(0.0f, -1.0f, 0.0f));
-        shadow_transforms[2] = shadow_proj * glm::lookAt(light_pos, light_pos + glm::vec3(0.0f, 1.0f, 0.0f),
-                                                            glm::vec3(0.0f, 0.0f, 1.0f));
+                                                         glm::vec3(0.0f, -1.0f, 0.0f));
+        shadow_transforms[2] =
+            shadow_proj * glm::lookAt(light_pos, light_pos + glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         shadow_transforms[3] = shadow_proj * glm::lookAt(light_pos, light_pos + glm::vec3(0.0f, -1.0f, 0.0f),
-                                                            glm::vec3(0.0f, 0.0f, -1.0f));
-        shadow_transforms[4] = shadow_proj * glm::lookAt(light_pos, light_pos + glm::vec3(0.0f, 0.0f, 1.0f),
-                                                            glm::vec3(0.0f, -1.0f, 0.0f));
+                                                         glm::vec3(0.0f, 0.0f, -1.0f));
+        shadow_transforms[4] =
+            shadow_proj * glm::lookAt(light_pos, light_pos + glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, -1.0f, 0.0f));
         shadow_transforms[5] = shadow_proj * glm::lookAt(light_pos, light_pos + glm::vec3(0.0f, 0.0f, -1.0f),
-                                                            glm::vec3(0.0f, -1.0f, 0.0f));
+                                                         glm::vec3(0.0f, -1.0f, 0.0f));
 
         shaders.pt_shadow.set_mat4("shadow_mats[0]", shadow_transforms[0]);
         shaders.pt_shadow.set_mat4("shadow_mats[1]", shadow_transforms[1]);
@@ -270,7 +273,7 @@ void GL_Platform::render(AppState& app_state) {
                 translate(entities.models[obj_idx], entities.positions[obj_idx]);
                 scale(entities.models[obj_idx], entities.scales[obj_idx]);
                 // for now, not casting shadows from entities that have transparency
-                entities.models[obj_idx].draw(shaders.pt_shadow, platform_state, MeshFlags::TRANSPARENT, true);
+                entities.models[obj_idx].GL_render(shaders.pt_shadow, platform_state, MeshFlags::TRANSPARENT, true);
                 entities.models[obj_idx].reset();
             }
         }
@@ -306,10 +309,10 @@ void GL_Platform::render(AppState& app_state) {
 
     // render non light emitters
     for (size_t idx = 0; idx < entities.size(); ++idx) {
-        if (entities.is_alive(idx) && !entities.is_light(idx)) {                
+        if (entities.is_alive(idx) && !entities.is_light(idx)) {
             translate(entities.models[idx], entities.positions[idx]);
             scale(entities.models[idx], entities.scales[idx]);
-            entities.models[idx].draw(shaders.gbuf, platform_state, MeshFlags::TRANSPARENT, true);
+            entities.models[idx].GL_render(shaders.gbuf, platform_state, MeshFlags::TRANSPARENT, true);
             entities.models[idx].reset();
         }
     }
@@ -320,7 +323,7 @@ void GL_Platform::render(AppState& app_state) {
 
     // compute lighting for all fragments with stencil value '1'
     glDisable(GL_DEPTH_TEST);
-    glStencilFunc(GL_EQUAL, 1, 0xFF); 
+    glStencilFunc(GL_EQUAL, 1, 0xFF);
     glStencilOp(GL_ZERO, GL_REPLACE, GL_REPLACE);
 
     shaders.lighting_deferred.set_tex("gbuf_pos", 0, gbuf_fbuf.tex_bufs[0]);
@@ -333,14 +336,14 @@ void GL_Platform::render(AppState& app_state) {
     int_fbuf.draw(shaders.lighting_deferred);
 
     // pass through for all fragments with stencil value '0'
-    glStencilFunc(GL_EQUAL, 0, 0xFF); 
+    glStencilFunc(GL_EQUAL, 0, 0xFF);
     glStencilOp(GL_REPLACE, GL_ZERO, GL_ZERO);
     shaders.passthrough.set_i32("gbuf_colors", 2);
 
     int_fbuf.draw(shaders.passthrough);
 
     // forward pass ===========================================================================
-        
+
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
 
@@ -361,14 +364,13 @@ void GL_Platform::render(AppState& app_state) {
             scale(entities.models[idx], entities.scales[idx]);
             shaders.light.set_vec4("color", entities.light_props[idx].color);
             shaders.light.set_f32("intensity", entities.light_props[idx].intensity);
-            entities.models[idx].draw(shaders.light, platform_state);
+            entities.models[idx].GL_render(shaders.light, platform_state);
             entities.models[idx].reset();
-        } 
-        else {
+        } else {
             // draw transparent components
             translate(entities.models[idx], entities.positions[idx]);
             scale(entities.models[idx], entities.scales[idx]);
-            entities.models[idx].draw(shaders.lighting_forward, platform_state, MeshFlags::TRANSPARENT, false);
+            entities.models[idx].GL_render(shaders.lighting_forward, platform_state, MeshFlags::TRANSPARENT, false);
             entities.models[idx].reset();
         }
     }
@@ -403,7 +405,7 @@ void GL_Platform::render(AppState& app_state) {
             }
             horizontal = !horizontal;
         }
-    } 
+    }
 
     out_fbuf.bind();
     glClear(GL_DEPTH_BUFFER_BIT);
@@ -418,14 +420,41 @@ void GL_Platform::render(AppState& app_state) {
     out_fbuf.draw(shaders.out);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    gui::gl_imgui(app_state, *this);
-};
+    
+    // gui pass ===================================================================================
 
-void GL_Platform::finish() { 
-    ImGui_ImplOpenGL3_Shutdown();
-};
+    gui::GuiRet gui_ret = gui::gl_imgui(app_state, *this);
 
-void GL_Platform::enable_vsync(bool enable) { (enable) ? glfwSwapInterval(1) : glfwSwapInterval(0); };
+    if (gui_ret.light_changed) {
+        entities.update_light_radii();
+        
+        static std::vector<PtLight> pnt_lights_props;
+        static std::vector<glm::vec4> pnt_lights_pos;
+        static std::vector<u32> pnt_lights_ids;
 
+        // note: linear search, probably not a big deal for now
+        for (size_t idx = 0; idx < entities.size(); ++idx) {
+            if (entities.is_alive(idx) && entities.is_light(idx)) {
+                pnt_lights_pos.push_back(glm::vec4(entities.positions[idx], 1.0f));
+                pnt_lights_props.push_back(entities.light_props[idx]);
+                // note: using u32 ids for now, can use the u64 extension
+                pnt_lights_ids.push_back(static_cast<u32>(entities.ids[idx]));
 
-} // namespace rose
+                clusters.lights_ssbo.update(std::span(pnt_lights_props.begin(), pnt_lights_props.end()));
+                clusters.lights_pos_ssbo.update(std::span(pnt_lights_pos.begin(), pnt_lights_pos.end()));
+                lights_ids_ssbo.update(std::span(pnt_lights_ids.begin(), pnt_lights_ids.end()));
+            }
+        }
+
+        pnt_lights_props.resize(0);
+        pnt_lights_pos.resize(0);
+        pnt_lights_ids.resize(0);
+    }
+
+ };
+
+void Platform::finish() { ImGui_ImplOpenGL3_Shutdown(); };
+
+void Platform::enable_vsync(bool enable) { (enable) ? glfwSwapInterval(1) : glfwSwapInterval(0); };
+
+} // namespace gl

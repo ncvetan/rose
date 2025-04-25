@@ -1,4 +1,6 @@
-#include <rose/gl/gl_init.hpp>
+#include <rose/gl/init.hpp>
+
+namespace gl {
 
 std::optional<rses> init_opengl() {
     if (GLenum glew_success = glewInit(); glew_success != GLEW_OK) {
@@ -28,4 +30,6 @@ std::optional<rses> init_opengl() {
 void GLAPIENTRY gl_debug_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei len,
                                   const GLchar* msg, const void* user_param) {
     std::println("GL ERROR: type = {}, severity = {}, message = {}\n", type, severity, msg);
+}
+
 }

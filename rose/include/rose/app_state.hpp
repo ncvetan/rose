@@ -11,8 +11,6 @@
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
-namespace rose {
-
 struct WindowState {
     GLFWwindow* window_handle = nullptr;
 
@@ -41,5 +39,4 @@ struct AppState {
     f32 bloom_threshold = 1.0f;
 };
 
-}
 #endif

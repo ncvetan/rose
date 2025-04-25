@@ -19,20 +19,20 @@
 
 // TODO: There is still a ton of unnecessary coupling going on here
 
-namespace rose {
+namespace gl {
 
 // state specific to the OpenGL platform
-struct GL_PlatformState {
+struct PlatformState {
     SkyBox sky_box;
     u32 global_ubo = 0; // ubo storing values available across shaders
     DirLight dir_light;
     PtShadowData pt_shadow_data;
 };
 
-struct GL_Platform {
-    
+struct Platform {
+
     [[nodiscard]] std::optional<rses> init(AppState& app_state);
-    
+
     void new_frame(AppState& app_state);
     void end_frame(GLFWwindow* window_handle);
 
@@ -43,16 +43,18 @@ struct GL_Platform {
     // note: destruction order is important
     // entities must be destructed before texture managers
     TextureManager texture_manager;
-    GL_PlatformState platform_state;
+    PlatformState platform_state;
     Entities entities;
-    GL_Shaders shaders;
-
-    FrameBuf gbuf_fbuf;  // gbuffers
-    FrameBuf int_fbuf;   // intermediate
-    FrameBuf out_fbuf;   // output
+    Shaders shaders;
     ClusterData clusters;
+
+    gl::SSBO lights_ids_ssbo;  // IDs for each point light
+
+    FrameBuf gbuf_fbuf;        // gbuffers
+    FrameBuf int_fbuf;         // intermediate
+    FrameBuf out_fbuf;         // output
 };
 
-} // namespace rose
+} // namespace gl
 
 #endif

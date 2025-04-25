@@ -5,9 +5,7 @@
 
 #include <filesystem>
 
-namespace rose {
-
-TextureRef::TextureRef(TextureGL* ref, TextureManager* manager) : ref(ref), manager(manager) {}
+TextureRef::TextureRef(GL_Texture* ref, TextureManager* manager) : ref(ref), manager(manager) {}
 
 TextureRef::TextureRef(const TextureRef& other) {
     ref = other.ref;
@@ -36,7 +34,7 @@ TextureRef& TextureRef::operator=(TextureRef&& other) noexcept {
     return *this;
 }
 
-TextureGL* TextureRef::operator->() {
+GL_Texture* TextureRef::operator->() {
     return this->ref;
 }
 
@@ -90,7 +88,7 @@ std::expected<TextureRef, rses> TextureManager::load_texture(const fs::path& pat
         return opt_ref.value();
     }
 
-    TextureGL texture;
+    GL_Texture texture;
     texture.ty = ty;
     i32 width = 0, height = 0, n_channels = 0;
     unsigned char* texture_data = stbi_load(path.generic_string().c_str(), &width, &height, &n_channels, STBI_rgb_alpha);
@@ -139,7 +137,7 @@ std::expected<TextureRef, rses> TextureManager::load_cubemap(const std::array<fs
 
     i32 width = 0, height = 0, n_channels = 0;
     unsigned char* texture_data = nullptr;
-    TextureGL texture = {
+    GL_Texture texture = {
         .id = 0,
         .ty = TextureType::CUBE_MAP
     };
@@ -174,5 +172,3 @@ std::expected<TextureRef, rses> TextureManager::load_cubemap(const std::array<fs
     loaded_textures[texture.id] = { texture, 1 };
     return TextureRef(&loaded_textures[texture.id].texture, this);
 }
-
-} // namespace rose

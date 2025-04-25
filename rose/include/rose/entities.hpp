@@ -8,13 +8,12 @@
 #include <rose/lighting.hpp>
 #include <rose/model.hpp>
 #include <rose/core/core.hpp>
+
 #include <rose/gl/shader.hpp>
 
 #include <glm.hpp>
 
 #include <vector>
-
-namespace rose {
 
 enum class EntityFlags : u32 { 
     NONE        = 0,     // no effect
@@ -48,17 +47,15 @@ struct Entities {
     void update_light_radii();
 
     // returns the number of entities, both active and deleted
-    inline size_t size() { return positions.size(); }
+    inline size_t size() const { return positions.size(); }
 
-    inline size_t empty() { return positions.empty(); }
+    inline size_t empty() const { return positions.empty(); }
 
     // returns true if the entity at the given index is active (i.e., not deleted)
-    inline bool is_alive(i64 idx) { return !tombs[idx]; }
+    inline bool is_alive(i64 idx) const { return !tombs[idx]; }
 
     // returns true if the entity at the given index is a light emitter
-    inline bool is_light(i64 idx) { 
-        return is_flag_set(flags[idx], EntityFlags::EMIT_LIGHT);
-    }
+    inline bool is_light(i64 idx) const { return is_flag_set(flags[idx], EntityFlags::EMIT_LIGHT); }
 
     // return a new id and increment
     inline u64 new_id() { return id_counter++; }
@@ -81,11 +78,5 @@ struct Entities {
     u64 id_counter = 0;
     std::vector<i64> free_idxs;  // free indices
 };
-
-// TODO: this function is ugly any probably should not exist + inefficient for large collections
-// temporary until I have a better solution
-void update_light_ssbos(Entities& objs, ClusterData& clusters);
-
-}
 
 #endif

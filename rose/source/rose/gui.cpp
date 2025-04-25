@@ -1,6 +1,6 @@
 #include <rose/camera.hpp>
 #include <rose/gui.hpp>
-#include <rose/gl/gl_platform.hpp>
+#include <rose/gl/platform.hpp>
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -11,7 +11,6 @@
 #define NOMINMAX
 #include <windows.h>
 
-namespace rose {
 namespace gui {
 
 // note: right now, the gui is a bit hacked together. it is primarily used for debugging and observing
@@ -58,7 +57,7 @@ static fs::path open_windows_explorer() {
     return "";
 }
 
-void gl_imgui(AppState& app_state, GL_Platform& platform) {
+GuiRet gl_imgui(AppState& app_state, gl::Platform& platform) {
     ImGuiIO& io = ImGui::GetIO();
     ImGuiID skybox_popup_id = ImHashStr("import_skybox_popup");
 
@@ -284,13 +283,8 @@ void gl_imgui(AppState& app_state, GL_Platform& platform) {
         }
         gui_state::first_frame = false;
     }
-    // update entity state
-    // TODO: Not a fan on this, but haven't come up with a better solution yet
-    if (light_changed) {
-        platform.entities.update_light_radii();
-        update_light_ssbos(platform.entities, platform.clusters);
-    }
+
+    return { .light_changed = light_changed };
 }
 
 } // namespace gui
-} // namespace rose

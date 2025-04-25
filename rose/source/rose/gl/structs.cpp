@@ -1,6 +1,6 @@
 #include <rose/gl/structs.hpp>
 
-namespace rose {
+namespace gl {
 
 std::optional<rses> FrameBuf::init(i32 w, i32 h, bool has_depth_buf, const std::vector<FrameBufTexCtx>& texs) {
 
@@ -50,7 +50,7 @@ std::optional<rses> FrameBuf::init(i32 w, i32 h, bool has_depth_buf, const std::
     return std::nullopt;
 }
 
-void FrameBuf::draw(GL_Shader& shader) {
+void FrameBuf::draw(Shader& shader) {
     shader.use();
     glBindVertexArray(vertex_arr);
     glDrawArrays(GL_TRIANGLES, 0, verts.size());
@@ -78,4 +78,4 @@ bool SSBO::init(u32 size, u32 base) {
 
 SSBO::~SSBO() { glDeleteBuffers(1, &ssbo); }
 
-}
+} // namespace gl

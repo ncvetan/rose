@@ -13,8 +13,6 @@
 #include <concepts>
 #include <optional>
 
-namespace rose {
-
 std::optional<rses> init_glfw(WindowState& window_state);
 std::optional<rses> init_imgui(WindowState& window_state);
 
@@ -63,6 +61,5 @@ struct RoseApp {
     void update();
 
 };
-} // namespace rose
 
 #endif

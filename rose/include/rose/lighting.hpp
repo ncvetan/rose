@@ -12,8 +12,6 @@
 
 // TODO: decouple OpenGL buffers from non platform specific state of lighting system
 
-namespace rose {
-
 struct DirShadowData {
     u32 fbo = 0;
     u32 tex = 0;
@@ -60,15 +58,12 @@ struct PtLight {
 
 // state used for clustered shading
 struct ClusterData {
-    SSBO clusters_aabb_ssbo;             // AABBs for each cluster
-    SSBO lights_ssbo;                    // light parameters for each light in the scene
-    SSBO lights_pos_ssbo;                // light positions for each light in the scene
-    SSBO clusters_ssbo;                  // light for each cluster
-    SSBO lights_ids_ssbo;                // IDs for each point light, TODO: probably not the place for this
+    gl::SSBO clusters_aabb_ssbo;             // AABBs for each cluster
+    gl::SSBO lights_ssbo;                    // light parameters for each light in the scene
+    gl::SSBO lights_pos_ssbo;                // light positions for each light in the scene
+    gl::SSBO clusters_ssbo;                  // light for each cluster
     glm::uvec3 grid_sz = { 16, 9, 24 };  // size of cluster grid (xyz)
     u32 max_lights_in_cluster = 100;     // number of lights that will be considered for a single cluster
 };
-
-}
 
 #endif

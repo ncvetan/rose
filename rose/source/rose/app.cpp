@@ -8,8 +8,6 @@
 #include <backends/imgui_impl_opengl3.h>
 #endif
 
-namespace rose {
-
 std::optional<rses> init_glfw(WindowState& window_state) {
     if (glfwInit() == GLFW_FALSE) {
         return rses().gl("GLFW failed to initialize");
@@ -189,5 +187,3 @@ void RoseApp::update() {
         }
     }
 }
-
-} // namespace rose

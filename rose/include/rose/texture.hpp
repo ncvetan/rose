@@ -14,8 +14,6 @@
 #include <optional>
 #include <unordered_map>
 
-namespace rose {
-
 enum class TextureType { 
     NONE = 0, 
     DIFFUSE, 
@@ -34,7 +32,7 @@ enum class TextureFlags : u32 {
 
 ENABLE_ROSE_ENUM_OPS(TextureFlags);
 
-struct TextureGL {
+struct GL_Texture {
     u32 id = 0;
     TextureType ty = TextureType::NONE;
     TextureFlags flags = TextureFlags::NONE;
@@ -43,7 +41,7 @@ struct TextureGL {
 };
 
 struct TextureCount {
-    TextureGL texture;
+    GL_Texture texture;
     u64 ref_count = 0;
 };
 
@@ -65,19 +63,17 @@ struct TextureManager {
 // reference to a texture, will reduce reference count on destruction
 struct TextureRef {
     TextureRef() = default;
-    TextureRef(TextureGL* ref, TextureManager* manager);
+    TextureRef(GL_Texture* ref, TextureManager* manager);
     TextureRef(const TextureRef& other);        // increases ref count
     TextureRef(TextureRef&& other) noexcept;    // does not increase ref count
     ~TextureRef();
 
     TextureRef& operator=(const TextureRef& other);
     TextureRef& operator=(TextureRef&& other) noexcept;
-    TextureGL* operator->();
+    GL_Texture* operator->();
 
-    TextureGL* ref = nullptr;
+    GL_Texture* ref = nullptr;
     TextureManager* manager = nullptr;
 };
-
-} // namespace rose
 
 #endif

@@ -6,8 +6,6 @@
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>
 
-namespace rose {
-
 std::optional<rses> init_dir_shadow(DirShadowData& shadow) {
     // free existing data
     if (shadow.fbo) {
@@ -130,6 +128,4 @@ glm::mat4 get_dir_light_mat(const glm::mat4& proj, const glm::mat4& view, const 
         glm::ortho(-frust_radius, frust_radius, -frust_radius, frust_radius, -frust_radius * 5.0f, frust_radius * 5.0f);
 
     return light_proj * light_view;
-}
-
 }

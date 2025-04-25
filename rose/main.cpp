@@ -2,7 +2,7 @@
 #include <rose/core/err.hpp>
 
 #ifdef OPENGL
-#include <rose/gl/gl_platform.hpp>
+#include <rose/gl/platform.hpp>
 #endif
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -13,12 +13,12 @@
 int main() {
 
 #ifdef OPENGL
-    rose::GL_Platform platform;
+    gl::Platform platform;
 #else
     return -1;
 #endif
 
-    rose::RoseApp application;
+    RoseApp application;
     std::optional<rses> err = application.init(platform);
 
     if (err) { 

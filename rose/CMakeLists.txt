@@ -29,13 +29,15 @@ option(USE_OPENGL "OpenGL Rendering" ON)
 if (USE_OPENGL)
 
     list(APPEND SOURCES 
-    "include/rose/gl/gl_platform.hpp" 
-    "include/rose/gl/gl_init.hpp"
+    "include/rose/gl/init.hpp"
+    "include/rose/gl/platform.hpp" 
+    "include/rose/gl/render.hpp"
     "include/rose/gl/shader.hpp"
     "include/rose/gl/structs.hpp"
 
-    "source/rose/gl/gl_platform.cpp"
-    "source/rose/gl/gl_init.cpp"
+    "source/rose/gl/init.cpp"
+    "source/rose/gl/platform.cpp"
+    "source/rose/gl/render.cpp"
     "source/rose/gl/shader.cpp"
     "source/rose/gl/structs.cpp"
     )

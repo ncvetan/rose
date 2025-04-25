@@ -13,7 +13,7 @@
 
 #include <span>
 
-namespace rose {
+namespace gl {
 
 struct FrameBufTexCtx {
     GLenum intern_format = 0;
@@ -32,9 +32,9 @@ struct FrameBuf {
         glBindFramebuffer(GL_FRAMEBUFFER, frame_buf);
         glViewport(0, 0, width, height);
     }
-    
+
     std::optional<rses> init(i32 w, i32 h, bool has_depth_buf, const std::vector<FrameBufTexCtx>& texs);
-    void draw(GL_Shader& shader);
+    void draw(Shader& shader);
 
     u32 frame_buf = 0;
     u32 render_buf = 0;
@@ -80,11 +80,12 @@ struct SSBO {
 
     ~SSBO();
 
-    u32 ssbo = 0;      // ssbo identifier
-    u32 n_elems = 0;   // number of elements
-    u32 capacity = 0;  // size of the ssbo in bytes
-    u32 base = 0;      // bind idx
+    u32 ssbo = 0;     // ssbo identifier
+    u32 n_elems = 0;  // number of elements
+    u32 capacity = 0; // size of the ssbo in bytes
+    u32 base = 0;     // bind idx
 };
 
-}
+} // namespace gl
+
 #endif
