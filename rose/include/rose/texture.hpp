@@ -45,20 +45,7 @@ struct TextureCount {
     u64 ref_count = 0;
 };
 
-struct TextureRef;
-
-// This class manages textures within the program. It can provide references to textures that will be used
-// perform shared memory management
-struct TextureManager {
-    std::expected<TextureRef, rses> load_texture(const fs::path& path, TextureType ty);
-    std::expected<TextureRef, rses> load_cubemap(const std::array<fs::path, 6>& paths);
-
-    std::optional<TextureRef> get_ref(const fs::path& path);
-    std::optional<TextureRef> get_ref(u32 id);
-
-    std::unordered_map<u32, TextureCount> loaded_textures;  // [ id,  tex ]
-    std::unordered_map<fs::path, u32> textures_index;       // [ path, id ]
-};
+struct TextureManager;
 
 // reference to a texture, will reduce reference count on destruction
 struct TextureRef {
@@ -75,5 +62,25 @@ struct TextureRef {
     GL_Texture* ref = nullptr;
     TextureManager* manager = nullptr;
 };
+
+// This struct manages textures within the program. It can provide references to textures that will be used
+// perform shared memory management.
+struct TextureManager {
+
+    void init();
+    
+    TextureRef load_texture(const fs::path& path, TextureType ty);
+    TextureRef load_cubemap(const std::array<fs::path, 6>& paths);
+
+    TextureRef get_ref(const fs::path& path);
+    TextureRef get_ref(u32 id);
+
+    std::unordered_map<u32, TextureCount> loaded_textures;  // [ id,  tex ]
+    std::unordered_map<fs::path, u32> textures_index;       // [ path, id ]
+
+    TextureRef default_tex_ref;
+    TextureRef default_cubemap_ref;
+};
+
 
 #endif

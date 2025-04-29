@@ -77,7 +77,7 @@ struct Model {
     void GL_render(gl::Shader& shader, const gl::PlatformState& state) const;
     void GL_render(gl::Shader& shader, const gl::PlatformState& state, MeshFlags mesh_cond, bool invert_cond) const;
 
-    std::optional<rses> load(TextureManager& manager, const std::filesystem::path& path);
+    void load(TextureManager& manager, const std::filesystem::path& path);
 
     inline void reset() { model_mat = glm::mat4(1.0f); }
 
@@ -105,7 +105,7 @@ struct SkyBox {
     SkyBox& operator=(SkyBox&& other) noexcept;
 
     void init();
-    std::optional<rses> load(TextureManager& manager, const std::array<fs::path, 6>& paths);
+    void load(TextureManager& manager, const std::array<fs::path, 6>& paths);
     void draw(gl::Shader& shader, const gl::PlatformState& state) const;
     inline void reset() { model_mat = glm::mat4(1.0f); }
 

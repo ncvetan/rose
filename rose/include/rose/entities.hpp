@@ -36,7 +36,7 @@ struct EntityCtx {
 struct Entities {
 
     // add an entity to the scene
-    std::optional<rses> add_object(TextureManager& manager, const EntityCtx& ent_def);
+    void add_object(TextureManager& manager, const EntityCtx& ent_def);
 
     // duplicates an existing object with the given index
     void dup_object(i64 idx);

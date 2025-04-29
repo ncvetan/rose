@@ -30,6 +30,8 @@ std::optional<rses> Platform::init(AppState& app_state) {
         return err.value().general("unable to initialize shaders");
     }
 
+    texture_manager.init();
+
     // object initialization ======================================================================
 
     // note: these models are manually loaded here for my ease of use. if someone wanted to run the executable on their
@@ -37,12 +39,10 @@ std::optional<rses> Platform::init(AppState& app_state) {
     // well as the ability to load models through the gui
 
     platform_state.sky_box.init();
-    if (err = platform_state.sky_box.load(
+    platform_state.sky_box.load(
             texture_manager, { SOURCE_DIR "/assets/skybox/right.jpg", SOURCE_DIR "/assets/skybox/left.jpg",
                                SOURCE_DIR "/assets/skybox/top.jpg", SOURCE_DIR "/assets/skybox/bottom.jpg",
-                               SOURCE_DIR "/assets/skybox/front.jpg", SOURCE_DIR "/assets/skybox/back.jpg" })) {
-        return err;
-    }
+                               SOURCE_DIR "/assets/skybox/front.jpg", SOURCE_DIR "/assets/skybox/back.jpg" });
 
     // note: hard coding some model loading for testing, can be removed eventually
     EntityCtx sponza_def = { .model_pth = SOURCE_DIR "/assets/Sponza/glTF/Sponza.gltf",

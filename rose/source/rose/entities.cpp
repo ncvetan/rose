@@ -1,12 +1,8 @@
 #include <rose/entities.hpp>
 
-std::optional<rses> Entities::add_object(TextureManager& manager, const EntityCtx& ent_def) {
+void Entities::add_object(TextureManager& manager, const EntityCtx& ent_def) {
     Model model;
-    std::optional<rses> err = model.load(manager, ent_def.model_pth);
-
-    if (err) {
-        return err;
-    }
+    model.load(manager, ent_def.model_pth);
 
     if (free_idxs.empty()) {
         ids.push_back(new_id());
@@ -30,8 +26,6 @@ std::optional<rses> Entities::add_object(TextureManager& manager, const EntityCt
         flags[idx] = ent_def.flags;
         free_idxs.pop_back();
     }
-
-    return std::nullopt;
 }
 
 void Entities::dup_object(i64 idx) { 

@@ -31,44 +31,40 @@ Model& Model::operator=(Model&& other) noexcept {
 
 static void load_matl_textures(TextureManager& manager, Model& model, aiMaterial* mat, aiTextureType ty,
                                const fs::path& root_path, u32 mesh_idx) {
+    
     for (int idx = 0; idx < mat->GetTextureCount(ty); ++idx) {
         aiString ai_str;
         mat->GetTexture(ty, idx, &ai_str);
         fs::path texture_path = root_path / std::string(ai_str.C_Str());
-        std::expected<TextureRef, rses> texture;
+        TextureRef texture;
 
         switch (ty) {
         case aiTextureType_DIFFUSE:
             texture = manager.load_texture(texture_path, TextureType::DIFFUSE);
-            model.textures.push_back(texture.value());
+            model.textures.push_back(texture);
             break;
         case aiTextureType_SPECULAR:
             texture = manager.load_texture(texture_path, TextureType::SPECULAR);
-            model.textures.push_back(texture.value());
+            model.textures.push_back(texture);
             break;
         case aiTextureType_HEIGHT:
             texture = manager.load_texture(texture_path, TextureType::NORMAL);
-            model.textures.push_back(texture.value());
+            model.textures.push_back(texture);
             break;
         case aiTextureType_NORMALS:
             texture = manager.load_texture(texture_path, TextureType::NORMAL);
-            model.textures.push_back(texture.value());
+            model.textures.push_back(texture);
             break;
         case aiTextureType_DISPLACEMENT:
             texture = manager.load_texture(texture_path, TextureType::DISPLACE);
-            model.textures.push_back(texture.value());
+            model.textures.push_back(texture);
             break;
         default:
             break;
         }
 
-        if (!texture.has_value()) {
-            err::print(texture.error());
-            continue;
-        }
-
         // TODO: a bit hacky, would like to refactor model loading to better handle these sorts of cases
-        if (is_flag_set(texture->ref->flags, TextureFlags::TRANSPARENT)) {
+        if (texture.ref && is_flag_set(texture.ref->flags, TextureFlags::TRANSPARENT)) {
             model.meshes[mesh_idx].flags |= MeshFlags::TRANSPARENT;
         }
     }
@@ -77,8 +73,8 @@ static void load_matl_textures(TextureManager& manager, Model& model, aiMaterial
 // determine the number of meshes in the model
 static void get_n_meshes(aiNode* ai_node, const aiScene* ai_scene, u32& n_meshes) {
     n_meshes += ai_node->mNumMeshes;
-    for (int i = 0; i < ai_node->mNumChildren; ++i) {
-        get_n_meshes(ai_node->mChildren[i], ai_scene, n_meshes);
+    for (int idx = 0; idx < ai_node->mNumChildren; ++idx) {
+        get_n_meshes(ai_node->mChildren[idx], ai_scene, n_meshes);
     }
 }
 
@@ -118,19 +114,19 @@ static void process_assimp_node(TextureManager& manager, aiNode* ai_node, const 
     for (int mesh_idx = 0; mesh_idx < ai_node->mNumMeshes; ++mesh_idx) {
         aiMesh* ai_mesh = ai_scene->mMeshes[ai_node->mMeshes[mesh_idx]];
 
-        for (int j = 0; j < ai_mesh->mNumVertices; ++j) {
-            model.pos.push_back({ ai_mesh->mVertices[j].x, ai_mesh->mVertices[j].y, ai_mesh->mVertices[j].z });
-            model.norms.push_back({ ai_mesh->mNormals[j].x, ai_mesh->mNormals[j].y, ai_mesh->mNormals[j].z });
+        for (int vert_idx = 0; vert_idx < ai_mesh->mNumVertices; ++vert_idx) {
+            model.pos.push_back({ ai_mesh->mVertices[vert_idx].x, ai_mesh->mVertices[vert_idx].y, ai_mesh->mVertices[vert_idx].z });
+            model.norms.push_back({ ai_mesh->mNormals[vert_idx].x, ai_mesh->mNormals[vert_idx].y, ai_mesh->mNormals[vert_idx].z });
             // note: right now I am just using nil values for these if not present
             // can be changed in the future to reduce memory consumption
             glm::vec3 tan = { 0.0f, 0.0f, 0.0f };
             if (ai_mesh->mTangents) {
-                tan = { ai_mesh->mTangents[j].x, ai_mesh->mTangents[j].y, ai_mesh->mTangents[j].z };
+                tan = { ai_mesh->mTangents[vert_idx].x, ai_mesh->mTangents[vert_idx].y, ai_mesh->mTangents[vert_idx].z };
             }
             model.tangents.push_back(tan);
             glm::vec2 uv = { 0.0f, 0.0f };
             if (ai_mesh->mTextureCoords[0]) {
-                uv = { ai_mesh->mTextureCoords[0][j].x, ai_mesh->mTextureCoords[0][j].y };
+                uv = { ai_mesh->mTextureCoords[0][vert_idx].x, ai_mesh->mTextureCoords[0][vert_idx].y };
             }
             model.uvs.push_back(uv);
         }
@@ -155,12 +151,12 @@ static void process_assimp_node(TextureManager& manager, aiNode* ai_node, const 
 
     mesh_offset += ai_node->mNumMeshes;
 
-    for (int i = 0; i < ai_node->mNumChildren; ++i) {
-        process_assimp_node(manager, ai_node->mChildren[i], ai_scene, model, root_path, mesh_offset);
+    for (int idx = 0; idx < ai_node->mNumChildren; ++idx) {
+        process_assimp_node(manager, ai_node->mChildren[idx], ai_scene, model, root_path, mesh_offset);
     }
 }
 
-std::optional<rses> Model::load(TextureManager& manager, const fs::path& path) {
+void Model::load(TextureManager& manager, const fs::path& path) {
     Assimp::Importer import;
 
     auto flags = aiProcess_GenSmoothNormals | aiProcess_Triangulate | aiProcess_CalcTangentSpace |
@@ -170,7 +166,7 @@ std::optional<rses> Model::load(TextureManager& manager, const fs::path& path) {
         import.ReadFile(path.generic_string(), flags);
 
     if (!scene) {
-        return rses().io("Error importing scene : {}", import.GetErrorString());
+        return;
     }
 
     fs::path root_path = path.parent_path();
@@ -199,7 +195,7 @@ std::optional<rses> Model::load(TextureManager& manager, const fs::path& path) {
 
     render_data.init(pos, norms, tangents, uvs, indices);
 
-    return std::nullopt;
+    return;
 }
 
 Model Model::copy() { 
@@ -256,15 +252,20 @@ void Model::GL_render(gl::Shader& shader, const gl::PlatformState& state) const 
     }
 }
 
-void Model::GL_render(gl::Shader& shader, const gl::PlatformState& state, MeshFlags mesh_cond, bool invert_cond) const {
+// this variation only renders meshes that meet a flag used as criteria (e.g., transparent meshes in a model that has a mix of
+// transparent and non-transparent meshes
+//
+// TODO: There is probably a better way of doing this as this is only used currently to determine whether to forward render
+// or defer render a mesh. Could be better to batch like-meshes together and render those without needed to check a condition.
+void Model::GL_render(gl::Shader& shader, const gl::PlatformState& state, MeshFlags test_flag, bool flag_on) const {
     shader.use();
     shader.set_mat4("model", model_mat);
     glBindVertexArray(render_data.vao);
 
     for (auto& mesh : meshes) {
         
-        if (!invert_cond && ((mesh.flags & mesh_cond) == MeshFlags::NONE) || 
-            (invert_cond && ((mesh.flags & mesh_cond) != MeshFlags::NONE))) {
+        if (!flag_on && !is_flag_set(mesh.flags, test_flag) || 
+            (flag_on && is_flag_set(mesh.flags, test_flag))) {
             // do not render meshes that do not meet the provided condition
             continue;
         }
@@ -334,13 +335,8 @@ void SkyBox::init() {
     glVertexArrayAttribBinding(vao, 0, 0);
 }
 
-std::optional<rses> SkyBox::load(TextureManager& manager, const std::array<fs::path, 6>& paths) {
-    std::expected<TextureRef, rses> tex = manager.load_cubemap(paths);
-    if (!tex) {
-        return tex.error().io("unable to load skybox");
-    }
-    texture = tex.value();
-    return std::nullopt;
+void SkyBox::load(TextureManager& manager, const std::array<fs::path, 6>& paths) {
+    texture = manager.load_cubemap(paths);
 }
 
 void SkyBox::draw(gl::Shader& shader, const gl::PlatformState& state) const {
