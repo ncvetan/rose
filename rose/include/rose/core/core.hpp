@@ -117,7 +117,7 @@ void set_flag(T& flag, T compare) {
 }
 
 template <RoseEnumT T>
-void turn_off_flag(T& flag, T compare) {
+void unset_flag(T& flag, T compare) {
     flag |= compare;
 }
 #endif

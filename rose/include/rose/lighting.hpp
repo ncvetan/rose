@@ -40,20 +40,13 @@ struct PtShadowData {
 std::optional<rses> init_pt_shadow(PtShadowData& shadow);
 
 // state for a singular point light
-struct PtLight {
-
-    // calculate the radius of the point light
-    inline void radius() {
-        f32 lum = glm::dot(glm::vec3(color.r, color.g, color.b), glm::vec3(0.2126, 0.7152, 0.0722));
-        f32 threshold = 0.01f;
-        rad = (-linear + std::sqrtf(linear * linear - 4.0f * quad * (1.0f - lum / threshold)) / (2.0f * quad));
-    };
-
-    glm::vec4 color = { 0.20f, 0.20f, 0.20f, 1.0f };
-    f32 linear = 1.0f;
-    f32 quad = 0.7f;
-    f32 intensity = 1.8f;
-    f32 rad = 1.0f;
+// 
+// note: padding added to meet std430 layout requirements
+struct PtLightData {
+    glm::vec4 color = { 0.5f, 0.5f, 0.5f, 1.0f };
+    f32 radius = 25.0f;
+    f32 intensity = 1.0f;
+    u8 padding[8] = { 0 };
 };
 
 // state used for clustered shading

@@ -48,7 +48,8 @@ std::optional<rses> Platform::init(AppState& app_state) {
     EntityCtx sponza_def = { .model_pth = SOURCE_DIR "/assets/Sponza/glTF/Sponza.gltf",
                              .pos = { 0.0f, 0.0f, 0.0f },
                              .scale = { 0.02f, 0.02f, 0.02f },
-                             .light_props = PtLight(),
+                             .rotation = { 0.0f, 0.0f, 0.0f },
+                             .light_data = PtLightData(),
                              .flags = EntityFlags::NONE };
 
     entities.add_object(texture_manager, sponza_def);
@@ -56,11 +57,11 @@ std::optional<rses> Platform::init(AppState& app_state) {
     EntityCtx model2_def = { .model_pth = SOURCE_DIR "/assets/sphere/scene.gltf",
                              .pos = { 0.0f, 3.5f, 0.0f },
                              .scale = { 0.1f, 0.1f, 0.1f },
-                             .light_props = PtLight(),
+                             .rotation = { 0.0f, 0.0f, 0.0f },
+                             .light_data = PtLightData(),
                              .flags = EntityFlags::NONE };
 
     entities.add_object(texture_manager, model2_def);
-    entities.light_props.back().color = { 0.35f, 0.1f, 0.1f, 1.0f };
 
     // frame buf initialization ===================================================================
 
@@ -100,9 +101,9 @@ std::optional<rses> Platform::init(AppState& app_state) {
 
     i32 n_clusters = clusters.grid_sz.x * clusters.grid_sz.y * clusters.grid_sz.z;
     clusters.clusters_aabb_ssbo.init(sizeof(AABB) * n_clusters, 2);
-    clusters.lights_ssbo.init(sizeof(PtLight) * 1024, 3);
+    clusters.lights_ssbo.init(sizeof(PtLightData) * 1024, 3);
     clusters.lights_pos_ssbo.init(sizeof(glm::vec4) * 1024, 4);
-    lights_ids_ssbo.init(sizeof(u64) * 1024, 7); // TODO: fill in
+    lights_ids_ssbo.init(sizeof(u32) * 1024, 7);
     clusters.clusters_ssbo.init(sizeof(u32) * (1 + clusters.max_lights_in_cluster) * n_clusters, 5);
 
     // shadow map initialization ==================================================================
@@ -120,8 +121,6 @@ std::optional<rses> Platform::init(AppState& app_state) {
     }
 
     // remaining set up ===========================================================================
-
-    entities.update_light_radii();
 
     shaders.brightness.set_f32("bloom_threshold", app_state.bloom_threshold);
     shaders.bloom.set_f32("bloom_threshold", app_state.bloom_threshold);
@@ -217,6 +216,7 @@ void Platform::render(AppState& app_state) {
         if (entities.is_alive(obj_idx) && !entities.is_light(obj_idx)) {
             translate(entities.models[obj_idx], entities.positions[obj_idx]);
             scale(entities.models[obj_idx], entities.scales[obj_idx]);
+            rotate(entities.models[obj_idx], entities.rotations[obj_idx]);
             entities.models[obj_idx].GL_render(shaders.dir_shadow, platform_state);
             entities.models[obj_idx].reset();
         }
@@ -224,10 +224,6 @@ void Platform::render(AppState& app_state) {
 
     glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
     glDisable(GL_DEPTH_CLAMP);
-
-    shaders.lighting_deferred.set_f32("cascade_depths[0]", c1_far);
-    shaders.lighting_deferred.set_f32("cascade_depths[1]", c2_far);
-    shaders.lighting_deferred.set_f32("cascade_depths[2]", app_state.camera.far_plane);
 
     // ---- point lights ----
 
@@ -272,6 +268,7 @@ void Platform::render(AppState& app_state) {
             if (entities.is_alive(obj_idx) && !entities.is_light(obj_idx)) {
                 translate(entities.models[obj_idx], entities.positions[obj_idx]);
                 scale(entities.models[obj_idx], entities.scales[obj_idx]);
+                rotate(entities.models[obj_idx], entities.rotations[obj_idx]);
                 // for now, not casting shadows from entities that have transparency
                 entities.models[obj_idx].GL_render(shaders.pt_shadow, platform_state, MeshFlags::TRANSPARENT, true);
                 entities.models[obj_idx].reset();
@@ -312,6 +309,7 @@ void Platform::render(AppState& app_state) {
         if (entities.is_alive(idx) && !entities.is_light(idx)) {
             translate(entities.models[idx], entities.positions[idx]);
             scale(entities.models[idx], entities.scales[idx]);
+            rotate(entities.models[idx], entities.rotations[idx]);
             entities.models[idx].GL_render(shaders.gbuf, platform_state, MeshFlags::TRANSPARENT, true);
             entities.models[idx].reset();
         }
@@ -332,6 +330,9 @@ void Platform::render(AppState& app_state) {
     shaders.lighting_deferred.set_tex("dir_shadow_maps", 11, platform_state.dir_light.shadow_data.tex);
     shaders.lighting_deferred.set_tex("pt_shadow_map", 12, platform_state.pt_shadow_data.tex);
     shaders.lighting_deferred.set_i32("n_cascades", platform_state.dir_light.shadow_data.n_cascades);
+    shaders.lighting_deferred.set_f32("cascade_depths[0]", c1_far);
+    shaders.lighting_deferred.set_f32("cascade_depths[1]", c2_far);
+    shaders.lighting_deferred.set_f32("cascade_depths[2]", app_state.camera.far_plane);
 
     int_fbuf.draw(shaders.lighting_deferred);
 
@@ -362,14 +363,16 @@ void Platform::render(AppState& app_state) {
             // draw light emitters
             translate(entities.models[idx], entities.positions[idx]);
             scale(entities.models[idx], entities.scales[idx]);
-            shaders.light.set_vec4("color", entities.light_props[idx].color);
-            shaders.light.set_f32("intensity", entities.light_props[idx].intensity);
+            rotate(entities.models[idx], entities.rotations[idx]);
+            shaders.light.set_vec4("color", entities.light_data[idx].color);
+            shaders.light.set_f32("intensity", entities.light_data[idx].intensity);
             entities.models[idx].GL_render(shaders.light, platform_state);
             entities.models[idx].reset();
         } else {
             // draw transparent components
             translate(entities.models[idx], entities.positions[idx]);
             scale(entities.models[idx], entities.scales[idx]);
+            rotate(entities.models[idx], entities.rotations[idx]);
             entities.models[idx].GL_render(shaders.lighting_forward, platform_state, MeshFlags::TRANSPARENT, false);
             entities.models[idx].reset();
         }
@@ -426,31 +429,30 @@ void Platform::render(AppState& app_state) {
     gui::GuiRet gui_ret = gui::gl_imgui(app_state, *this);
 
     if (gui_ret.light_changed) {
-        entities.update_light_radii();
         
-        static std::vector<PtLight> pnt_lights_props;
-        static std::vector<glm::vec4> pnt_lights_pos;
-        static std::vector<u32> pnt_lights_ids;
+        static std::vector<PtLightData> pt_light_data;
+        static std::vector<glm::vec4> pt_lights_pos;
+        static std::vector<u32> pt_lights_ids;
 
         // note: linear search, probably not a big deal for now
         for (size_t idx = 0; idx < entities.size(); ++idx) {
             if (entities.is_alive(idx) && entities.is_light(idx)) {
-                pnt_lights_pos.push_back(glm::vec4(entities.positions[idx], 1.0f));
-                pnt_lights_props.push_back(entities.light_props[idx]);
+                pt_lights_pos.push_back(glm::vec4(entities.positions[idx], 1.0f));
+                pt_light_data.push_back(entities.light_data[idx]);
                 // note: using u32 ids for now, can use the u64 extension
-                pnt_lights_ids.push_back(static_cast<u32>(entities.ids[idx]));
+                pt_lights_ids.push_back(static_cast<u32>(entities.ids[idx]));
 
-                clusters.lights_ssbo.update(std::span(pnt_lights_props.begin(), pnt_lights_props.end()));
-                clusters.lights_pos_ssbo.update(std::span(pnt_lights_pos.begin(), pnt_lights_pos.end()));
-                lights_ids_ssbo.update(std::span(pnt_lights_ids.begin(), pnt_lights_ids.end()));
             }
         }
 
-        pnt_lights_props.resize(0);
-        pnt_lights_pos.resize(0);
-        pnt_lights_ids.resize(0);
-    }
+        clusters.lights_ssbo.update(std::span(pt_light_data.begin(), pt_light_data.end()));
+        clusters.lights_pos_ssbo.update(std::span(pt_lights_pos.begin(), pt_lights_pos.end()));
+        lights_ids_ssbo.update(std::span(pt_lights_ids.begin(), pt_lights_ids.end()));
 
+        pt_light_data.resize(0);
+        pt_lights_pos.resize(0);
+        pt_lights_ids.resize(0);
+    }
  };
 
 void Platform::finish() { ImGui_ImplOpenGL3_Shutdown(); };

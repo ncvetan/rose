@@ -46,12 +46,11 @@ uniform uint pt_caster_id;				 // id of the current shadow casting point light
 
 // light parameters for a particular point light
 struct PointLight {
-	vec4 color;
-	float linear;
-	float quad;
-	float intensity;
-	float radius;
+    vec4 color;
+    float radius;
+    float intensity;
 };
+
 
 struct Cluster {
     uint count;			// number of lights affecting the cluster
@@ -62,7 +61,7 @@ struct Cluster {
 
 // global list of lights and their parameters
 layout (std430, binding=3) buffer lights_ssbo {
-    PointLight light_props[];
+    PointLight light_data[];
 };
 
 // global list of light positions (this should always have the same length as lights_ssbo)
@@ -140,25 +139,11 @@ float calc_pt_shadow(vec3 pos, vec3 light_pos, samplerCube shadow_map, float far
 	return shadow;
 }
 
-vec3 calc_pt_light(PointLight light_props, vec3 light_pos, uint light_id, vec3 pos, vec3 normal, float spec_factor, samplerCube shadow_map) {
+vec3 calc_pt_light(PointLight light, vec3 light_pos, uint light_id, vec3 pos, vec3 normal, float spec_factor, samplerCube shadow_map) {
 	// calculate attenuation
 	float dist = length(light_pos - pos);
-
-	// TODO: smoothening between inner/outer radius is arbitrary right now, can be made configurable
-	float inner_r = light_props.radius * 0.7;
-	float outer_r = light_props.radius;
-	
-	if (dist > outer_r) {
-		return vec3(0.0);
-	}
-	
-	float attenuation = 1.0 / (1.0 + light_props.linear * dist + light_props.quad * (dist * dist));
-
-	if (dist > inner_r) {
-		attenuation *= smoothstep(outer_r, inner_r, dist);
-	}
-
-	attenuation = min(attenuation * light_props.intensity, 1.0);
+	float window = pow((max(1 - pow(dist / light.radius, 4), 0.0)), 2);
+	float attenuation = window * (1.0 / (dist * dist + 0.001));
 
 	float ambient_strength = 0.1;
 	vec3 light_dir = normalize(light_pos - pos);
@@ -172,10 +157,8 @@ vec3 calc_pt_light(PointLight light_props, vec3 light_pos, uint light_id, vec3 p
 	}
 
 	float shadow = (light_id == pt_caster_id) ? calc_pt_shadow(pos, light_pos, shadow_map, far_z) : 0.0; // TODO: refactor this fn to avoid this hacky check
-	return (ambient_strength + (1.0 - shadow) * (diffuse_strength + spec_factor * specular_strength)) * light_props.color.xyz * attenuation * light_props.intensity;
+	return (ambient_strength + (1.0 - shadow) * (diffuse_strength + spec_factor * specular_strength)) * light.color.xyz * attenuation * light.intensity;
 }
-
-
 
 void main() {
 	// retrive gbuf values
@@ -199,7 +182,7 @@ void main() {
 	// compute contributions from point lights
 	for (uint idx = 0; idx < clusters[cluster_idx].count; ++idx) {
 		uint light_idx = clusters[cluster_idx].indices[idx];
-		result += color * calc_pt_light(light_props[light_idx], light_positions[light_idx].xyz, light_ids[light_idx], pos, norm, spec_factor, pt_shadow_map);
+		result += color * calc_pt_light(light_data[light_idx], light_positions[light_idx].xyz, light_ids[light_idx], pos, norm, spec_factor, pt_shadow_map);
 	}
 	
 	frag_color = vec4(result, 1.0);

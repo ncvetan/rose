@@ -214,9 +214,9 @@ Model Model::copy() {
     model.tangents = tangents;
     model.uvs = uvs;
 
-    render_data.init(pos, norms, tangents, uvs, indices);
+    model.render_data.init(pos, norms, tangents, uvs, indices);
 
-    return model;
+    return model;  
 }
 
 void Model::GL_render(gl::Shader& shader, const gl::PlatformState& state) const {

@@ -14,8 +14,8 @@ std::optional<rses> Entities::add_object(TextureManager& manager, const EntityCt
         models.push_back(std::move(model));
         positions.push_back(ent_def.pos);
         scales.push_back(ent_def.scale);
-        light_props.push_back(ent_def.light_props);
-        light_props.back().radius();
+        rotations.push_back(ent_def.rotation);
+        light_data.push_back(ent_def.light_data);
         flags.push_back(ent_def.flags);
     } 
     else {
@@ -25,8 +25,8 @@ std::optional<rses> Entities::add_object(TextureManager& manager, const EntityCt
         models[idx] = std::move(model);
         positions[idx] = ent_def.pos;
         scales[idx] = ent_def.scale;
-        light_props[idx] = ent_def.light_props;
-        light_props[idx].radius();
+        rotations[idx] = ent_def.rotation;
+        light_data[idx] = ent_def.light_data;
         flags[idx] = ent_def.flags;
         free_idxs.pop_back();
     }
@@ -43,8 +43,8 @@ void Entities::dup_object(i64 idx) {
         models.push_back(models[idx].copy());
         positions.push_back(positions[idx] + glm::vec3(0.25f, 0.25f, 0.25f));
         scales.push_back(scales[idx]);
-        light_props.push_back(light_props[idx]);
-        light_props.back().radius();
+        rotations.push_back(rotations[idx]);
+        light_data.push_back(light_data[idx]);
         flags.push_back(flags[idx]);
     } 
     else {
@@ -54,8 +54,8 @@ void Entities::dup_object(i64 idx) {
         models[new_idx] = std::move(models[idx].copy());
         positions[new_idx] = positions[idx] + glm::vec3(0.25f, 0.25f, 0.25f);
         scales[new_idx] = scales[idx];
-        light_props[new_idx] = light_props[idx];
-        light_props[new_idx].radius();
+        rotations[new_idx] = rotations[idx];
+        light_data[new_idx] = light_data[idx];
         flags[new_idx] = flags[idx];
         free_idxs.pop_back();
     }
@@ -64,10 +64,4 @@ void Entities::dup_object(i64 idx) {
 void Entities::del_object(i64 idx) { 
     tombs[idx] = true; 
     free_idxs.push_back(idx);
-}
-
-void Entities::update_light_radii() {
-    for (size_t idx = 0; idx < size(); ++idx) {
-        light_props[idx].radius();
-    }
 }

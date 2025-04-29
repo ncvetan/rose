@@ -28,7 +28,8 @@ struct EntityCtx {
     fs::path model_pth;
     glm::vec3 pos;
     glm::vec3 scale;
-    PtLight light_props;
+    glm::vec3 rotation;
+    PtLightData light_data;
     EntityFlags flags;
 };
 
@@ -42,9 +43,6 @@ struct Entities {
 
     // delete the object at the given index
     void del_object(i64 idx);
-
-    // updates the light radius field of all entities that are set as light emitters
-    void update_light_radii();
 
     // returns the number of entities, both active and deleted
     inline size_t size() const { return positions.size(); }
@@ -66,7 +64,8 @@ struct Entities {
     std::vector<Model> models;
     std::vector<glm::vec3> positions;
     std::vector<glm::vec3> scales;
-    std::vector<PtLight> light_props;
+    std::vector<glm::vec3> rotations;
+    std::vector<PtLightData> light_data;
     std::vector<EntityFlags> flags;
 
     // right now, only a single point light can cast shadows

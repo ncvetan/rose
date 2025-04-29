@@ -40,8 +40,10 @@ void scale(T& obj, const glm::vec3& factors) {
 }
 
 template <Transformable T>
-void rotate(T& obj, f32 deg, const glm::vec3& axis) {
-    obj.model_mat = glm::rotate(obj.model_mat, glm::radians(deg), axis);
+void rotate(T& obj, const glm::vec3& rotation) {
+    obj.model_mat = glm::rotate(obj.model_mat, glm::radians(rotation.x), { 1.0f, 0.0f, 0.0f });
+    obj.model_mat = glm::rotate(obj.model_mat, glm::radians(rotation.y), { 0.0f, 1.0f, 0.0f });
+    obj.model_mat = glm::rotate(obj.model_mat, glm::radians(rotation.z), { 0.0f, 0.0f, 1.0f });
 }
 
 enum class MeshFlags : u32 {

@@ -57,6 +57,8 @@ static fs::path open_windows_explorer() {
     return "";
 }
 
+// note: ideally, this shouldn't be coupled with the graphics API, but I haven't created a clean delineation between
+// systems that are dependant/non-dependant on API, and therefore can not decouple it yet
 GuiRet gl_imgui(AppState& app_state, gl::Platform& platform) {
     ImGuiIO& io = ImGui::GetIO();
     ImGuiID skybox_popup_id = ImHashStr("import_skybox_popup");
@@ -71,7 +73,8 @@ GuiRet gl_imgui(AppState& app_state, gl::Platform& platform) {
                     .model_pth = model_path,
                     .pos = { 0.0f, 0.0f, 0.0f },
                     .scale = { 1.0f, 1.0f, 1.0f }, 
-                    .light_props = PtLight(), 
+                    .rotation = { 0.0f, 0.0f, 0.0f },
+                    .light_data = PtLightData(), 
                     .flags = EntityFlags::NONE 
                 };
                 platform.entities.add_object(platform.texture_manager, ent_def);
@@ -204,11 +207,16 @@ GuiRet gl_imgui(AppState& app_state, gl::Platform& platform) {
                         light_changed = true;
                     }
                 }
+                if (ImGui::SliderFloat3("rotation", glm::value_ptr(platform.entities.rotations[idx]), 0.0f, 360.0f)) {
+                    if (platform.entities.is_light(idx)) {
+                        light_changed = true;
+                    }
+                }
                 if (ImGui::SliderFloat("scale", &platform.entities.scales[idx].x, 0.1f, 10.0f)) {
                     // note: using a single float slider to set all values in a vec3
-                    platform.entities.scales[idx] = {   platform.entities.scales[idx].x,
-                                                        platform.entities.scales[idx].x,
-                                                        platform.entities.scales[idx].x };
+                    platform.entities.scales[idx] = { platform.entities.scales[idx].x,
+                                                      platform.entities.scales[idx].x,
+                                                      platform.entities.scales[idx].x };
                 }
 
                 if (ImGui::Button("toggle light")) {
@@ -216,27 +224,24 @@ GuiRet gl_imgui(AppState& app_state, gl::Platform& platform) {
                         set_flag(platform.entities.flags[idx], EntityFlags::EMIT_LIGHT);
                     } 
                     else {
-                        turn_off_flag(platform.entities.flags[idx], EntityFlags::EMIT_LIGHT);
+                        unset_flag(platform.entities.flags[idx], EntityFlags::EMIT_LIGHT);
                     }
                     light_changed = true;
                 } 
 
                 ImGui::BeginDisabled(!platform.entities.is_light(idx));
-                if (ImGui::Button("set as caster")) {
+                if (ImGui::Button("cast shadows")) {
                     platform.entities.pt_caster_idx = idx;
                     platform.shaders.lighting_deferred.set_u32("pt_caster_id", platform.entities.ids[platform.entities.pt_caster_idx]);
                     platform.shaders.lighting_forward.set_u32("pt_caster_id", platform.entities.ids[platform.entities.pt_caster_idx]);
                 }
-                if (ImGui::ColorEdit3("color", &platform.entities.light_props[idx].color.x)) {
+                if (ImGui::ColorEdit3("color", &platform.entities.light_data[idx].color.x)) {
                     light_changed = true;
                 }
-                if (ImGui::SliderFloat("linear", &platform.entities.light_props[idx].linear, 0.1f, 10.0f)) {
+                if (ImGui::SliderFloat("radius", &platform.entities.light_data[idx].radius, 0.1, 100.0f)) {
                     light_changed = true;
                 }
-                if (ImGui::SliderFloat("quad", &platform.entities.light_props[idx].quad, 0.1f, 10.0f)) {
-                    light_changed = true;
-                }
-                if (ImGui::SliderFloat("intensity", &platform.entities.light_props[idx].intensity, 1.0f, 10.0f)) {
+                if (ImGui::SliderFloat("intensity", &platform.entities.light_data[idx].intensity, 1.0f, 10.0f)) {
                     light_changed = true;
                 }
                 ImGui::EndDisabled();

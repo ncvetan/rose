@@ -21,11 +21,9 @@ struct DirLight {
 
 // light parameters for a particular point light
 struct PointLight {
-	vec4 color;
-	float linear;
-	float quad;
-	float intensity;
-	float radius;
+    vec4 color;
+    float radius;
+    float intensity;
 };
 
 struct Cluster {
@@ -80,7 +78,6 @@ uniform int n_lights;
 void main() {
 
     uint cluster_idx = gl_WorkGroupID.x * 128 + gl_LocalInvocationID.x;
-
     AABB aabb = cluster_aabb[cluster_idx];
     clusters[cluster_idx].count = 0;
 
