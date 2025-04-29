@@ -44,7 +44,6 @@ struct Platform {
     // entities must be destructed before texture managers
     TextureManager texture_manager;
     PlatformState platform_state;
-    Entities entities;
     Shaders shaders;
     ClusterData clusters;
 

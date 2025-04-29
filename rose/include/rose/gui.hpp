@@ -15,7 +15,7 @@ struct GuiRet {
     bool light_changed = false; // indicated whether a light was changed from within the GUI
 };
 
-GuiRet gl_imgui(AppState& app_state, gl::Platform& platform);
+GuiRet imgui(AppState& app_state, gl::Platform& platform);
 
 }
 

@@ -52,7 +52,7 @@ std::optional<rses> Platform::init(AppState& app_state) {
                              .light_data = PtLightData(),
                              .flags = EntityFlags::NONE };
 
-    entities.add_object(texture_manager, sponza_def);
+    app_state.entities.add_object(texture_manager, sponza_def);
 
     EntityCtx model2_def = { .model_pth = SOURCE_DIR "/assets/sphere/scene.gltf",
                              .pos = { 0.0f, 3.5f, 0.0f },
@@ -61,7 +61,7 @@ std::optional<rses> Platform::init(AppState& app_state) {
                              .light_data = PtLightData(),
                              .flags = EntityFlags::NONE };
 
-    entities.add_object(texture_manager, model2_def);
+    app_state.entities.add_object(texture_manager, model2_def);
 
     // frame buf initialization ===================================================================
 
@@ -124,8 +124,8 @@ std::optional<rses> Platform::init(AppState& app_state) {
 
     shaders.brightness.set_f32("bloom_threshold", app_state.bloom_threshold);
     shaders.bloom.set_f32("bloom_threshold", app_state.bloom_threshold);
-    shaders.lighting_deferred.set_u32("pt_caster_id", entities.ids[entities.pt_caster_idx]);
-    shaders.lighting_forward.set_u32("pt_caster_id", entities.ids[entities.pt_caster_idx]);
+    shaders.lighting_deferred.set_u32("pt_caster_id", app_state.entities.ids[app_state.entities.pt_caster_idx]);
+    shaders.lighting_forward.set_u32("pt_caster_id", app_state.entities.ids[app_state.entities.pt_caster_idx]);
 
     return std::nullopt;
 };
@@ -154,6 +154,7 @@ void Platform::render(AppState& app_state) {
     // frame set up ===============================================================================================
 
     glEnable(GL_DEPTH_TEST);
+    Entities& entities = app_state.entities;
 
     f32 ar = (f32)app_state.window_state.width / (f32)app_state.window_state.height;
     glm::mat4 projection = app_state.camera.projection(ar);
@@ -368,7 +369,8 @@ void Platform::render(AppState& app_state) {
             shaders.light.set_f32("intensity", entities.light_data[idx].intensity);
             entities.models[idx].GL_render(shaders.light, platform_state);
             entities.models[idx].reset();
-        } else {
+        } 
+        else {
             // draw transparent components
             translate(entities.models[idx], entities.positions[idx]);
             scale(entities.models[idx], entities.scales[idx]);
@@ -426,7 +428,7 @@ void Platform::render(AppState& app_state) {
     
     // gui pass ===================================================================================
 
-    gui::GuiRet gui_ret = gui::gl_imgui(app_state, *this);
+    gui::GuiRet gui_ret = gui::imgui(app_state, *this);
 
     if (gui_ret.light_changed) {
         
