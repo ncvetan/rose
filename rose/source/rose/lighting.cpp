@@ -6,7 +6,7 @@
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>
 
-std::optional<rses> init_dir_shadow(DirShadowData& shadow) {
+rses init_dir_shadow(DirShadowData& shadow) {
     // free existing data
     if (shadow.fbo) {
         glDeleteFramebuffers(1, &shadow.fbo);
@@ -47,10 +47,10 @@ std::optional<rses> init_dir_shadow(DirShadowData& shadow) {
     glNamedBufferStorage(shadow.light_mats_ubo, 192, nullptr, GL_DYNAMIC_STORAGE_BIT);
     glBindBufferBase(GL_UNIFORM_BUFFER, 6, shadow.light_mats_ubo);
 
-    return std::nullopt;
+    return {};
 }
 
-std::optional<rses> init_pt_shadow(PtShadowData& shadow) {
+rses init_pt_shadow(PtShadowData& shadow) {
     // free existing data
     if (shadow.fbo) {
         glDeleteFramebuffers(1, &shadow.fbo);
@@ -81,7 +81,7 @@ std::optional<rses> init_pt_shadow(PtShadowData& shadow) {
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    return std::nullopt;
+    return {};
 }
 
 glm::mat4 get_dir_light_mat(const glm::mat4& proj, const glm::mat4& view, const DirLight& light) {

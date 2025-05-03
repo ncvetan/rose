@@ -8,7 +8,7 @@
 
 namespace gl {
 
-std::optional<rses> Shader::init(const std::vector<ShaderCtx>& shader_ctxs) {
+rses Shader::init(const std::vector<ShaderCtx>& shader_ctxs) {
     
     i32 success = 0;
     char info_log[512];
@@ -81,7 +81,7 @@ std::optional<rses> Shader::init(const std::vector<ShaderCtx>& shader_ctxs) {
         glDeleteShader(shader);
     }
 
-    return std::nullopt;
+    return {};
 }
 
 Shader::~Shader() {
@@ -136,9 +136,9 @@ void Shader::set_vec4(const std::string_view& name, const glm::vec4& value) cons
     glProgramUniform4f(prg, glGetUniformLocation(prg, name.data()), value.x, value.y, value.z, value.w);
 }
 
-std::optional<rses> Shaders::init() {
+rses Shaders::init() {
 
-    std::optional<rses> err = std::nullopt;
+    rses err;
 
     if (err = bloom.init({ { SOURCE_DIR "/rose/shaders/gl/quad.vert", GL_VERTEX_SHADER },
                           { SOURCE_DIR "/rose/shaders/gl/bloom.frag", GL_FRAGMENT_SHADER } })) {

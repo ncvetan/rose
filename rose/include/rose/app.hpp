@@ -13,28 +13,25 @@
 #include <concepts>
 #include <optional>
 
-std::optional<rses> init_glfw(WindowState& window_state);
-std::optional<rses> init_imgui(WindowState& window_state);
+rses init_glfw(WindowState& window_state);
+rses init_imgui(WindowState& window_state);
 
 struct RoseApp {
     AppState app_data;
 
     template <typename T>
-    std::optional<rses> init(T& platform) {
-        std::optional<rses> err = std::nullopt;
-
+    rses init(T& platform) {
+        rses err;
         if (err = init_glfw(app_data.window_state)) {
-            return err.value().general("Unable to initialize GLFW");
+            return err.general("unable to initialize GLFW");
         }
-
         if (err = init_imgui(app_data.window_state)) {
-            return err.value().general("Unable to initialize Dear ImGui");
+            return err.general("unable to initialize Dear ImGui");
         }
-
         if (err = platform.init(app_data)) {
-            return err.value().general("Unable to initialize application");
+            return err.general("unable to initialize application");
         }
-        return std::nullopt;
+        return {};
     }
     
     template <typename T>

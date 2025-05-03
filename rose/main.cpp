@@ -19,10 +19,10 @@ int main() {
 #endif
 
     RoseApp application;
-    std::optional<rses> err = application.init(platform);
+    rses err = application.init(platform);
 
     if (err) { 
-        err::print(err.value());    
+        err::print(err);    
         return -1;
     }
 

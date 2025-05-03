@@ -33,7 +33,7 @@ struct FrameBuf {
         glViewport(0, 0, width, height);
     }
 
-    std::optional<rses> init(i32 w, i32 h, bool has_depth_buf, const std::vector<FrameBufTexCtx>& texs);
+    rses init(i32 w, i32 h, bool has_depth_buf, const std::vector<FrameBufTexCtx>& texs);
     void draw(Shader& shader);
 
     u32 frame_buf = 0;

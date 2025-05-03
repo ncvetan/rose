@@ -18,16 +18,14 @@
 
 namespace gl {
 
-std::optional<rses> Platform::init(AppState& app_state) {
+rses Platform::init(AppState& app_state) {
 
-    std::optional<rses> err = std::nullopt;
-
-    if (err = gl::init_opengl()) {
-        return err.value().general("Unable to initialize GLEW and OpenGL");
+    if (auto err = gl::init_opengl()) {
+        return err.general("unable to initialize GLEW and OpenGL");
     }
 
-    if (err = shaders.init()) {
-        return err.value().general("unable to initialize shaders");
+    if (auto err = shaders.init()) {
+        return err.general("unable to initialize shaders");
     }
 
     texture_manager.init();
@@ -68,12 +66,12 @@ std::optional<rses> Platform::init(AppState& app_state) {
     // TODO: optimize size of framebuffers
 
     // (position, normal, albedo)
-    if (err = gbuf_fbuf.init(app_state.window_state.width, app_state.window_state.height, true,
+    if (auto err = gbuf_fbuf.init(app_state.window_state.width, app_state.window_state.height, true,
                              { { GL_RGBA16F }, { GL_RGBA16F }, { GL_RGBA8 } })) {
         return err;
     }
 
-    if (err = int_fbuf.init(app_state.window_state.width, app_state.window_state.height, false, { { GL_RGBA16F } })) {
+    if (auto err = int_fbuf.init(app_state.window_state.width, app_state.window_state.height, false, { { GL_RGBA16F } })) {
         return err;
     }
 
@@ -81,7 +79,7 @@ std::optional<rses> Platform::init(AppState& app_state) {
     glNamedFramebufferRenderbuffer(int_fbuf.frame_buf, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER,
                                    gbuf_fbuf.render_buf);
 
-    if (err = out_fbuf.init(app_state.window_state.width, app_state.window_state.height, false, { { GL_RGBA8 } })) {
+    if (auto err = out_fbuf.init(app_state.window_state.width, app_state.window_state.height, false, { { GL_RGBA8 } })) {
         return err;
     }
 
@@ -110,13 +108,13 @@ std::optional<rses> Platform::init(AppState& app_state) {
 
     // ---- directional shadow map ----
 
-    if (err = init_dir_shadow(platform_state.dir_light.shadow_data)) {
+    if (auto err = init_dir_shadow(platform_state.dir_light.shadow_data)) {
         return err;
     }
 
     // ---- point shadow map ----
 
-    if (err = init_pt_shadow(platform_state.pt_shadow_data)) {
+    if (auto err = init_pt_shadow(platform_state.pt_shadow_data)) {
         return err;
     }
 
@@ -127,7 +125,7 @@ std::optional<rses> Platform::init(AppState& app_state) {
     shaders.lighting_deferred.set_u32("pt_caster_id", app_state.entities.ids[app_state.entities.pt_caster_idx]);
     shaders.lighting_forward.set_u32("pt_caster_id", app_state.entities.ids[app_state.entities.pt_caster_idx]);
 
-    return std::nullopt;
+    return {};
 };
 
 void Platform::new_frame(AppState& app_state) {

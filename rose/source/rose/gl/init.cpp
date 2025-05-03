@@ -2,7 +2,7 @@
 
 namespace gl {
 
-std::optional<rses> init_opengl() {
+rses init_opengl() {
     if (GLenum glew_success = glewInit(); glew_success != GLEW_OK) {
         return rses().gl(std::format("GLEW failed to initialize: {}", (const char*)glewGetErrorString(glew_success)));
     }
@@ -24,7 +24,7 @@ std::optional<rses> init_opengl() {
     glDebugMessageCallback(gl_debug_callback, nullptr);
 #endif
 
-    return std::nullopt;
+    return {};
 }
 
 void GLAPIENTRY gl_debug_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei len,

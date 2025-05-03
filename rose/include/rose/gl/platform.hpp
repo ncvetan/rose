@@ -31,7 +31,7 @@ struct PlatformState {
 
 struct Platform {
 
-    [[nodiscard]] std::optional<rses> init(AppState& app_state);
+    rses init(AppState& app_state);
 
     void new_frame(AppState& app_state);
     void end_frame(GLFWwindow* window_handle);

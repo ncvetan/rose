@@ -28,7 +28,7 @@ struct Shader {
     Shader() = default;
     ~Shader();
 
-    std::optional<rses> init(const std::vector<ShaderCtx>& shader_ctxs);
+    rses init(const std::vector<ShaderCtx>& shader_ctxs);
     void use();
 
     void set_bool(const std::string_view& name, bool value) const;
@@ -49,7 +49,7 @@ struct Shader {
 // all shaders used in the application
 struct Shaders {
 
-    std::optional<rses> init();
+    rses init();
 
     Shader bloom;
     Shader brightness;

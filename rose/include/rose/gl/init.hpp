@@ -13,7 +13,7 @@
 
 namespace gl {
 
-std::optional<rses> init_opengl();
+rses init_opengl();
 
 void GLAPIENTRY gl_debug_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei len,
                                   const GLchar* msg, const void* user_param);

@@ -20,7 +20,7 @@ struct DirShadowData {
     u8 n_cascades = 3;
 };
 
-std::optional<rses> init_dir_shadow(DirShadowData& shadow);
+rses init_dir_shadow(DirShadowData& shadow);
 
 struct DirLight {
     glm::vec3 direction = { 0.0f, -0.999848f, -0.0174525f };
@@ -37,7 +37,7 @@ struct PtShadowData {
     u16 resolution = 2048;
 };
 
-std::optional<rses> init_pt_shadow(PtShadowData& shadow);
+rses init_pt_shadow(PtShadowData& shadow);
 
 // state for a singular point light
 // 

@@ -8,7 +8,7 @@
 #include <backends/imgui_impl_opengl3.h>
 #endif
 
-std::optional<rses> init_glfw(WindowState& window_state) {
+rses init_glfw(WindowState& window_state) {
     if (glfwInit() == GLFW_FALSE) {
         return rses().gl("GLFW failed to initialize");
     }
@@ -40,7 +40,7 @@ std::optional<rses> init_glfw(WindowState& window_state) {
     glfwMakeContextCurrent(window_state.window_handle);
     glfwSetInputMode(window_state.window_handle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
-    return std::nullopt;
+    return {};
 }
 
 namespace pallette {
@@ -117,7 +117,7 @@ static void set_imgui_theme() {
 }
 
 
-std::optional<rses> init_imgui(WindowState& window_state) {
+rses init_imgui(WindowState& window_state) {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     (void)io;
@@ -137,7 +137,7 @@ std::optional<rses> init_imgui(WindowState& window_state) {
     ImGui_ImplGlfw_InitForOpenGL(window_state.window_handle, true);
     ImGui_ImplOpenGL3_Init("#version 460");
 
-    return std::nullopt;
+    return {};
 }
 
 void RoseApp::update() {
