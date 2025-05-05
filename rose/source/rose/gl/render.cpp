@@ -41,6 +41,31 @@ void RenderData::init(const std::vector<glm::vec3>& pos, const std::vector<glm::
     glEnableVertexArrayAttrib(vao, 3);
 }
 
+RenderData::RenderData(RenderData&& other) noexcept
+{
+    vao = other.vao;
+    pos_buf = other.pos_buf;
+    norm_buf = other.norm_buf;
+    tangent_buf = other.tangent_buf;
+    uv_buf = other.uv_buf;
+    indices_buf = other.indices_buf;
+
+    other.vao = 0;
+    other.pos_buf = 0;
+    other.norm_buf = 0;
+    other.tangent_buf = 0;
+    other.uv_buf = 0;
+    other.indices_buf = 0;
+}
+
+RenderData& RenderData::operator=(RenderData&& other) noexcept
+{ 
+    if (this == &other) return *this;
+    this->~RenderData();
+    new (this) RenderData(std::move(other));
+    return *this;
+}
+
 RenderData::~RenderData() {
     if (vao) {
         glDeleteVertexArrays(1, &vao);

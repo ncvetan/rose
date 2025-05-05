@@ -11,7 +11,7 @@ set(SOURCES
     "include/rose/texture.hpp"
     "include/rose/core/core.hpp"
     "include/rose/core/err.hpp"
-    "include/rose/core/math.hpp"
+    "include/rose/core/types.hpp"
 
     "source/rose/app.cpp"
     "source/rose/camera.cpp"
@@ -21,7 +21,7 @@ set(SOURCES
     "source/rose/model.cpp"
     "source/rose/texture.cpp"
     "source/rose/core/err.cpp"
-    "source/rose/core/math.cpp"
+    "source/rose/core/types.cpp"
 )
 
 option(USE_OPENGL "OpenGL Rendering" ON)
@@ -29,13 +29,11 @@ option(USE_OPENGL "OpenGL Rendering" ON)
 if (USE_OPENGL)
 
     list(APPEND SOURCES 
-    "include/rose/gl/init.hpp"
     "include/rose/gl/platform.hpp" 
     "include/rose/gl/render.hpp"
     "include/rose/gl/shader.hpp"
     "include/rose/gl/structs.hpp"
 
-    "source/rose/gl/init.cpp"
     "source/rose/gl/platform.cpp"
     "source/rose/gl/render.cpp"
     "source/rose/gl/shader.cpp"
@@ -50,8 +48,8 @@ add_library(rose_lib STATIC ${SOURCES})
 add_executable(rose "main.cpp")
 
 if (USE_OPENGL)
-    target_compile_definitions(rose PUBLIC OPENGL)
-    target_compile_definitions(rose_lib PUBLIC OPENGL)
+    target_compile_definitions(rose PUBLIC USE_OPENGL)
+    target_compile_definitions(rose_lib PUBLIC USE_OPENGL)
 endif()
 
 target_include_directories(rose_lib PUBLIC ${DEPS_INCLUDE_DIRS})

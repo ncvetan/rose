@@ -20,7 +20,15 @@ using rses = err::Handle; // rose error stack
 
 namespace err {
 
-struct Error;
+struct Error {
+
+    enum class Type { INVALID, NO_MEMORY, GENERAL, CORE, IO, GL, N_TYPES };
+
+    std::string str() const;
+
+    Type ty = Type::INVALID;
+    std::string msg;
+};
 
 struct Handle {
 
@@ -57,24 +65,6 @@ struct Handle {
     rses add_error(Error&& err);
 
     std::vector<Error> err_stack;
-};
-
-struct Error {
-
-    enum class Type {
-        INVALID,
-        NO_MEMORY,
-        GENERAL,
-        CORE,
-        IO,
-        GL,
-        N_TYPES
-    };
-    
-    Type ty = Type::INVALID;
-    std::string msg;
-
-    std::string str() const;
 };
 
 inline void print(rses es) {

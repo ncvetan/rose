@@ -1,7 +1,6 @@
 #include <rose/gui.hpp>
 #include <rose/model.hpp>
 #include <rose/core/err.hpp>
-#include <rose/gl/init.hpp>
 #include <rose/gl/platform.hpp>
 
 #include <backends/imgui_impl_glfw.h>
@@ -18,9 +17,39 @@
 
 namespace gl {
 
+static void GLAPIENTRY gl_debug_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei len,
+                                  const GLchar* msg, const void* user_param) {
+    std::println("GL ERROR: type = {}, severity = {}, message = {}\n", type, severity, msg);
+}
+
+static rses init_gl() {
+    if (GLenum glew_success = glewInit(); glew_success != GLEW_OK) {
+        return rses().gl(std::format("GLEW failed to initialize: {}", (const char*)glewGetErrorString(glew_success)));
+    }
+
+    std::println("GLEW successfully initialized version: {}", (const char*)glewGetString(GLEW_VERSION));
+
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_STENCIL_TEST);
+    glEnable(GL_MULTISAMPLE);
+    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_CULL_FACE);
+    glFrontFace(GL_CCW);
+
+#ifdef _DEBUG
+    glEnable(GL_DEBUG_OUTPUT);
+    glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW, 0, NULL, GL_FALSE);
+    glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, NULL, GL_FALSE);
+    glDebugMessageCallback(gl_debug_callback, nullptr);
+#endif
+
+    return {};
+}
+
 rses Platform::init(AppState& app_state) {
 
-    if (auto err = gl::init_opengl()) {
+    if (auto err = init_gl()) {
         return err.general("unable to initialize GLEW and OpenGL");
     }
 
@@ -108,13 +137,13 @@ rses Platform::init(AppState& app_state) {
 
     // ---- directional shadow map ----
 
-    if (auto err = init_dir_shadow(platform_state.dir_light.shadow_data)) {
+    if (auto err = platform_state.dir_light.shadow_data.init()) {
         return err;
     }
 
     // ---- point shadow map ----
 
-    if (auto err = init_pt_shadow(platform_state.pt_shadow_data)) {
+    if (auto err = platform_state.pt_shadow_data.init()) {
         return err;
     }
 
@@ -200,9 +229,9 @@ void Platform::render(AppState& app_state) {
     auto p2 = glm::perspective(glm::radians(app_state.camera.zoom), ar, c1_far, c2_far);
     auto p3 = glm::perspective(glm::radians(app_state.camera.zoom), ar, c2_far, app_state.camera.far_plane);
 
-    glm::mat4 c1_map = get_dir_light_mat(p1, app_state.camera.view(), platform_state.dir_light);
-    glm::mat4 c2_map = get_dir_light_mat(p2, app_state.camera.view(), platform_state.dir_light);
-    glm::mat4 c3_map = get_dir_light_mat(p3, app_state.camera.view(), platform_state.dir_light);
+    glm::mat4 c1_map = get_cascade_mat(p1, app_state.camera.view(), platform_state.dir_light);
+    glm::mat4 c2_map = get_cascade_mat(p2, app_state.camera.view(), platform_state.dir_light);
+    glm::mat4 c3_map = get_cascade_mat(p3, app_state.camera.view(), platform_state.dir_light);
 
     glNamedBufferSubData(platform_state.dir_light.shadow_data.light_mats_ubo, 0, 64, glm::value_ptr(c1_map));
     glNamedBufferSubData(platform_state.dir_light.shadow_data.light_mats_ubo, 64, 64, glm::value_ptr(c2_map));
@@ -456,7 +485,5 @@ void Platform::render(AppState& app_state) {
  };
 
 void Platform::finish() { ImGui_ImplOpenGL3_Shutdown(); };
-
-void Platform::enable_vsync(bool enable) { (enable) ? glfwSwapInterval(1) : glfwSwapInterval(0); };
 
 } // namespace gl

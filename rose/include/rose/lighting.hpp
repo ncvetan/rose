@@ -13,14 +13,15 @@
 // TODO: decouple OpenGL buffers from non platform specific state of lighting system
 
 struct DirShadowData {
+    
+    rses init();
+
     u32 fbo = 0;
     u32 tex = 0;
     u32 light_mats_ubo = 0; // transforms matrices to directional light space
     u16 resolution = 2048;
     u8 n_cascades = 3;
 };
-
-rses init_dir_shadow(DirShadowData& shadow);
 
 struct DirLight {
     glm::vec3 direction = { 0.0f, -0.999848f, -0.0174525f };
@@ -29,15 +30,16 @@ struct DirLight {
 };
 
 // obtains a projection-view matrix for a directional light
-glm::mat4 get_dir_light_mat(const glm::mat4& proj, const glm::mat4& view, const DirLight& light);
+glm::mat4 get_cascade_mat(const glm::mat4& proj, const glm::mat4& view, const DirLight& light);
 
 struct PtShadowData {
+    
+    rses init();
+    
     u32 fbo = 0;
     u32 tex = 0;
     u16 resolution = 2048;
 };
-
-rses init_pt_shadow(PtShadowData& shadow);
 
 // state for a singular point light
 // 
@@ -55,6 +57,7 @@ struct ClusterData {
     gl::SSBO lights_ssbo;                    // light parameters for each light in the scene
     gl::SSBO lights_pos_ssbo;                // light positions for each light in the scene
     gl::SSBO clusters_ssbo;                  // light for each cluster
+    
     glm::uvec3 grid_sz = { 16, 9, 24 };  // size of cluster grid (xyz)
     u32 max_lights_in_cluster = 100;     // number of lights that will be considered for a single cluster
 };

@@ -78,6 +78,7 @@ struct TextureManager {
     std::unordered_map<u32, TextureCount> loaded_textures;  // [ id,  tex ]
     std::unordered_map<fs::path, u32> textures_index;       // [ path, id ]
 
+    // references to default textures, returned in cases of errors
     TextureRef default_tex_ref;
     TextureRef default_cubemap_ref;
 };

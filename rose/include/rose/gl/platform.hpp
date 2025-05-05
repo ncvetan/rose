@@ -10,7 +10,7 @@
 #include <rose/entities.hpp>
 #include <rose/model.hpp>
 #include <rose/core/err.hpp>
-#include <rose/core/math.hpp>
+#include <rose/core/types.hpp>
 #include <rose/gl/shader.hpp>
 #include <rose/gl/structs.hpp>
 
@@ -32,13 +32,10 @@ struct PlatformState {
 struct Platform {
 
     rses init(AppState& app_state);
-
     void new_frame(AppState& app_state);
     void end_frame(GLFWwindow* window_handle);
-
     void render(AppState& app_state);
     void finish();
-    void enable_vsync(bool enable);
 
     // note: destruction order is important
     // entities must be destructed before texture managers
@@ -47,11 +44,11 @@ struct Platform {
     Shaders shaders;
     ClusterData clusters;
 
-    gl::SSBO lights_ids_ssbo;  // IDs for each point light
+    SSBO lights_ids_ssbo;   // IDs for each point light
 
-    FrameBuf gbuf_fbuf;        // gbuffers
-    FrameBuf int_fbuf;         // intermediate
-    FrameBuf out_fbuf;         // output
+    FrameBuf gbuf_fbuf;     // gbuffers
+    FrameBuf int_fbuf;      // intermediate
+    FrameBuf out_fbuf;      // output
 };
 
 } // namespace gl

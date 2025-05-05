@@ -7,14 +7,14 @@
 
 #include <rose/camera.hpp>
 #include <rose/entities.hpp>
-#include <rose/core/math.hpp>
+#include <rose/core/types.hpp>
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
 struct WindowState {
+        
     GLFWwindow* window_handle = nullptr;
-
     u32 width = 1920;
     u32 height = 1080;
     ImGuiID dock_id = 0;

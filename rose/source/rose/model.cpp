@@ -11,8 +11,7 @@
 #include <unordered_map>
 
 Model::Model(Model&& other) noexcept {
-    render_data = other.render_data;
-    other.render_data = gl::RenderData();
+    render_data = std::move(other.render_data);
     pos = std::move(other.pos);
     norms = std::move(other.norms);
     tangents = std::move(other.tangents);

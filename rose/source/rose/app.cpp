@@ -4,7 +4,7 @@
 #include <imgui.h>
 #include <backends/imgui_impl_glfw.h>
 
-#ifdef OPENGL
+#ifdef USE_OPENGL
 #include <backends/imgui_impl_opengl3.h>
 #endif
 
@@ -134,8 +134,10 @@ rses init_imgui(WindowState& window_state) {
         style.Colors[ImGuiCol_WindowBg].w = 1.0f;
     }
 
+#ifdef USE_OPENGL
     ImGui_ImplGlfw_InitForOpenGL(window_state.window_handle, true);
     ImGui_ImplOpenGL3_Init("#version 460");
+#endif
 
     return {};
 }

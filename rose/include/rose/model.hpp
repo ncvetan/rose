@@ -97,12 +97,14 @@ struct Model {
 struct SkyBox {
 
     SkyBox() = default;
-    SkyBox(const SkyBox& other) = delete;
-    SkyBox(SkyBox&& other) noexcept;
-    ~SkyBox();
 
+    SkyBox(const SkyBox& other) = delete;
     SkyBox& operator=(const SkyBox& other) = delete;
+    
+    SkyBox(SkyBox&& other) noexcept;
     SkyBox& operator=(SkyBox&& other) noexcept;
+    
+    ~SkyBox();
 
     void init();
     void load(TextureManager& manager, const std::array<fs::path, 6>& paths);

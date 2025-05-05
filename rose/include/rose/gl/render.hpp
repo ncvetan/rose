@@ -16,10 +16,18 @@ namespace gl {
 
 struct RenderData {
 
-    void init(const std::vector<glm::vec3>& pos, const std::vector<glm::vec3>& norm,
-              const std::vector<glm::vec3>& tangent, const std::vector<glm::vec2>& uv, const std::vector<u32>& indices);
+    RenderData() = default;
+
+    RenderData(const RenderData& other) = delete;
+    RenderData& operator=(const RenderData& other) = delete;
+
+    RenderData(RenderData&& other) noexcept;
+    RenderData& operator=(RenderData&& other) noexcept;
 
     ~RenderData();
+
+    void init(const std::vector<glm::vec3>& pos, const std::vector<glm::vec3>& norm,
+              const std::vector<glm::vec3>& tangent, const std::vector<glm::vec2>& uv, const std::vector<u32>& indices);
 
     u32 vao = 0;
     u32 pos_buf = 0;
