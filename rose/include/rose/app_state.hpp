@@ -6,16 +6,15 @@
 #define ROSE_INCLUDE_APP_STATE
 
 #include <rose/camera.hpp>
-#include <rose/core/math.hpp>
+#include <rose/entities.hpp>
+#include <rose/core/types.hpp>
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
-namespace rose {
-
 struct WindowState {
+        
     GLFWwindow* window_handle = nullptr;
-
     u32 width = 1920;
     u32 height = 1080;
     ImGuiID dock_id = 0;
@@ -36,10 +35,11 @@ struct WindowState {
 struct AppState {
     WindowState window_state;
     Camera camera;
+    Entities entities;
+
     bool bloom_enabled = true;
     i32 n_bloom_passes = 5;
     f32 bloom_threshold = 1.0f;
 };
 
-}
 #endif

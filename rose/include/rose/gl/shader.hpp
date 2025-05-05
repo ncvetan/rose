@@ -15,23 +15,24 @@
 #include <sstream>
 #include <string_view>
 
-namespace rose {
+namespace gl {
 
-struct GL_ShaderCtx {
+struct ShaderCtx {
     fs::path path;
     GLenum type = 0;
 };
 
 // wrapper around opengl shaders
-struct GL_Shader {
-       
-    GL_Shader() = default;
-    ~GL_Shader();
+struct Shader {
 
-    std::optional<rses> init(const std::vector<GL_ShaderCtx>& shader_ctxs);
+    Shader() = default;
+    ~Shader();
+
+    rses init(const std::vector<ShaderCtx>& shader_ctxs);
     void use();
 
     void set_bool(const std::string_view& name, bool value) const;
+    void set_u32(const std::string_view& name, u32 value) const;
     void set_i32(const std::string_view& name, int value) const;
     void set_tex(const std::string_view& name, int value, u32 tex) const;
     void set_f32(const std::string_view& name, f32 value) const;
@@ -46,25 +47,25 @@ struct GL_Shader {
 };
 
 // all shaders used in the application
-struct GL_Shaders {
+struct Shaders {
 
-    std::optional<rses> init();
-    
-    GL_Shader bloom;
-    GL_Shader brightness;
-    GL_Shader clusters_build;
-    GL_Shader clusters_cull;
-    GL_Shader gbuf;
-    GL_Shader out;
-    GL_Shader light;
-    GL_Shader lighting_deferred;
-    GL_Shader lighting_forward;
-    GL_Shader passthrough;
-    GL_Shader dir_shadow;
-    GL_Shader pt_shadow;
-    GL_Shader skybox;
+    rses init();
+
+    Shader bloom;
+    Shader brightness;
+    Shader clusters_build;
+    Shader clusters_cull;
+    Shader gbuf;
+    Shader out;
+    Shader light;
+    Shader lighting_deferred;
+    Shader lighting_forward;
+    Shader passthrough;
+    Shader dir_shadow;
+    Shader pt_shadow;
+    Shader skybox;
 };
 
-} // namespace rose
+}
 
 #endif

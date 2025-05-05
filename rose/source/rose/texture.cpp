@@ -5,9 +5,7 @@
 
 #include <filesystem>
 
-namespace rose {
-
-TextureRef::TextureRef(TextureGL* ref, TextureManager* manager) : ref(ref), manager(manager) {}
+TextureRef::TextureRef(GL_Texture* ref, TextureManager* manager) : ref(ref), manager(manager) {}
 
 TextureRef::TextureRef(const TextureRef& other) {
     ref = other.ref;
@@ -36,7 +34,7 @@ TextureRef& TextureRef::operator=(TextureRef&& other) noexcept {
     return *this;
 }
 
-TextureGL* TextureRef::operator->() {
+GL_Texture* TextureRef::operator->() {
     return this->ref;
 }
 
@@ -55,7 +53,7 @@ TextureRef::~TextureRef() {
     manager = nullptr;
 }
 
-std::optional<TextureRef> TextureManager::get_ref(const fs::path& path) {
+TextureRef TextureManager::get_ref(const fs::path& path) {
     // if a path is reused as another texture type, this will not work
     
     if (textures_index.contains(path)) {
@@ -70,27 +68,65 @@ std::optional<TextureRef> TextureManager::get_ref(const fs::path& path) {
             textures_index.erase(path);
         }
     }
-    return std::nullopt;
+    return default_tex_ref;
 }
 
-std::optional<TextureRef> TextureManager::get_ref(u32 id) {
+TextureRef TextureManager::get_ref(u32 id) {
     if (loaded_textures.contains(id)) {
         TextureRef ref = TextureRef(&loaded_textures[id].texture, this);
         loaded_textures[id].ref_count++;
         return ref;
     }
-    return std::nullopt;
+    return default_tex_ref;
 }
 
-std::expected<TextureRef, rses> TextureManager::load_texture(const fs::path& path, TextureType ty) {
+void TextureManager::init() {
+    // creating a default texture for errors
+    GL_Texture default_texture;
+    default_texture.ty = TextureType::DIFFUSE;
+    std::vector<glm::uvec4> default_data(1024 * 1024, glm::uvec4(255, 0, 0, 255));
+    
+    glCreateTextures(GL_TEXTURE_2D, 1, &default_texture.id);
+    glTextureParameteri(default_texture.id, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTextureParameteri(default_texture.id, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTextureParameteri(default_texture.id, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(default_texture.id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTextureStorage2D(default_texture.id, 1, GL_RGBA8, 1024, 1024);
+    glTextureSubImage2D(default_texture.id, 0, 0, 0, 1024, 1024, GL_RGBA, GL_UNSIGNED_BYTE, default_data.data());
+    glGenerateTextureMipmap(default_texture.id);
 
-    // First check to see if the texture has already been loaded
-    std::optional<TextureRef> opt_ref = get_ref(path);
-    if (opt_ref) {
-        return opt_ref.value();
+    GL_Texture default_cubemap;
+    default_cubemap.ty = TextureType::CUBE_MAP;
+    glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &default_cubemap.id);
+    glTextureStorage2D(default_cubemap.id, 1, GL_RGBA8, 1024, 1024);
+
+    for (int face = 0; face < 6; face++) {
+        glTextureSubImage3D(default_cubemap.id, 0, 0, 0, face, 1024, 1024, 1, GL_RGBA, GL_UNSIGNED_BYTE, default_data.data());
     }
 
-    TextureGL texture;
+    glTextureParameteri(default_cubemap.id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTextureParameteri(default_cubemap.id, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(default_cubemap.id, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(default_cubemap.id, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(default_cubemap.id, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    // note: don't really care about the ref count here since it will free on program termination 
+    loaded_textures[default_texture.id] = { default_texture, 1024 };
+    loaded_textures[default_cubemap.id] = { default_cubemap, 1024 };
+    default_tex_ref = TextureRef(&loaded_textures[default_texture.id].texture, this);
+    default_cubemap_ref = TextureRef(&loaded_textures[default_cubemap.id].texture, this);
+}
+
+TextureRef TextureManager::load_texture(const fs::path& path, TextureType ty) {
+
+    // First check to see if the texture has already been loaded
+    TextureRef ref = get_ref(path);
+    
+    if (ref->id != default_tex_ref->id) {
+        return ref;
+    }
+
+    GL_Texture texture;
     texture.ty = ty;
     i32 width = 0, height = 0, n_channels = 0;
     unsigned char* texture_data = stbi_load(path.generic_string().c_str(), &width, &height, &n_channels, STBI_rgb_alpha);
@@ -115,7 +151,7 @@ std::expected<TextureRef, rses> TextureManager::load_texture(const fs::path& pat
         stbi_image_free(texture_data);
         const char* err_msg = stbi_failure_reason();
         texture.free();
-        return std::unexpected(rses().io("failed to load image: {}", err_msg));
+        return default_tex_ref;
     }
 
     loaded_textures[texture.id] = { texture, 1 };
@@ -123,23 +159,20 @@ std::expected<TextureRef, rses> TextureManager::load_texture(const fs::path& pat
     return TextureRef(&loaded_textures[texture.id].texture, this);
 }
 
-std::expected<TextureRef, rses> TextureManager::load_cubemap(const std::array<fs::path, 6>& paths) {
+TextureRef TextureManager::load_cubemap(const std::array<fs::path, 6>& paths) {
     
     // ensure all paths are valid
     for (auto& path : paths) {
         std::error_code err;
         bool f_exists = fs::exists(path, err);
-        if (err) {
-            return std::unexpected(rses().io("system error: {}", err.message()));
-        }
-        if (!f_exists) {
-            return std::unexpected(rses().io("file does not exists: {}", path.string()));
+        if (err || !f_exists) {
+            return default_cubemap_ref;
         }
     }
 
     i32 width = 0, height = 0, n_channels = 0;
     unsigned char* texture_data = nullptr;
-    TextureGL texture = {
+    GL_Texture texture = {
         .id = 0,
         .ty = TextureType::CUBE_MAP
     };
@@ -158,7 +191,7 @@ std::expected<TextureRef, rses> TextureManager::load_cubemap(const std::array<fs
         if (!texture_data) {
             stbi_image_free(texture_data);
             texture.free();
-            return std::unexpected(rses().io("failure loading image with stb"));;
+            return default_cubemap_ref;
         }
 
         glTextureSubImage3D(texture.id, 0, 0, 0, face, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, texture_data);
@@ -174,5 +207,3 @@ std::expected<TextureRef, rses> TextureManager::load_cubemap(const std::array<fs
     loaded_textures[texture.id] = { texture, 1 };
     return TextureRef(&loaded_textures[texture.id].texture, this);
 }
-
-} // namespace rose

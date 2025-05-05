@@ -6,7 +6,6 @@
 
 layout (location = 0) out vec4 frag_color;
 
-
 uniform vec4 color;
 uniform float intensity;
 

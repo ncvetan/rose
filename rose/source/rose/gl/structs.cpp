@@ -1,8 +1,8 @@
 #include <rose/gl/structs.hpp>
 
-namespace rose {
+namespace gl {
 
-std::optional<rses> FrameBuf::init(i32 w, i32 h, bool has_depth_buf, const std::vector<FrameBufTexCtx>& texs) {
+rses FrameBuf::init(i32 w, i32 h, bool has_depth_buf, const std::vector<FrameBufTexCtx>& texs) {
 
     glCreateFramebuffers(1, &frame_buf);
 
@@ -12,15 +12,15 @@ std::optional<rses> FrameBuf::init(i32 w, i32 h, bool has_depth_buf, const std::
     width = static_cast<u32>(w);
     height = static_cast<u32>(h);
 
-    for (int i = 0; i < tex_bufs.size(); ++i) {
-        glCreateTextures(GL_TEXTURE_2D, 1, &tex_bufs[i]);
-        glTextureStorage2D(tex_bufs[i], 1, texs[i].intern_format, w, h);
-        glTextureParameteri(tex_bufs[i], GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTextureParameteri(tex_bufs[i], GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTextureParameteri(tex_bufs[i], GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTextureParameteri(tex_bufs[i], GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glNamedFramebufferTexture(frame_buf, GL_COLOR_ATTACHMENT0 + i, tex_bufs[i], 0);
-        attachments[i] = GL_COLOR_ATTACHMENT0 + i;
+    for (size_t idx = 0; idx < tex_bufs.size(); ++idx) {
+        glCreateTextures(GL_TEXTURE_2D, 1, &tex_bufs[idx]);
+        glTextureStorage2D(tex_bufs[idx], 1, texs[idx].intern_format, w, h);
+        glTextureParameteri(tex_bufs[idx], GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTextureParameteri(tex_bufs[idx], GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTextureParameteri(tex_bufs[idx], GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTextureParameteri(tex_bufs[idx], GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glNamedFramebufferTexture(frame_buf, GL_COLOR_ATTACHMENT0 + idx, tex_bufs[idx], 0);
+        attachments[idx] = GL_COLOR_ATTACHMENT0 + idx;
     }
     
     if (has_depth_buf) {
@@ -47,10 +47,10 @@ std::optional<rses> FrameBuf::init(i32 w, i32 h, bool has_depth_buf, const std::
     glVertexArrayAttribBinding(vertex_arr, 0, 0);
     glVertexArrayAttribBinding(vertex_arr, 1, 0);
 
-    return std::nullopt;
+    return {};
 }
 
-void FrameBuf::draw(GL_Shader& shader) {
+void FrameBuf::draw(Shader& shader) {
     shader.use();
     glBindVertexArray(vertex_arr);
     glDrawArrays(GL_TRIANGLES, 0, verts.size());
@@ -78,4 +78,4 @@ bool SSBO::init(u32 size, u32 base) {
 
 SSBO::~SSBO() { glDeleteBuffers(1, &ssbo); }
 
-}
+} // namespace gl

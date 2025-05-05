@@ -10,8 +10,6 @@
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>
 
-namespace rose {
-
 enum class CameraMovement { FORWARD, BACKWARD, LEFT, RIGHT, UP, DOWN };
 
 struct Camera {
@@ -35,7 +33,5 @@ struct Camera {
     f32 near_plane = 0.1f;
     f32 far_plane = 100.0f;
 };
-
-} // namespace rose
 
 #endif

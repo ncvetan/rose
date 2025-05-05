@@ -3,8 +3,6 @@
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>
 
-namespace rose {
-
 glm::mat4 Camera::view() const { return glm::lookAt(position, position + front, up); }
 
 glm::mat4 Camera::projection(f32 aspect_ratio) const {
@@ -57,5 +55,3 @@ void Camera::handle_scroll(f32 yoffset) {
     if (zoom < 1.0f) zoom = 1.0f;
     else if (zoom > 45.0f) zoom = 45.0f;
 }
-
-} // namespace rose

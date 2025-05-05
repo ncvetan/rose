@@ -5,8 +5,10 @@
 #ifndef ROSE_INCLUDE_MODEL
 #define ROSE_INCLUDE_MODEL
 
-#include <rose/texture.hpp>
+#include <rose/gl/render.hpp>
 #include <rose/gl/shader.hpp>
+
+#include <rose/texture.hpp>
 
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>
@@ -15,9 +17,9 @@
 #include <filesystem>
 #include <vector>
 
-namespace rose {
-
-struct GL_PlatformState;
+namespace gl {
+struct PlatformState;
+}
 
 template <typename T>
 concept Transformable = requires { T::model_mat; };
@@ -38,16 +40,18 @@ void scale(T& obj, const glm::vec3& factors) {
 }
 
 template <Transformable T>
-void rotate(T& obj, f32 deg, const glm::vec3& axis) {
-    obj.model_mat = glm::rotate(obj.model_mat, glm::radians(deg), axis);
+void rotate(T& obj, const glm::vec3& rotation) {
+    obj.model_mat = glm::rotate(obj.model_mat, glm::radians(rotation.x), { 1.0f, 0.0f, 0.0f });
+    obj.model_mat = glm::rotate(obj.model_mat, glm::radians(rotation.y), { 0.0f, 1.0f, 0.0f });
+    obj.model_mat = glm::rotate(obj.model_mat, glm::radians(rotation.z), { 0.0f, 0.0f, 1.0f });
 }
 
 enum class MeshFlags : u32 {
-    NONE = 0,            // no effect
-    TRANSPARENT = bit1,  // this mesh contains transparent textures
+    NONE = 0,           // no effect
+    TRANSPARENT = bit1, // this mesh contains transparent textures
 };
 
-ENABLE_ROSE_ENUM_OPS(MeshFlags); 
+ENABLE_ROSE_ENUM_OPS(MeshFlags);
 
 struct Mesh {
     u64 n_indices = 0;
@@ -59,24 +63,25 @@ struct Mesh {
 };
 
 struct Model {
-    
+
     Model() = default;
     Model(const Model& other) = delete;
     Model(Model&& other) noexcept;
-    ~Model();
 
     Model& operator=(const Model& other) = delete;
     Model& operator=(Model&& other) noexcept;
-    
-    void draw(GL_Shader& shader, const GL_PlatformState& state) const;
-    void draw(GL_Shader& shader, const GL_PlatformState& state, MeshFlags mesh_cond, bool invert_cond) const;
-    
-    std::optional<rses> load(TextureManager& manager, const std::filesystem::path& path);
-    
-    // this should only be called once and after vectors have been populated
-    void init_gl();
-    
+
+    // returns a copy of this model
+    Model copy();
+
+    void GL_render(gl::Shader& shader, const gl::PlatformState& state) const;
+    void GL_render(gl::Shader& shader, const gl::PlatformState& state, MeshFlags mesh_cond, bool invert_cond) const;
+
+    void load(TextureManager& manager, const std::filesystem::path& path);
+
     inline void reset() { model_mat = glm::mat4(1.0f); }
+
+    gl::RenderData render_data;
 
     glm::mat4 model_mat = glm::mat4(1.0f);
     std::vector<Mesh> meshes;
@@ -84,56 +89,45 @@ struct Model {
 
     std::vector<u32> indices;
     std::vector<glm::vec3> pos;
-    std::vector<glm::vec3> norm;
-    std::vector<glm::vec3> tangent;
-    std::vector<glm::vec2> uv;
-
-    u32 vao = 0;
-    u32 pos_buf = 0;
-    u32 norm_buf = 0;
-    u32 tangent_buf = 0;
-    u32 uv_buf = 0;
-    u32 indices_buf = 0;
+    std::vector<glm::vec3> norms;
+    std::vector<glm::vec3> tangents;
+    std::vector<glm::vec2> uvs;
 };
 
 struct SkyBox {
 
-    struct Vertex {
-        glm::vec3 pos;
-    };
-
     SkyBox() = default;
+
     SkyBox(const SkyBox& other) = delete;
+    SkyBox& operator=(const SkyBox& other) = delete;
+    
     SkyBox(SkyBox&& other) noexcept;
+    SkyBox& operator=(SkyBox&& other) noexcept;
+    
     ~SkyBox();
 
-    SkyBox& operator=(const SkyBox& other) = delete;
-    SkyBox& operator=(SkyBox&& other) noexcept;
-
     void init();
-    std::optional<rses> load(TextureManager& manager, const std::array<fs::path, 6>& paths);
-    void draw(GL_Shader& shader, const GL_PlatformState& state) const;
+    void load(TextureManager& manager, const std::array<fs::path, 6>& paths);
+    void draw(gl::Shader& shader, const gl::PlatformState& state) const;
     inline void reset() { model_mat = glm::mat4(1.0f); }
 
-    TextureRef texture;
     glm::mat4 model_mat = glm::mat4(1.0f);
+
+    TextureRef texture;
     u32 vao = 0;
     u32 verts_buf = 0;
 
-    std::vector<Vertex> verts = { { { -1.0f, 1.0f, -1.0f } },  { { -1.0f, -1.0f, -1.0f } }, { { 1.0f, -1.0f, -1.0f } },
-                                  { { 1.0f, -1.0f, -1.0f } },  { { 1.0f, 1.0f, -1.0f } },   { { -1.0f, 1.0f, -1.0f } },
-                                  { { -1.0f, -1.0f, 1.0f } },  { { -1.0f, -1.0f, -1.0f } }, { { -1.0f, 1.0f, -1.0f } },
-                                  { { -1.0f, 1.0f, -1.0f } },  { { -1.0f, 1.0f, 1.0f } },   { { -1.0f, -1.0f, 1.0f } },
-                                  { { 1.0f, -1.0f, -1.0f } },  { { 1.0f, -1.0f, 1.0f } },   { { 1.0f, 1.0f, 1.0f } },
-                                  { { 1.0f, 1.0f, 1.0f } },    { { 1.0f, 1.0f, -1.0f } },   { { 1.0f, -1.0f, -1.0f } },
-                                  { { -1.0f, -1.0f, 1.0f } },  { { -1.0f, 1.0f, 1.0f } },   { { 1.0f, 1.0f, 1.0f } },
-                                  { { 1.0f, 1.0f, 1.0f } },    { { 1.0f, -1.0f, 1.0f } },   { { -1.0f, -1.0f, 1.0f } },
-                                  { { -1.0f, 1.0f, -1.0f } },  { { 1.0f, 1.0f, -1.0f } },   { { 1.0f, 1.0f, 1.0f } },
-                                  { { 1.0f, 1.0f, 1.0f } },    { { -1.0f, 1.0f, 1.0f } },   { { -1.0f, 1.0f, -1.0f } },
-                                  { { -1.0f, -1.0f, -1.0f } }, { { -1.0f, -1.0f, 1.0f } },  { { 1.0f, -1.0f, -1.0f } },
-                                  { { 1.0f, -1.0f, -1.0f } },  { { -1.0f, -1.0f, 1.0f } },  { { 1.0f, -1.0f, 1.0f } } };
+    std::vector<glm::vec3> verts = {
+        { -1.0f, 1.0f, -1.0f }, { -1.0f, -1.0f, -1.0f }, { 1.0f, -1.0f, -1.0f },  { 1.0f, -1.0f, -1.0f },
+        { 1.0f, 1.0f, -1.0f },  { -1.0f, 1.0f, -1.0f },  { -1.0f, -1.0f, 1.0f },  { -1.0f, -1.0f, -1.0f },
+        { -1.0f, 1.0f, -1.0f }, { -1.0f, 1.0f, -1.0f },  { -1.0f, 1.0f, 1.0f },   { -1.0f, -1.0f, 1.0f },
+        { 1.0f, -1.0f, -1.0f }, { 1.0f, -1.0f, 1.0f },   { 1.0f, 1.0f, 1.0f },    { 1.0f, 1.0f, 1.0f },
+        { 1.0f, 1.0f, -1.0f },  { 1.0f, -1.0f, -1.0f },  { -1.0f, -1.0f, 1.0f },  { -1.0f, 1.0f, 1.0f },
+        { 1.0f, 1.0f, 1.0f },   { 1.0f, 1.0f, 1.0f },    { 1.0f, -1.0f, 1.0f },   { -1.0f, -1.0f, 1.0f },
+        { -1.0f, 1.0f, -1.0f }, { 1.0f, 1.0f, -1.0f },   { 1.0f, 1.0f, 1.0f },    { 1.0f, 1.0f, 1.0f },
+        { -1.0f, 1.0f, 1.0f },  { -1.0f, 1.0f, -1.0f },  { -1.0f, -1.0f, -1.0f }, { -1.0f, -1.0f, 1.0f },
+        { 1.0f, -1.0f, -1.0f }, { 1.0f, -1.0f, -1.0f },  { -1.0f, -1.0f, 1.0f },  { 1.0f, -1.0f, 1.0f }
+    };
 };
-
-} // namespace rose
 
 #endif

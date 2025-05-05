@@ -6,9 +6,9 @@
 
 #include <optional>
 
-namespace rose {
+namespace gl {
 
-std::optional<rses> GL_Shader::init(const std::vector<GL_ShaderCtx>& shader_ctxs) {
+rses Shader::init(const std::vector<ShaderCtx>& shader_ctxs) {
     
     i32 success = 0;
     char info_log[512];
@@ -81,60 +81,64 @@ std::optional<rses> GL_Shader::init(const std::vector<GL_ShaderCtx>& shader_ctxs
         glDeleteShader(shader);
     }
 
-    return std::nullopt;
+    return {};
 }
 
-GL_Shader::~GL_Shader() {
+Shader::~Shader() {
     if (prg) {
         glDeleteProgram(prg);
     }
 }
 
-void GL_Shader::use() { glUseProgram(prg); }
+void Shader::use() { glUseProgram(prg); }
 
-void GL_Shader::set_bool(const std::string_view& name, bool value) const {
+void Shader::set_bool(const std::string_view& name, bool value) const {
     glProgramUniform1i(prg, glGetUniformLocation(prg, name.data()), (int)value);
 }
 
-void GL_Shader::set_i32(const std::string_view& name, int value) const {
+void Shader::set_u32(const std::string_view& name, u32 value) const {
+    glProgramUniform1ui(prg, glGetUniformLocation(prg, name.data()), value);
+}
+
+void Shader::set_i32(const std::string_view& name, int value) const {
     glProgramUniform1i(prg, glGetUniformLocation(prg, name.data()), value);
 }
 
-void GL_Shader::set_tex(const std::string_view& name, int value, u32 tex) const {
+void Shader::set_tex(const std::string_view& name, int value, u32 tex) const {
     glProgramUniform1i(prg, glGetUniformLocation(prg, name.data()), value);
     glBindTextureUnit(value, tex);
 }
-void GL_Shader::set_f32(const std::string_view& name, f32 value) const {
+void Shader::set_f32(const std::string_view& name, f32 value) const {
     glProgramUniform1f(prg, glGetUniformLocation(prg, name.data()), value);
 }
 
-void GL_Shader::set_mat4(const std::string_view& name, const glm::mat4& value) const {
+void Shader::set_mat4(const std::string_view& name, const glm::mat4& value) const {
     glProgramUniformMatrix4fv(prg, glGetUniformLocation(prg, name.data()), 1, GL_FALSE, glm::value_ptr(value));
 }
 
-void GL_Shader::set_vec2(const std::string_view& name, const glm::vec2& value) const {
+void Shader::set_vec2(const std::string_view& name, const glm::vec2& value) const {
     glProgramUniform2f(prg, glGetUniformLocation(prg, name.data()), value.x, value.y);
 }
 
-void GL_Shader::set_uvec2(const std::string_view& name, const glm::uvec2& value) const {
+void Shader::set_uvec2(const std::string_view& name, const glm::uvec2& value) const {
     glProgramUniform2ui(prg, glGetUniformLocation(prg, name.data()), value.x, value.y);
 }
 
-void GL_Shader::set_vec3(const std::string_view& name, const glm::vec3& value) const {
+void Shader::set_vec3(const std::string_view& name, const glm::vec3& value) const {
     glProgramUniform3f(prg, glGetUniformLocation(prg, name.data()), value.x, value.y, value.z);
 }
 
-void GL_Shader::set_uvec3(const std::string_view& name, const glm::uvec3& value) const {
+void Shader::set_uvec3(const std::string_view& name, const glm::uvec3& value) const {
     glProgramUniform3ui(prg, glGetUniformLocation(prg, name.data()), value.x, value.y, value.z);
 }
 
-void GL_Shader::set_vec4(const std::string_view& name, const glm::vec4& value) const {
+void Shader::set_vec4(const std::string_view& name, const glm::vec4& value) const {
     glProgramUniform4f(prg, glGetUniformLocation(prg, name.data()), value.x, value.y, value.z, value.w);
 }
 
-std::optional<rses> GL_Shaders::init() {
+rses Shaders::init() {
 
-    std::optional<rses> err = std::nullopt;
+    rses err;
 
     if (err = bloom.init({ { SOURCE_DIR "/rose/shaders/gl/quad.vert", GL_VERTEX_SHADER },
                           { SOURCE_DIR "/rose/shaders/gl/bloom.frag", GL_FRAGMENT_SHADER } })) {
@@ -192,4 +196,4 @@ std::optional<rses> GL_Shaders::init() {
     return err;
 }
 
-} // namespace rose
+} // namespace gl

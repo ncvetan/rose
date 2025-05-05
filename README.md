@@ -36,8 +36,9 @@ Some future features and improvements to be made...
 
 - Linux support
 - Better support for multiple graphics APIs
+- Better bloom algorithm
 - PBR
-- AO
+- Ambient Occlusion
 - And plenty of improvements to existing systems...
 
 ## Contributing
