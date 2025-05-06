@@ -2,14 +2,12 @@
 //   entity handling system
 // =============================================================================
 
-#ifndef ROSE_INCLUDE_OBJECT
-#define ROSE_INCLUDE_OBJECT
+#ifndef ROSE_INCLUDE_ENTITIES
+#define ROSE_INCLUDE_ENTITIES
 
 #include <rose/lighting.hpp>
 #include <rose/model.hpp>
 #include <rose/core/core.hpp>
-
-#include <rose/gl/shader.hpp>
 
 #include <glm.hpp>
 
@@ -50,7 +48,7 @@ struct Entities {
     inline size_t empty() const { return positions.empty(); }
 
     // returns true if the entity at the given index is active (i.e., not deleted)
-    inline bool is_alive(i64 idx) const { return !tombs[idx]; }
+    inline bool is_alive(i64 idx) const { return !slot_empty[idx]; }
 
     // returns true if the entity at the given index is a light emitter
     inline bool is_light(i64 idx) const { return is_flag_set(flags[idx], EntityFlags::EMIT_LIGHT); }
@@ -60,7 +58,7 @@ struct Entities {
 
     // SoA of program objects, should all be equal length
     std::vector<u64> ids;
-    std::vector<bool> tombs;
+    std::vector<bool> slot_empty;
     std::vector<Model> models;
     std::vector<glm::vec3> positions;
     std::vector<glm::vec3> scales;

@@ -2,8 +2,8 @@
 //   abstractions over OpenGL shaders
 // =============================================================================
 
-#ifndef ROSE_INCLUDE_GL_SHADER
-#define ROSE_INCLUDE_GL_SHADER
+#ifndef ROSE_INCLUDE_BACKENDS_GL_SHADER
+#define ROSE_INCLUDE_BACKENDS_GL_SHADER
 
 #include <rose/core/core.hpp>
 #include <rose/core/err.hpp>

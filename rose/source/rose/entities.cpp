@@ -6,7 +6,7 @@ void Entities::add_object(TextureManager& manager, const EntityCtx& ent_def) {
 
     if (free_idxs.empty()) {
         ids.push_back(new_id());
-        tombs.push_back(false);
+        slot_empty.push_back(false);
         models.push_back(std::move(model));
         positions.push_back(ent_def.pos);
         scales.push_back(ent_def.scale);
@@ -17,7 +17,7 @@ void Entities::add_object(TextureManager& manager, const EntityCtx& ent_def) {
     else {
         auto idx = free_idxs.back();
         ids[idx] = new_id();
-        tombs[idx] = false;
+        slot_empty[idx] = false;
         models[idx] = std::move(model);
         positions[idx] = ent_def.pos;
         scales[idx] = ent_def.scale;
@@ -31,7 +31,7 @@ void Entities::add_object(TextureManager& manager, const EntityCtx& ent_def) {
 void Entities::dup_object(i64 idx) { 
     if (free_idxs.empty()) {
         ids.push_back(new_id());
-        tombs.push_back(false);
+        slot_empty.push_back(false);
         // TODO: this copies all buffers of the model, could instead
         // store an index to reduce memory duplication
         models.push_back(models[idx].copy());
@@ -44,7 +44,7 @@ void Entities::dup_object(i64 idx) {
     else {
         auto new_idx = free_idxs.back();
         ids[new_idx] = new_id();
-        tombs[new_idx] = false;
+        slot_empty[new_idx] = false;
         models[new_idx] = std::move(models[idx].copy());
         positions[new_idx] = positions[idx] + glm::vec3(0.25f, 0.25f, 0.25f);
         scales[new_idx] = scales[idx];
@@ -56,6 +56,6 @@ void Entities::dup_object(i64 idx) {
 }
 
 void Entities::del_object(i64 idx) { 
-    tombs[idx] = true; 
+    slot_empty[idx] = true; 
     free_idxs.push_back(idx);
 }

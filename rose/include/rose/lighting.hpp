@@ -6,7 +6,7 @@
 #define ROSE_INCLUDE_LIGHTING
 
 #include <rose/core/core.hpp>
-#include <rose/gl/structs.hpp>
+#include <rose/backends/gl/structs.hpp>
 
 #include <glm.hpp>
 
@@ -58,8 +58,8 @@ struct ClusterData {
     gl::SSBO lights_pos_ssbo;                // light positions for each light in the scene
     gl::SSBO clusters_ssbo;                  // light for each cluster
     
-    glm::uvec3 grid_sz = { 16, 9, 24 };  // size of cluster grid (xyz)
-    u32 max_lights_in_cluster = 100;     // number of lights that will be considered for a single cluster
+    glm::uvec3 grid_sz = { 16, 9, 24 };      // size of cluster grid (xyz)
+    u32 max_lights_in_cluster = 100;         // number of lights that will be considered for a single cluster
 };
 
 #endif

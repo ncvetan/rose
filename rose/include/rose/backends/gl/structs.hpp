@@ -2,18 +2,41 @@
 //   contains wrappers around some OpenGL constructs
 // =============================================================================
 
-#ifndef ROSE_INCLUDE_GL_STRUCTS
-#define ROSE_INCLUDE_GL_STRUCTS
+#ifndef ROSE_INCLUDE_BACKENDS_GL_STRUCTS
+#define ROSE_INCLUDE_BACKENDS_GL_STRUCTS
 
+#include <rose/backends/gl/shader.hpp>
 #include <rose/core/core.hpp>
 #include <rose/core/err.hpp>
-#include <rose/gl/shader.hpp>
 
 #include <GL/glew.h>
 
 #include <span>
 
 namespace gl {
+
+struct RenderData {
+
+    RenderData() = default;
+
+    RenderData(const RenderData& other) = delete;
+    RenderData& operator=(const RenderData& other) = delete;
+
+    RenderData(RenderData&& other) noexcept;
+    RenderData& operator=(RenderData&& other) noexcept;
+
+    ~RenderData();
+
+    void init(const std::vector<glm::vec3>& pos, const std::vector<glm::vec3>& norm,
+              const std::vector<glm::vec3>& tangent, const std::vector<glm::vec2>& uv, const std::vector<u32>& indices);
+
+    u32 vao = 0;
+    u32 pos_buf = 0;
+    u32 norm_buf = 0;
+    u32 tangent_buf = 0;
+    u32 uv_buf = 0;
+    u32 indices_buf = 0;
+};
 
 struct FrameBufTexCtx {
     GLenum intern_format = 0;

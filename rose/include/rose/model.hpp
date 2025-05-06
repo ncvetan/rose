@@ -5,8 +5,11 @@
 #ifndef ROSE_INCLUDE_MODEL
 #define ROSE_INCLUDE_MODEL
 
-#include <rose/gl/render.hpp>
-#include <rose/gl/shader.hpp>
+#ifdef USE_OPENGL
+#include <rose/backends/gl/structs.hpp>
+#else
+static_assert("no backend selected");
+#endif 
 
 #include <rose/texture.hpp>
 
@@ -16,10 +19,6 @@
 #include <concepts>
 #include <filesystem>
 #include <vector>
-
-namespace gl {
-struct PlatformState;
-}
 
 template <typename T>
 concept Transformable = requires { T::model_mat; };
@@ -74,14 +73,15 @@ struct Model {
     // returns a copy of this model
     Model copy();
 
-    void GL_render(gl::Shader& shader, const gl::PlatformState& state) const;
-    void GL_render(gl::Shader& shader, const gl::PlatformState& state, MeshFlags mesh_cond, bool invert_cond) const;
-
     void load(TextureManager& manager, const std::filesystem::path& path);
 
     inline void reset() { model_mat = glm::mat4(1.0f); }
 
+#ifdef  USE_OPENGL
     gl::RenderData render_data;
+#else
+    static_assert("no backend selected");
+#endif 
 
     glm::mat4 model_mat = glm::mat4(1.0f);
     std::vector<Mesh> meshes;
@@ -108,7 +108,6 @@ struct SkyBox {
 
     void init();
     void load(TextureManager& manager, const std::array<fs::path, 6>& paths);
-    void draw(gl::Shader& shader, const gl::PlatformState& state) const;
     inline void reset() { model_mat = glm::mat4(1.0f); }
 
     glm::mat4 model_mat = glm::mat4(1.0f);

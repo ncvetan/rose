@@ -1,6 +1,11 @@
 #include <rose/camera.hpp>
 #include <rose/gui.hpp>
-#include <rose/gl/platform.hpp>
+
+#ifdef USE_OPENGL
+#include <rose/backends/gl/backend.hpp>
+#else
+static_assert("no backend selected");
+#endif
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -59,7 +64,7 @@ static fs::path open_windows_explorer() {
 
 // note: ideally, this shouldn't be coupled with the graphics API, but I haven't created a clean delineation between
 // systems that are dependant/non-dependant on API, and therefore can not decouple it yet
-GuiRet imgui(AppState& app_state, gl::Platform& platform) {
+GuiRet imgui(AppState& app_state, gl::Backend& backend) {
     ImGuiIO& io = ImGui::GetIO();
     ImGuiID skybox_popup_id = ImHashStr("import_skybox_popup");
 
@@ -77,7 +82,7 @@ GuiRet imgui(AppState& app_state, gl::Platform& platform) {
                     .light_data = PtLightData(), 
                     .flags = EntityFlags::NONE 
                 };
-                app_state.entities.add_object(platform.texture_manager, ent_def);
+                app_state.entities.add_object(backend.texture_manager, ent_def);
             }
             if (ImGui::MenuItem("Import SkyBox")) {
                 ImGui::PushOverrideID(skybox_popup_id);
@@ -134,7 +139,7 @@ GuiRet imgui(AppState& app_state, gl::Platform& platform) {
             }
         }
         if (ImGui::Button("import##skybox_popup", ImVec2(50, 0))) {
-            platform.platform_state.sky_box.load(platform.texture_manager, 
+            backend.backend_state.skybox.load(backend.texture_manager, 
                                                  { gui_state::right_path, gui_state::left_path, gui_state::top_path,
                                                    gui_state::bottom_path, gui_state::front_path, gui_state::back_path });
         }
@@ -161,8 +166,8 @@ GuiRet imgui(AppState& app_state, gl::Platform& platform) {
     ImGui::BeginDisabled(!app_state.bloom_enabled);
     if (ImGui::SliderInt("num passes", &app_state.n_bloom_passes, 1, 10));
     if (ImGui::SliderFloat("threshold", &app_state.bloom_threshold, 0.1f, 5.0f)) {
-        platform.shaders.brightness.set_f32("bloom_threshold", app_state.bloom_threshold);
-        platform.shaders.bloom.set_f32("bloom_threshold", app_state.bloom_threshold);
+        backend.shaders.brightness.set_f32("bloom_threshold", app_state.bloom_threshold);
+        backend.shaders.bloom.set_f32("bloom_threshold", app_state.bloom_threshold);
     }
     ImGui::EndDisabled();
 
@@ -170,11 +175,11 @@ GuiRet imgui(AppState& app_state, gl::Platform& platform) {
 
     ImGui::SeparatorText("global light");
     if (ImGui::SliderAngle("angle", &gui_state::dir_angle, 30.0f, 150.0f)) {
-        platform.platform_state.dir_light.direction.y = -std::sin(gui_state::dir_angle) * 1.0f;
-        platform.platform_state.dir_light.direction.z = std::cos(gui_state::dir_angle) * 1.0f;
-        platform.platform_state.dir_light.direction = glm::normalize(platform.platform_state.dir_light.direction);
+        backend.backend_state.dir_light.direction.y = -std::sin(gui_state::dir_angle) * 1.0f;
+        backend.backend_state.dir_light.direction.z = std::cos(gui_state::dir_angle) * 1.0f;
+        backend.backend_state.dir_light.direction = glm::normalize(backend.backend_state.dir_light.direction);
     }
-    ImGui::ColorEdit3("color", glm::value_ptr(platform.platform_state.dir_light.color));
+    ImGui::ColorEdit3("color", glm::value_ptr(backend.backend_state.dir_light.color));
     
     // entities ===================================================================================
 
@@ -232,8 +237,8 @@ GuiRet imgui(AppState& app_state, gl::Platform& platform) {
                 ImGui::BeginDisabled(!app_state.entities.is_light(idx));
                 if (ImGui::Button("cast shadows")) {
                     app_state.entities.pt_caster_idx = idx;
-                    platform.shaders.lighting_deferred.set_u32("pt_caster_id", app_state.entities.ids[app_state.entities.pt_caster_idx]);
-                    platform.shaders.lighting_forward.set_u32("pt_caster_id", app_state.entities.ids[app_state.entities.pt_caster_idx]);
+                    backend.shaders.lighting_deferred.set_u32("pt_caster_id", app_state.entities.ids[app_state.entities.pt_caster_idx]);
+                    backend.shaders.lighting_forward.set_u32("pt_caster_id", app_state.entities.ids[app_state.entities.pt_caster_idx]);
                 }
                 if (ImGui::ColorEdit3("color", &app_state.entities.light_data[idx].color.x)) {
                     light_changed = true;
@@ -269,7 +274,7 @@ GuiRet imgui(AppState& app_state, gl::Platform& platform) {
 
     // resize the image based on the size of the viewport
     
-    ImGui::Image(static_cast<ImTextureID>(platform.out_fbuf.tex_bufs[0]), 
+    ImGui::Image(static_cast<ImTextureID>(backend.out_fbuf.tex_bufs[0]), 
         { scale * (f32)app_state.window_state.width, scale * (f32)app_state.window_state.height }, { 0, 1 }, { 1, 0 });
     
     ImGui::End();
