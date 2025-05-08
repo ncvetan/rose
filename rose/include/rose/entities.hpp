@@ -8,6 +8,7 @@
 #include <rose/lighting.hpp>
 #include <rose/model.hpp>
 #include <rose/core/core.hpp>
+#include <rose/core/types.hpp>
 
 #include <glm.hpp>
 
@@ -34,10 +35,10 @@ struct EntityCtx {
 struct Entities {
 
     // add an entity to the scene
-    void add_object(TextureManager& manager, const EntityCtx& ent_def);
+    i64 add_object(TextureManager& manager, const EntityCtx& ent_def);
 
     // duplicates an existing object with the given index
-    void dup_object(i64 idx);
+    i64 dup_object(i64 idx);
 
     // delete the object at the given index
     void del_object(i64 idx);
@@ -45,7 +46,7 @@ struct Entities {
     // returns the number of entities, both active and deleted
     inline size_t size() const { return positions.size(); }
 
-    inline size_t empty() const { return positions.empty(); }
+    inline bool empty() const { return positions.empty(); }
 
     // returns true if the entity at the given index is active (i.e., not deleted)
     inline bool is_alive(i64 idx) const { return !slot_empty[idx]; }

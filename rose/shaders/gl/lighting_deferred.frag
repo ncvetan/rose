@@ -145,6 +145,7 @@ vec3 calc_pt_light(PointLight light, vec3 light_pos, uint light_id, vec3 pos, ve
 	float window = pow((max(1 - pow(dist / light.radius, 4), 0.0)), 2);
 	float attenuation = window * (1.0 / (dist * dist + 0.001));
 
+	// TODO: ambient component should probably be configurable
 	float ambient_strength = 0.1;
 	vec3 light_dir = normalize(light_pos - pos);
 	float diffuse_strength = max(dot(light_dir, normal), 0.0);

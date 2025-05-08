@@ -20,7 +20,6 @@ int main() {
     Ideally these API abstractions can be made more granular in the future to reduce redundancy
     between backends, however this will likely be done once development starts to support 
     another API
-    
     */
 #ifdef USE_OPENGL
     gl::Backend backend;

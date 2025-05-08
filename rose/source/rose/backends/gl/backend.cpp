@@ -300,7 +300,7 @@ void Backend::step(AppState& app_state) {
                 scale(entities.models[obj_idx], entities.scales[obj_idx]);
                 rotate(entities.models[obj_idx], entities.rotations[obj_idx]);
                 // for now, not casting shadows from entities that have transparency
-                render(shaders.pt_shadow, entities.models[obj_idx],  MeshFlags::TRANSPARENT, true);
+                render(shaders.pt_shadow, entities.models[obj_idx], MeshFlags::TRANSPARENT, true);
                 entities.models[obj_idx].reset();
             }
         }
@@ -472,7 +472,6 @@ void Backend::step(AppState& app_state) {
                 pt_light_data.push_back(entities.light_data[idx]);
                 // note: using u32 ids for now, can use the u64 extension
                 pt_lights_ids.push_back(static_cast<u32>(entities.ids[idx]));
-
             }
         }
 

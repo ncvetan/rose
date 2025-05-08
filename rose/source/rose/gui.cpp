@@ -35,6 +35,8 @@ static char bottom_path[256] = "";
 static char front_path[256] = "";
 static char back_path[256] = "";
 
+std::vector<i64> ent_traverse = { 0, 1 }; // entity indices in order of object insertion
+
 } // namespace gui_state
 
 static fs::path open_windows_explorer() {
@@ -153,6 +155,9 @@ GuiRet imgui(AppState& app_state, gl::Backend& backend) {
     // global controls ============================================================================
 
     bool light_changed = false; // TODO: Not a huge fan of this but not a big deal right now
+    bool obj_deleted = false;
+    std::vector<i64>::iterator del_iter;
+
     ImGui::Begin("controls", &gui_state::controls_open, ImGuiWindowFlags_AlwaysAutoResize);
     ImGui::Text("FPS: %.2f (%.2f ms)", io.Framerate, 1000.0f / io.Framerate);
 
@@ -185,68 +190,73 @@ GuiRet imgui(AppState& app_state, gl::Backend& backend) {
 
     ImGui::SeparatorText("entities");
     if (ImGui::TreeNode("entities")) {
-        for (size_t idx = 0; idx < app_state.entities.size(); idx++) {
+        for (i64 traverse_idx = 0; traverse_idx < gui_state::ent_traverse.size(); ++traverse_idx) {
 
-            if (!app_state.entities.is_alive(idx)) {
+            i64 ent_idx = gui_state::ent_traverse[traverse_idx];
+
+            if (!app_state.entities.is_alive(ent_idx)) {
                 continue;
             }
             
-            if (ImGui::TreeNode((void*)(intptr_t)idx, "ent %d", app_state.entities.ids[idx])) {
+            if (ImGui::TreeNode((void*)(intptr_t)ent_idx, "ent %d", app_state.entities.ids[ent_idx])) {
                 
                 if (ImGui::Button("+")) {  // duplicate
-                    if (app_state.entities.is_light(idx)) {
+                    if (app_state.entities.is_light(ent_idx)) {
                         light_changed = true;
                     }
-                    app_state.entities.dup_object(idx);
+                    gui_state::ent_traverse.push_back(app_state.entities.dup_object(ent_idx));
                 }
                 ImGui::SameLine();
                 if (ImGui::Button("-")) {  // delete
-                    if (app_state.entities.is_light(idx)) {
+                    if (app_state.entities.is_light(ent_idx)) {
                         light_changed = true;
                     }
-                    app_state.entities.del_object(idx);
+
+                    obj_deleted = true;
+                    del_iter = gui_state::ent_traverse.begin() + traverse_idx;
+                    app_state.entities.del_object(ent_idx);
                 }
                 
-                if (ImGui::SliderFloat3("position", glm::value_ptr(app_state.entities.positions[idx]), -30.0f, 30.0f)) {
-                    if (app_state.entities.is_light(idx)) {
+                if (ImGui::SliderFloat3("position", glm::value_ptr(app_state.entities.positions[ent_idx]), -30.0f, 30.0f)) {
+                    if (app_state.entities.is_light(ent_idx)) {
                         light_changed = true;
                     }
                 }
-                if (ImGui::SliderFloat3("rotation", glm::value_ptr(app_state.entities.rotations[idx]), 0.0f, 360.0f)) {
-                    if (app_state.entities.is_light(idx)) {
+                if (ImGui::SliderFloat3("rotation", glm::value_ptr(app_state.entities.rotations[ent_idx]), 0.0f, 360.0f)) {
+                    if (app_state.entities.is_light(ent_idx)) {
                         light_changed = true;
                     }
                 }
-                if (ImGui::SliderFloat("scale", &app_state.entities.scales[idx].x, 0.1f, 10.0f)) {
+                if (ImGui::SliderFloat("scale", &app_state.entities.scales[ent_idx].x, 0.1f, 10.0f)) {
                     // note: using a single float slider to set all values in a vec3
-                    app_state.entities.scales[idx] = { app_state.entities.scales[idx].x,
-                                                      app_state.entities.scales[idx].x,
-                                                      app_state.entities.scales[idx].x };
+                    app_state.entities.scales[ent_idx] = { app_state.entities.scales[ent_idx].x,
+                                                      app_state.entities.scales[ent_idx].x,
+                                                      app_state.entities.scales[ent_idx].x };
                 }
 
                 if (ImGui::Button("toggle light")) {
-                    if (app_state.entities.is_light(idx)) {
-                        set_flag(app_state.entities.flags[idx], EntityFlags::EMIT_LIGHT);
+                    if (app_state.entities.is_light(ent_idx)) {
+                        set_flag(app_state.entities.flags[ent_idx], EntityFlags::EMIT_LIGHT);
                     } 
                     else {
-                        unset_flag(app_state.entities.flags[idx], EntityFlags::EMIT_LIGHT);
+                        unset_flag(app_state.entities.flags[ent_idx], EntityFlags::EMIT_LIGHT);
                     }
                     light_changed = true;
                 } 
 
-                ImGui::BeginDisabled(!app_state.entities.is_light(idx));
+                ImGui::BeginDisabled(!app_state.entities.is_light(ent_idx));
                 if (ImGui::Button("cast shadows")) {
-                    app_state.entities.pt_caster_idx = idx;
+                    app_state.entities.pt_caster_idx = ent_idx;
                     backend.shaders.lighting_deferred.set_u32("pt_caster_id", app_state.entities.ids[app_state.entities.pt_caster_idx]);
                     backend.shaders.lighting_forward.set_u32("pt_caster_id", app_state.entities.ids[app_state.entities.pt_caster_idx]);
                 }
-                if (ImGui::ColorEdit3("color", &app_state.entities.light_data[idx].color.x)) {
+                if (ImGui::ColorEdit3("color", &app_state.entities.light_data[ent_idx].color.x)) {
                     light_changed = true;
                 }
-                if (ImGui::SliderFloat("radius", &app_state.entities.light_data[idx].radius, 0.1, 100.0f)) {
+                if (ImGui::SliderFloat("radius", &app_state.entities.light_data[ent_idx].radius, 0.1, 100.0f)) {
                     light_changed = true;
                 }
-                if (ImGui::SliderFloat("intensity", &app_state.entities.light_data[idx].intensity, 1.0f, 10.0f)) {
+                if (ImGui::SliderFloat("intensity", &app_state.entities.light_data[ent_idx].intensity, 1.0f, 10.0f)) {
                     light_changed = true;
                 }
                 ImGui::EndDisabled();
@@ -292,6 +302,10 @@ GuiRet imgui(AppState& app_state, gl::Backend& backend) {
             ImGui::DockBuilderDockWindow("viewport", viewport_node);
         }
         gui_state::first_frame = false;
+    }
+
+    if (obj_deleted) {
+        gui_state::ent_traverse.erase(del_iter);
     }
 
     return { .light_changed = light_changed };
