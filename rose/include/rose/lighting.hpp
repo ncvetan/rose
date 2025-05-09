@@ -6,45 +6,34 @@
 #define ROSE_INCLUDE_LIGHTING
 
 #include <rose/core/core.hpp>
-#include <rose/gl/structs.hpp>
+
+#ifdef USE_OPENGL
+#include <rose/backends/gl/structs.hpp>
+#include <rose/backends/gl/lighting.hpp>
+#else
+static_assert("no backend selected");
+#endif
 
 #include <glm.hpp>
-
-// TODO: decouple OpenGL buffers from non platform specific state of lighting system
-
-struct DirShadowData {
-    
-    rses init();
-
-    u32 fbo = 0;
-    u32 tex = 0;
-    u32 light_mats_ubo = 0; // transforms matrices to directional light space
-    u16 resolution = 2048;
-    u8 n_cascades = 3;
-};
 
 struct DirLight {
     glm::vec3 direction = { 0.0f, -0.999848f, -0.0174525f };
     glm::vec3 color = { 0.55f, 0.55f, 0.55f };
-    DirShadowData shadow_data;
+    
+#ifdef USE_OPENGL
+    gl::DirShadowData gl_shadow;
+#else
+    static_assert("no backend selected");
+#endif
 };
 
 // obtains a projection-view matrix for a directional light
-glm::mat4 get_cascade_mat(const glm::mat4& proj, const glm::mat4& view, const DirLight& light);
-
-struct PtShadowData {
-    
-    rses init();
-    
-    u32 fbo = 0;
-    u32 tex = 0;
-    u16 resolution = 2048;
-};
+glm::mat4 get_cascade_mat(const glm::mat4& proj, const glm::mat4& view, glm::vec3 direction, f32 resolution);
 
 // state for a singular point light
 // 
 // note: padding added to meet std430 layout requirements
-struct PtLightData {
+struct PtLight {
     glm::vec4 color = { 0.5f, 0.5f, 0.5f, 1.0f };
     f32 radius = 25.0f;
     f32 intensity = 1.0f;
@@ -52,14 +41,15 @@ struct PtLightData {
 };
 
 // state used for clustered shading
-struct ClusterData {
-    gl::SSBO clusters_aabb_ssbo;             // AABBs for each cluster
-    gl::SSBO lights_ssbo;                    // light parameters for each light in the scene
-    gl::SSBO lights_pos_ssbo;                // light positions for each light in the scene
-    gl::SSBO clusters_ssbo;                  // light for each cluster
-    
-    glm::uvec3 grid_sz = { 16, 9, 24 };  // size of cluster grid (xyz)
-    u32 max_lights_in_cluster = 100;     // number of lights that will be considered for a single cluster
+struct Clusters {
+    glm::uvec3 grid_sz = { 16, 9, 24 };      // size of cluster grid (xyz)
+    u32 max_lights_in_cluster = 100;         // number of lights that will be considered for a single cluster
+
+#ifdef USE_OPENGL
+    gl::ClustersData gl_data;
+#else
+    static_assert("no backend selected");
+#endif
 };
 
 #endif

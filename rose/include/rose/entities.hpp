@@ -2,14 +2,13 @@
 //   entity handling system
 // =============================================================================
 
-#ifndef ROSE_INCLUDE_OBJECT
-#define ROSE_INCLUDE_OBJECT
+#ifndef ROSE_INCLUDE_ENTITIES
+#define ROSE_INCLUDE_ENTITIES
 
 #include <rose/lighting.hpp>
 #include <rose/model.hpp>
 #include <rose/core/core.hpp>
-
-#include <rose/gl/shader.hpp>
+#include <rose/core/types.hpp>
 
 #include <glm.hpp>
 
@@ -29,17 +28,17 @@ struct EntityCtx {
     glm::vec3 pos;
     glm::vec3 scale;
     glm::vec3 rotation;
-    PtLightData light_data;
+    PtLight light_data;
     EntityFlags flags;
 };
 
 struct Entities {
 
     // add an entity to the scene
-    void add_object(TextureManager& manager, const EntityCtx& ent_def);
+    i64 add_object(TextureManager& manager, const EntityCtx& ent_def);
 
     // duplicates an existing object with the given index
-    void dup_object(i64 idx);
+    i64 dup_object(i64 idx);
 
     // delete the object at the given index
     void del_object(i64 idx);
@@ -47,10 +46,10 @@ struct Entities {
     // returns the number of entities, both active and deleted
     inline size_t size() const { return positions.size(); }
 
-    inline size_t empty() const { return positions.empty(); }
+    inline bool empty() const { return positions.empty(); }
 
     // returns true if the entity at the given index is active (i.e., not deleted)
-    inline bool is_alive(i64 idx) const { return !tombs[idx]; }
+    inline bool is_alive(i64 idx) const { return !slot_empty[idx]; }
 
     // returns true if the entity at the given index is a light emitter
     inline bool is_light(i64 idx) const { return is_flag_set(flags[idx], EntityFlags::EMIT_LIGHT); }
@@ -60,12 +59,12 @@ struct Entities {
 
     // SoA of program objects, should all be equal length
     std::vector<u64> ids;
-    std::vector<bool> tombs;
+    std::vector<bool> slot_empty;
     std::vector<Model> models;
     std::vector<glm::vec3> positions;
     std::vector<glm::vec3> scales;
     std::vector<glm::vec3> rotations;
-    std::vector<PtLightData> light_data;
+    std::vector<PtLight> light_data;
     std::vector<EntityFlags> flags;
 
     // right now, only a single point light can cast shadows

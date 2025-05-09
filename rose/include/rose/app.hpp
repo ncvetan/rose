@@ -2,8 +2,8 @@
 //   highest level code in Rose, used to handle the running of the application
 // =============================================================================
 
-#ifndef ROSE_INCLUDE_APPLICATION
-#define ROSE_INCLUDE_APPLICATION
+#ifndef ROSE_INCLUDE_APP
+#define ROSE_INCLUDE_APP
 
 #include <rose/app_state.hpp>
 #include <rose/core/err.hpp>
@@ -20,7 +20,7 @@ struct RoseApp {
     AppState app_data;
 
     template <typename T>
-    rses init(T& platform) {
+    rses init(T& backend) {
         rses err;
         if (err = init_glfw(app_data.window_state)) {
             return err.general("unable to initialize GLFW");
@@ -28,27 +28,27 @@ struct RoseApp {
         if (err = init_imgui(app_data.window_state)) {
             return err.general("unable to initialize Dear ImGui");
         }
-        if (err = platform.init(app_data)) {
+        if (err = backend.init(app_data)) {
             return err.general("unable to initialize application");
         }
         return {};
     }
     
     template <typename T>
-    void run(T& platform) {
+    void run(T& backend) {
         while (!glfwWindowShouldClose(app_data.window_state.window_handle)) {
             glfwPollEvents();
-            platform.new_frame(app_data);
+            backend.new_frame(app_data);
             update();
-            platform.render(app_data);
-            platform.end_frame(app_data.window_state.window_handle);
+            backend.step(app_data);
+            backend.end_frame(app_data.window_state.window_handle);
             glfwSwapBuffers(app_data.window_state.window_handle);
         }
     }
 
     template <typename T>
-    void finish(T& platform) {
-        platform.finish();
+    void finish(T& backend) {
+        backend.finish();
         ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();
         glfwDestroyWindow(app_data.window_state.window_handle);

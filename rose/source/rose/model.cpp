@@ -1,6 +1,11 @@
 #include <rose/model.hpp>
-#include <rose/gl/platform.hpp>
 #include <rose/core/err.hpp>
+
+#ifdef USE_OPENGL
+#include <rose/backends/gl/backend.hpp>
+#else
+static_assert("no backend selected");
+#endif 
 
 #include <GL/glew.h>
 #include <assimp/Importer.hpp>
@@ -11,7 +16,11 @@
 #include <unordered_map>
 
 Model::Model(Model&& other) noexcept {
+#ifdef USE_OPENGL
     render_data = std::move(other.render_data);
+#else
+    static_assert("no backend selected");
+#endif 
     pos = std::move(other.pos);
     norms = std::move(other.norms);
     tangents = std::move(other.tangents);
@@ -31,7 +40,7 @@ Model& Model::operator=(Model&& other) noexcept {
 static void load_matl_textures(TextureManager& manager, Model& model, aiMaterial* mat, aiTextureType ty,
                                const fs::path& root_path, u32 mesh_idx) {
     
-    for (int idx = 0; idx < mat->GetTextureCount(ty); ++idx) {
+    for (u32 idx = 0; idx < mat->GetTextureCount(ty); ++idx) {
         aiString ai_str;
         mat->GetTexture(ty, idx, &ai_str);
         fs::path texture_path = root_path / std::string(ai_str.C_Str());
@@ -72,14 +81,14 @@ static void load_matl_textures(TextureManager& manager, Model& model, aiMaterial
 // determine the number of meshes in the model
 static void get_n_meshes(aiNode* ai_node, const aiScene* ai_scene, u32& n_meshes) {
     n_meshes += ai_node->mNumMeshes;
-    for (int idx = 0; idx < ai_node->mNumChildren; ++idx) {
+    for (u32 idx = 0; idx < ai_node->mNumChildren; ++idx) {
         get_n_meshes(ai_node->mChildren[idx], ai_scene, n_meshes);
     }
 }
 
 static void init_meshes(aiNode* ai_node, const aiScene* ai_scene, Model& model, u32& n_verts, u32& n_indices,
                         u32& n_textures) {
-    for (int mesh_idx = 0; mesh_idx < ai_node->mNumMeshes; ++mesh_idx) {
+    for (u32 mesh_idx = 0; mesh_idx < ai_node->mNumMeshes; ++mesh_idx) {
         aiMesh* ai_mesh = ai_scene->mMeshes[ai_node->mMeshes[mesh_idx]];
 
         Mesh mesh = { .n_indices = ai_mesh->mNumFaces * 3,
@@ -103,14 +112,14 @@ static void init_meshes(aiNode* ai_node, const aiScene* ai_scene, Model& model, 
         }
     }
 
-    for (int idx = 0; idx < ai_node->mNumChildren; ++idx) {
+    for (u32 idx = 0; idx < ai_node->mNumChildren; ++idx) {
         init_meshes(ai_node->mChildren[idx], ai_scene, model, n_verts, n_indices, n_textures);
     }
 }
 
 static void process_assimp_node(TextureManager& manager, aiNode* ai_node, const aiScene* ai_scene, Model& model,
                                 const fs::path& root_path, u32& mesh_offset) {
-    for (int mesh_idx = 0; mesh_idx < ai_node->mNumMeshes; ++mesh_idx) {
+    for (u32 mesh_idx = 0; mesh_idx < ai_node->mNumMeshes; ++mesh_idx) {
         aiMesh* ai_mesh = ai_scene->mMeshes[ai_node->mMeshes[mesh_idx]];
 
         for (int vert_idx = 0; vert_idx < ai_mesh->mNumVertices; ++vert_idx) {
@@ -130,7 +139,7 @@ static void process_assimp_node(TextureManager& manager, aiNode* ai_node, const 
             model.uvs.push_back(uv);
         }
 
-        for (int face_idx = 0; face_idx < ai_mesh->mNumFaces; ++face_idx) {
+        for (u32 face_idx = 0; face_idx < ai_mesh->mNumFaces; ++face_idx) {
             aiFace face = ai_mesh->mFaces[face_idx];
             for (int ind_idx = 0; ind_idx < face.mNumIndices; ++ind_idx) {
                 model.indices.push_back(face.mIndices[ind_idx]);
@@ -150,7 +159,7 @@ static void process_assimp_node(TextureManager& manager, aiNode* ai_node, const 
 
     mesh_offset += ai_node->mNumMeshes;
 
-    for (int idx = 0; idx < ai_node->mNumChildren; ++idx) {
+    for (u32 idx = 0; idx < ai_node->mNumChildren; ++idx) {
         process_assimp_node(manager, ai_node->mChildren[idx], ai_scene, model, root_path, mesh_offset);
     }
 }
@@ -170,12 +179,12 @@ void Model::load(TextureManager& manager, const fs::path& path) {
 
     fs::path root_path = path.parent_path();
 
-    // determine number of meshes to reserve their space
+    // 1. determine number of meshes to reserve their space
     u32 n_meshes = 0;
     get_n_meshes(scene->mRootNode, scene, n_meshes);
     meshes.reserve(n_meshes);
 
-    // reserve space for all remaining buffers
+    // 2. reserve space for all remaining buffers
     u32 n_verts = 0;
     u32 n_indices = 0;
     u32 n_textures = 0;
@@ -188,11 +197,15 @@ void Model::load(TextureManager& manager, const fs::path& path) {
     uvs.reserve(n_verts);
     textures.reserve(n_textures);
 
-    // fill out buffers and initialize opengl data
+    // 3. fill out buffers and initialize renderer data
     u32 mesh_offset = 0;
     process_assimp_node(manager, scene->mRootNode, scene, *this, root_path, mesh_offset);
 
+#ifdef USE_OPENGL
     render_data.init(pos, norms, tangents, uvs, indices);
+#else
+    static_assert("no backend selected");
+#endif 
 
     return;
 }
@@ -209,95 +222,13 @@ Model Model::copy() {
     model.tangents = tangents;
     model.uvs = uvs;
 
+#ifdef USE_OPENGL
     model.render_data.init(pos, norms, tangents, uvs, indices);
+#else
+    static_assert("no backend selected");
+#endif 
 
     return model;  
-}
-
-void Model::GL_render(gl::Shader& shader, const gl::PlatformState& state) const {
-
-    shader.use();
-    shader.set_mat4("model", model_mat);
-    glBindVertexArray(render_data.vao);
-
-    for (auto& mesh : meshes) {
-        shader.set_bool("material.has_diffuse_map", false);
-        shader.set_bool("material.has_normal_map", false);
-        shader.set_bool("material.has_specular_map", false);
-        for (u32 idx = mesh.matl_offset; idx < mesh.matl_offset + mesh.n_matls; ++idx) {
-            switch (textures[idx].ref->ty) {
-            case TextureType::DIFFUSE:
-                shader.set_bool("material.has_diffuse_map", true);
-                shader.set_tex("material.diffuse_map", 0, textures[idx].ref->id);
-                break;
-            case TextureType::SPECULAR:
-                shader.set_bool("material.has_specular_map", true);
-                shader.set_tex("material.specular_map", 1, textures[idx].ref->id);
-                break;
-            case TextureType::NORMAL:
-                shader.set_bool("material.has_normal_map", true);
-                shader.set_tex("material.normal_map", 2, textures[idx].ref->id);
-                break;
-            case TextureType::DISPLACE:
-                shader.set_tex("material.displace_map", 3, textures[idx].ref->id);
-                break;
-            default:
-                break;
-            }
-        }
-
-        glDrawElementsBaseVertex(GL_TRIANGLES, mesh.n_indices, GL_UNSIGNED_INT,
-                                    (void*)(sizeof(u32) * mesh.base_idx), mesh.base_vert);
-    }
-}
-
-// this variation only renders meshes that meet a flag used as criteria (e.g., transparent meshes in a model that has a mix of
-// transparent and non-transparent meshes
-//
-// TODO: There is probably a better way of doing this as this is only used currently to determine whether to forward render
-// or defer render a mesh. Could be better to batch like-meshes together and render those without needed to check a condition.
-void Model::GL_render(gl::Shader& shader, const gl::PlatformState& state, MeshFlags test_flag, bool flag_on) const {
-    shader.use();
-    shader.set_mat4("model", model_mat);
-    glBindVertexArray(render_data.vao);
-
-    for (auto& mesh : meshes) {
-        
-        if (!flag_on && !is_flag_set(mesh.flags, test_flag) || 
-            (flag_on && is_flag_set(mesh.flags, test_flag))) {
-            // do not render meshes that do not meet the provided condition
-            continue;
-        }
-
-        shader.set_bool("material.has_diffuse_map", false);
-        shader.set_bool("material.has_normal_map", false);
-        shader.set_bool("material.has_specular_map", false);
-
-        for (u32 idx = mesh.matl_offset; idx < mesh.matl_offset + mesh.n_matls; ++idx) {
-            switch (textures[idx].ref->ty) {
-            case TextureType::DIFFUSE:
-                shader.set_bool("material.has_diffuse_map", true);
-                shader.set_tex("material.diffuse_map", 0, textures[idx].ref->id);
-                break;
-            case TextureType::SPECULAR:
-                shader.set_bool("material.has_specular_map", true);
-                shader.set_tex("material.specular_map", 1, textures[idx].ref->id);
-                break;
-            case TextureType::NORMAL:
-                shader.set_bool("material.has_normal_map", true);
-                shader.set_tex("material.normal_map", 2, textures[idx].ref->id);
-                break;
-            case TextureType::DISPLACE:
-                shader.set_tex("material.displace_map", 3, textures[idx].ref->id);
-                break;
-            default:
-                break;
-            }
-        }
-
-        glDrawElementsBaseVertex(GL_TRIANGLES, mesh.n_indices, GL_UNSIGNED_INT, (void*)(sizeof(u32) * mesh.base_idx),
-                                 mesh.base_vert);
-    }
 }
 
 SkyBox::SkyBox(SkyBox&& other) noexcept {
@@ -336,14 +267,4 @@ void SkyBox::init() {
 
 void SkyBox::load(TextureManager& manager, const std::array<fs::path, 6>& paths) {
     texture = manager.load_cubemap(paths);
-}
-
-void SkyBox::draw(gl::Shader& shader, const gl::PlatformState& state) const {
-    glDepthMask(GL_FALSE);
-    shader.use();
-    glBindVertexArray(vao);
-    shader.set_tex("cube_map", 0, texture.ref->id);
-    glDrawArrays(GL_TRIANGLES, 0, 36);
-    glBindVertexArray(0);
-    glDepthMask(GL_TRUE);
 }

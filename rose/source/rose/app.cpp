@@ -6,6 +6,8 @@
 
 #ifdef USE_OPENGL
 #include <backends/imgui_impl_opengl3.h>
+#else
+static_assert("no backend selected");
 #endif
 
 rses init_glfw(WindowState& window_state) {

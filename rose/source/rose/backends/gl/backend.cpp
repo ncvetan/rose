@@ -1,7 +1,9 @@
 #include <rose/gui.hpp>
 #include <rose/model.hpp>
 #include <rose/core/err.hpp>
-#include <rose/gl/platform.hpp>
+#include <rose/backends/gl/backend.hpp>
+#include <rose/backends/gl/render.hpp>
+#include <rose/backends/gl/structs.hpp>
 
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
@@ -47,7 +49,7 @@ static rses init_gl() {
     return {};
 }
 
-rses Platform::init(AppState& app_state) {
+rses Backend::init(AppState& app_state) {
 
     if (auto err = init_gl()) {
         return err.general("unable to initialize GLEW and OpenGL");
@@ -65,8 +67,8 @@ rses Platform::init(AppState& app_state) {
     // own, they need to modify these paths for their own system. eventually, I'd like a format for savings scenes as
     // well as the ability to load models through the gui
 
-    platform_state.sky_box.init();
-    platform_state.sky_box.load(
+    backend_state.skybox.init();
+    backend_state.skybox.load(
             texture_manager, { SOURCE_DIR "/assets/skybox/right.jpg", SOURCE_DIR "/assets/skybox/left.jpg",
                                SOURCE_DIR "/assets/skybox/top.jpg", SOURCE_DIR "/assets/skybox/bottom.jpg",
                                SOURCE_DIR "/assets/skybox/front.jpg", SOURCE_DIR "/assets/skybox/back.jpg" });
@@ -76,7 +78,7 @@ rses Platform::init(AppState& app_state) {
                              .pos = { 0.0f, 0.0f, 0.0f },
                              .scale = { 0.02f, 0.02f, 0.02f },
                              .rotation = { 0.0f, 0.0f, 0.0f },
-                             .light_data = PtLightData(),
+                             .light_data = PtLight(),
                              .flags = EntityFlags::NONE };
 
     app_state.entities.add_object(texture_manager, sponza_def);
@@ -85,7 +87,7 @@ rses Platform::init(AppState& app_state) {
                              .pos = { 0.0f, 3.5f, 0.0f },
                              .scale = { 0.1f, 0.1f, 0.1f },
                              .rotation = { 0.0f, 0.0f, 0.0f },
-                             .light_data = PtLightData(),
+                             .light_data = PtLight(),
                              .flags = EntityFlags::NONE };
 
     app_state.entities.add_object(texture_manager, model2_def);
@@ -114,36 +116,36 @@ rses Platform::init(AppState& app_state) {
 
     // uniform buffer initialization ==============================================================
 
-    glCreateBuffers(1, &platform_state.global_ubo);
-    glNamedBufferStorage(platform_state.global_ubo, 208, nullptr, GL_DYNAMIC_STORAGE_BIT);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 1, platform_state.global_ubo);
+    glCreateBuffers(1, &backend_state.global_ubo);
+    glNamedBufferStorage(backend_state.global_ubo, 208, nullptr, GL_DYNAMIC_STORAGE_BIT);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 1, backend_state.global_ubo);
 
     glm::uvec2 screen_dims = { app_state.window_state.width, app_state.window_state.height };
-    glNamedBufferSubData(platform_state.global_ubo, 176, 16, glm::value_ptr(clusters.grid_sz));
-    glNamedBufferSubData(platform_state.global_ubo, 192, 8, glm::value_ptr(screen_dims));
-    glNamedBufferSubData(platform_state.global_ubo, 200, 4, &app_state.camera.far_plane);
-    glNamedBufferSubData(platform_state.global_ubo, 204, 4, &app_state.camera.near_plane);
+    glNamedBufferSubData(backend_state.global_ubo, 176, 16, glm::value_ptr(clusters.grid_sz));
+    glNamedBufferSubData(backend_state.global_ubo, 192, 8, glm::value_ptr(screen_dims));
+    glNamedBufferSubData(backend_state.global_ubo, 200, 4, &app_state.camera.far_plane);
+    glNamedBufferSubData(backend_state.global_ubo, 204, 4, &app_state.camera.near_plane);
 
     // ssbo initialization ========================================================================
 
     i32 n_clusters = clusters.grid_sz.x * clusters.grid_sz.y * clusters.grid_sz.z;
-    clusters.clusters_aabb_ssbo.init(sizeof(AABB) * n_clusters, 2);
-    clusters.lights_ssbo.init(sizeof(PtLightData) * 1024, 3);
-    clusters.lights_pos_ssbo.init(sizeof(glm::vec4) * 1024, 4);
+    clusters.gl_data.aabb_ssbo.init(sizeof(AABB) * n_clusters, 2);
+    clusters.gl_data.lights_ssbo.init(sizeof(PtLight) * 1024, 3);
+    clusters.gl_data.lights_pos_ssbo.init(sizeof(glm::vec4) * 1024, 4);
     lights_ids_ssbo.init(sizeof(u32) * 1024, 7);
-    clusters.clusters_ssbo.init(sizeof(u32) * (1 + clusters.max_lights_in_cluster) * n_clusters, 5);
+    clusters.gl_data.clusters_ssbo.init(sizeof(u32) * (1 + clusters.max_lights_in_cluster) * n_clusters, 5);
 
     // shadow map initialization ==================================================================
 
     // ---- directional shadow map ----
 
-    if (auto err = platform_state.dir_light.shadow_data.init()) {
+    if (auto err = backend_state.dir_light.gl_shadow.init()) {
         return err;
     }
 
     // ---- point shadow map ----
 
-    if (auto err = platform_state.pt_shadow_data.init()) {
+    if (auto err = backend_state.pt_shadow_data.init()) {
         return err;
     }
 
@@ -157,14 +159,14 @@ rses Platform::init(AppState& app_state) {
     return {};
 };
 
-void Platform::new_frame(AppState& app_state) {
+void Backend::new_frame(AppState& app_state) {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
     app_state.window_state.dock_id = ImGui::DockSpaceOverViewport();
 }
 
-void Platform::end_frame(GLFWwindow* window_handle) {
+void Backend::end_frame(GLFWwindow* window_handle) {
     ImGui::Render();
 
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -176,7 +178,7 @@ void Platform::end_frame(GLFWwindow* window_handle) {
     }
 }
 
-void Platform::render(AppState& app_state) {
+void Backend::step(AppState& app_state) {
 
     // frame set up ===============================================================================================
 
@@ -188,11 +190,11 @@ void Platform::render(AppState& app_state) {
     glm::mat4 view = app_state.camera.view();
 
     // update ubo state
-    glNamedBufferSubData(platform_state.global_ubo, 0, 64, glm::value_ptr(projection));
-    glNamedBufferSubData(platform_state.global_ubo, 64, 64, glm::value_ptr(view));
-    glNamedBufferSubData(platform_state.global_ubo, 128, 16, glm::value_ptr(app_state.camera.position));
-    glNamedBufferSubData(platform_state.global_ubo, 144, 16, glm::value_ptr(platform_state.dir_light.direction));
-    glNamedBufferSubData(platform_state.global_ubo, 160, 16, glm::value_ptr(platform_state.dir_light.color));
+    glNamedBufferSubData(backend_state.global_ubo, 0, 64, glm::value_ptr(projection));
+    glNamedBufferSubData(backend_state.global_ubo, 64, 64, glm::value_ptr(view));
+    glNamedBufferSubData(backend_state.global_ubo, 128, 16, glm::value_ptr(app_state.camera.position));
+    glNamedBufferSubData(backend_state.global_ubo, 144, 16, glm::value_ptr(backend_state.dir_light.direction));
+    glNamedBufferSubData(backend_state.global_ubo, 160, 16, glm::value_ptr(backend_state.dir_light.color));
 
     // clustered set-up ===========================================================================================
 
@@ -206,7 +208,7 @@ void Platform::render(AppState& app_state) {
 
     // build light lists for each cluster
     shaders.clusters_cull.use();
-    shaders.clusters_cull.set_i32("n_lights", clusters.lights_ssbo.n_elems);
+    shaders.clusters_cull.set_i32("n_lights", clusters.gl_data.lights_ssbo.n_elems);
 
     glDispatchCompute(27, 1, 1);
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
@@ -217,8 +219,8 @@ void Platform::render(AppState& app_state) {
 
     // ---- directional light ----
 
-    glBindFramebuffer(GL_FRAMEBUFFER, platform_state.dir_light.shadow_data.fbo);
-    glViewport(0, 0, platform_state.dir_light.shadow_data.resolution, platform_state.dir_light.shadow_data.resolution);
+    glBindFramebuffer(GL_FRAMEBUFFER, backend_state.dir_light.gl_shadow.fbo);
+    glViewport(0, 0, backend_state.dir_light.gl_shadow.resolution, backend_state.dir_light.gl_shadow.resolution);
     glClear(GL_DEPTH_BUFFER_BIT);
 
     // cascades: [0.1, 10.0], [10.0, 30.0], [30.0, 100.0]
@@ -229,13 +231,16 @@ void Platform::render(AppState& app_state) {
     auto p2 = glm::perspective(glm::radians(app_state.camera.zoom), ar, c1_far, c2_far);
     auto p3 = glm::perspective(glm::radians(app_state.camera.zoom), ar, c2_far, app_state.camera.far_plane);
 
-    glm::mat4 c1_map = get_cascade_mat(p1, app_state.camera.view(), platform_state.dir_light);
-    glm::mat4 c2_map = get_cascade_mat(p2, app_state.camera.view(), platform_state.dir_light);
-    glm::mat4 c3_map = get_cascade_mat(p3, app_state.camera.view(), platform_state.dir_light);
+    glm::mat4 c1_map = get_cascade_mat(p1, app_state.camera.view(), backend_state.dir_light.direction,
+                                       backend_state.dir_light.gl_shadow.resolution);
+    glm::mat4 c2_map = get_cascade_mat(p2, app_state.camera.view(), backend_state.dir_light.direction,
+                                       backend_state.dir_light.gl_shadow.resolution);
+    glm::mat4 c3_map = get_cascade_mat(p3, app_state.camera.view(), backend_state.dir_light.direction,
+                                       backend_state.dir_light.gl_shadow.resolution);
 
-    glNamedBufferSubData(platform_state.dir_light.shadow_data.light_mats_ubo, 0, 64, glm::value_ptr(c1_map));
-    glNamedBufferSubData(platform_state.dir_light.shadow_data.light_mats_ubo, 64, 64, glm::value_ptr(c2_map));
-    glNamedBufferSubData(platform_state.dir_light.shadow_data.light_mats_ubo, 128, 64, glm::value_ptr(c3_map));
+    glNamedBufferSubData(backend_state.dir_light.gl_shadow.light_mats_ubo, 0, 64, glm::value_ptr(c1_map));
+    glNamedBufferSubData(backend_state.dir_light.gl_shadow.light_mats_ubo, 64, 64, glm::value_ptr(c2_map));
+    glNamedBufferSubData(backend_state.dir_light.gl_shadow.light_mats_ubo, 128, 64, glm::value_ptr(c3_map));
 
     glEnable(GL_DEPTH_CLAMP);
 
@@ -245,7 +250,7 @@ void Platform::render(AppState& app_state) {
             translate(entities.models[obj_idx], entities.positions[obj_idx]);
             scale(entities.models[obj_idx], entities.scales[obj_idx]);
             rotate(entities.models[obj_idx], entities.rotations[obj_idx]);
-            entities.models[obj_idx].GL_render(shaders.dir_shadow, platform_state);
+            render(shaders.dir_shadow, entities.models[obj_idx]);
             entities.models[obj_idx].reset();
         }
     }
@@ -257,13 +262,13 @@ void Platform::render(AppState& app_state) {
 
     glm::mat4 shadow_proj =
         glm::perspective(glm::radians(90.0f),
-                         (f32)platform_state.pt_shadow_data.resolution / (f32)platform_state.pt_shadow_data.resolution,
+                         (f32)backend_state.pt_shadow_data.resolution / (f32)backend_state.pt_shadow_data.resolution,
                          app_state.camera.near_plane, app_state.camera.far_plane);
 
     std::array<glm::mat4, 6> shadow_transforms;
 
-    glBindFramebuffer(GL_FRAMEBUFFER, platform_state.pt_shadow_data.fbo);
-    glViewport(0, 0, platform_state.pt_shadow_data.resolution, platform_state.pt_shadow_data.resolution);
+    glBindFramebuffer(GL_FRAMEBUFFER, backend_state.pt_shadow_data.fbo);
+    glViewport(0, 0, backend_state.pt_shadow_data.resolution, backend_state.pt_shadow_data.resolution);
     glClear(GL_DEPTH_BUFFER_BIT);
     shaders.pt_shadow.set_f32("far_plane", app_state.camera.far_plane);
 
@@ -297,8 +302,7 @@ void Platform::render(AppState& app_state) {
                 translate(entities.models[obj_idx], entities.positions[obj_idx]);
                 scale(entities.models[obj_idx], entities.scales[obj_idx]);
                 rotate(entities.models[obj_idx], entities.rotations[obj_idx]);
-                // for now, not casting shadows from entities that have transparency
-                entities.models[obj_idx].GL_render(shaders.pt_shadow, platform_state, MeshFlags::TRANSPARENT, true);
+                render_opaque(shaders.pt_shadow, entities.models[obj_idx]);
                 entities.models[obj_idx].reset();
             }
         }
@@ -323,7 +327,7 @@ void Platform::render(AppState& app_state) {
     glm::mat4 static_view = view;
     static_view[3] = { 0, 0, 0, 1 }; // removing translation component
     shaders.skybox.set_mat4("static_view", static_view);
-    platform_state.sky_box.draw(shaders.skybox, platform_state);
+    render(shaders.skybox, backend_state.skybox, backend_state.skybox.vao);
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_STENCIL_TEST);
@@ -338,7 +342,7 @@ void Platform::render(AppState& app_state) {
             translate(entities.models[idx], entities.positions[idx]);
             scale(entities.models[idx], entities.scales[idx]);
             rotate(entities.models[idx], entities.rotations[idx]);
-            entities.models[idx].GL_render(shaders.gbuf, platform_state, MeshFlags::TRANSPARENT, true);
+            render_opaque(shaders.gbuf, entities.models[idx]);
             entities.models[idx].reset();
         }
     }
@@ -355,9 +359,9 @@ void Platform::render(AppState& app_state) {
     shaders.lighting_deferred.set_tex("gbuf_pos", 0, gbuf_fbuf.tex_bufs[0]);
     shaders.lighting_deferred.set_tex("gbuf_norms", 1, gbuf_fbuf.tex_bufs[1]);
     shaders.lighting_deferred.set_tex("gbuf_colors", 2, gbuf_fbuf.tex_bufs[2]);
-    shaders.lighting_deferred.set_tex("dir_shadow_maps", 11, platform_state.dir_light.shadow_data.tex);
-    shaders.lighting_deferred.set_tex("pt_shadow_map", 12, platform_state.pt_shadow_data.tex);
-    shaders.lighting_deferred.set_i32("n_cascades", platform_state.dir_light.shadow_data.n_cascades);
+    shaders.lighting_deferred.set_tex("dir_shadow_maps", 11, backend_state.dir_light.gl_shadow.tex);
+    shaders.lighting_deferred.set_tex("pt_shadow_map", 12, backend_state.pt_shadow_data.tex);
+    shaders.lighting_deferred.set_i32("n_cascades", backend_state.dir_light.gl_shadow.n_cascades);
     shaders.lighting_deferred.set_f32("cascade_depths[0]", c1_far);
     shaders.lighting_deferred.set_f32("cascade_depths[1]", c2_far);
     shaders.lighting_deferred.set_f32("cascade_depths[2]", app_state.camera.far_plane);
@@ -376,9 +380,9 @@ void Platform::render(AppState& app_state) {
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
 
-    shaders.lighting_forward.set_tex("dir_shadow_maps", 11, platform_state.dir_light.shadow_data.tex);
-    shaders.lighting_forward.set_tex("pt_shadow_map", 12, platform_state.pt_shadow_data.tex);
-    shaders.lighting_forward.set_i32("n_cascades", platform_state.dir_light.shadow_data.n_cascades);
+    shaders.lighting_forward.set_tex("dir_shadow_maps", 11, backend_state.dir_light.gl_shadow.tex);
+    shaders.lighting_forward.set_tex("pt_shadow_map", 12, backend_state.pt_shadow_data.tex);
+    shaders.lighting_forward.set_i32("n_cascades", backend_state.dir_light.gl_shadow.n_cascades);
     shaders.lighting_forward.set_f32("cascade_depths[0]", c1_far);
     shaders.lighting_forward.set_f32("cascade_depths[1]", c2_far);
     shaders.lighting_forward.set_f32("cascade_depths[2]", app_state.camera.far_plane);
@@ -394,7 +398,7 @@ void Platform::render(AppState& app_state) {
             rotate(entities.models[idx], entities.rotations[idx]);
             shaders.light.set_vec4("color", entities.light_data[idx].color);
             shaders.light.set_f32("intensity", entities.light_data[idx].intensity);
-            entities.models[idx].GL_render(shaders.light, platform_state);
+            render(shaders.light, entities.models[idx]);
             entities.models[idx].reset();
         } 
         else {
@@ -402,7 +406,7 @@ void Platform::render(AppState& app_state) {
             translate(entities.models[idx], entities.positions[idx]);
             scale(entities.models[idx], entities.scales[idx]);
             rotate(entities.models[idx], entities.rotations[idx]);
-            entities.models[idx].GL_render(shaders.lighting_forward, platform_state, MeshFlags::TRANSPARENT, false);
+            render_transparent(shaders.lighting_forward, entities.models[idx]);
             entities.models[idx].reset();
         }
     }
@@ -457,9 +461,10 @@ void Platform::render(AppState& app_state) {
 
     gui::GuiRet gui_ret = gui::imgui(app_state, *this);
 
+    // if a light was changed within the gui, we need to update our GPU buffers to reflect these changes
     if (gui_ret.light_changed) {
         
-        static std::vector<PtLightData> pt_light_data;
+        static std::vector<PtLight> pt_light_data;
         static std::vector<glm::vec4> pt_lights_pos;
         static std::vector<u32> pt_lights_ids;
 
@@ -470,12 +475,11 @@ void Platform::render(AppState& app_state) {
                 pt_light_data.push_back(entities.light_data[idx]);
                 // note: using u32 ids for now, can use the u64 extension
                 pt_lights_ids.push_back(static_cast<u32>(entities.ids[idx]));
-
             }
         }
 
-        clusters.lights_ssbo.update(std::span(pt_light_data.begin(), pt_light_data.end()));
-        clusters.lights_pos_ssbo.update(std::span(pt_lights_pos.begin(), pt_lights_pos.end()));
+        clusters.gl_data.lights_ssbo.update(std::span(pt_light_data.begin(), pt_light_data.end()));
+        clusters.gl_data.lights_pos_ssbo.update(std::span(pt_lights_pos.begin(), pt_lights_pos.end()));
         lights_ids_ssbo.update(std::span(pt_lights_ids.begin(), pt_lights_ids.end()));
 
         pt_light_data.resize(0);
@@ -484,6 +488,6 @@ void Platform::render(AppState& app_state) {
     }
  };
 
-void Platform::finish() { ImGui_ImplOpenGL3_Shutdown(); };
+void Backend::finish() { ImGui_ImplOpenGL3_Shutdown(); };
 
 } // namespace gl
