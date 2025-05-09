@@ -64,7 +64,7 @@ static fs::path open_windows_explorer() {
     return "";
 }
 
-// note: ideally, this shouldn't be coupled with the graphics API, but I haven't created a clean delineation between
+// TODO: ideally, this shouldn't be coupled with the graphics API, but I haven't created a clean delineation between
 // systems that are dependant/non-dependant on API, and therefore can not decouple it yet
 GuiRet imgui(AppState& app_state, gl::Backend& backend) {
     ImGuiIO& io = ImGui::GetIO();
@@ -81,7 +81,7 @@ GuiRet imgui(AppState& app_state, gl::Backend& backend) {
                     .pos = { 0.0f, 0.0f, 0.0f },
                     .scale = { 1.0f, 1.0f, 1.0f }, 
                     .rotation = { 0.0f, 0.0f, 0.0f },
-                    .light_data = PtLightData(), 
+                    .light_data = PtLight(), 
                     .flags = EntityFlags::NONE 
                 };
                 app_state.entities.add_object(backend.texture_manager, ent_def);

@@ -30,11 +30,13 @@ if (USE_OPENGL)
 
     list(APPEND SOURCES 
     "include/rose/backends/gl/backend.hpp" 
+    "include/rose/backends/gl/lighting.hpp"
     "include/rose/backends/gl/render.hpp"
     "include/rose/backends/gl/shader.hpp"
     "include/rose/backends/gl/structs.hpp"
 
     "source/rose/backends/gl/backend.cpp"
+    "source/rose/backends/gl/lighting.cpp"
     "source/rose/backends/gl/render.cpp"
     "source/rose/backends/gl/shader.cpp"
     "source/rose/backends/gl/structs.cpp"

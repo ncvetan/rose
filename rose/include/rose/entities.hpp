@@ -28,7 +28,7 @@ struct EntityCtx {
     glm::vec3 pos;
     glm::vec3 scale;
     glm::vec3 rotation;
-    PtLightData light_data;
+    PtLight light_data;
     EntityFlags flags;
 };
 
@@ -64,7 +64,7 @@ struct Entities {
     std::vector<glm::vec3> positions;
     std::vector<glm::vec3> scales;
     std::vector<glm::vec3> rotations;
-    std::vector<PtLightData> light_data;
+    std::vector<PtLight> light_data;
     std::vector<EntityFlags> flags;
 
     // right now, only a single point light can cast shadows

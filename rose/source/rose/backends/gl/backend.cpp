@@ -78,7 +78,7 @@ rses Backend::init(AppState& app_state) {
                              .pos = { 0.0f, 0.0f, 0.0f },
                              .scale = { 0.02f, 0.02f, 0.02f },
                              .rotation = { 0.0f, 0.0f, 0.0f },
-                             .light_data = PtLightData(),
+                             .light_data = PtLight(),
                              .flags = EntityFlags::NONE };
 
     app_state.entities.add_object(texture_manager, sponza_def);
@@ -87,7 +87,7 @@ rses Backend::init(AppState& app_state) {
                              .pos = { 0.0f, 3.5f, 0.0f },
                              .scale = { 0.1f, 0.1f, 0.1f },
                              .rotation = { 0.0f, 0.0f, 0.0f },
-                             .light_data = PtLightData(),
+                             .light_data = PtLight(),
                              .flags = EntityFlags::NONE };
 
     app_state.entities.add_object(texture_manager, model2_def);
@@ -129,17 +129,17 @@ rses Backend::init(AppState& app_state) {
     // ssbo initialization ========================================================================
 
     i32 n_clusters = clusters.grid_sz.x * clusters.grid_sz.y * clusters.grid_sz.z;
-    clusters.clusters_aabb_ssbo.init(sizeof(AABB) * n_clusters, 2);
-    clusters.lights_ssbo.init(sizeof(PtLightData) * 1024, 3);
-    clusters.lights_pos_ssbo.init(sizeof(glm::vec4) * 1024, 4);
+    clusters.gl_data.aabb_ssbo.init(sizeof(AABB) * n_clusters, 2);
+    clusters.gl_data.lights_ssbo.init(sizeof(PtLight) * 1024, 3);
+    clusters.gl_data.lights_pos_ssbo.init(sizeof(glm::vec4) * 1024, 4);
     lights_ids_ssbo.init(sizeof(u32) * 1024, 7);
-    clusters.clusters_ssbo.init(sizeof(u32) * (1 + clusters.max_lights_in_cluster) * n_clusters, 5);
+    clusters.gl_data.clusters_ssbo.init(sizeof(u32) * (1 + clusters.max_lights_in_cluster) * n_clusters, 5);
 
     // shadow map initialization ==================================================================
 
     // ---- directional shadow map ----
 
-    if (auto err = backend_state.dir_light.shadow_data.init()) {
+    if (auto err = backend_state.dir_light.gl_shadow.init()) {
         return err;
     }
 
@@ -208,7 +208,7 @@ void Backend::step(AppState& app_state) {
 
     // build light lists for each cluster
     shaders.clusters_cull.use();
-    shaders.clusters_cull.set_i32("n_lights", clusters.lights_ssbo.n_elems);
+    shaders.clusters_cull.set_i32("n_lights", clusters.gl_data.lights_ssbo.n_elems);
 
     glDispatchCompute(27, 1, 1);
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
@@ -219,8 +219,8 @@ void Backend::step(AppState& app_state) {
 
     // ---- directional light ----
 
-    glBindFramebuffer(GL_FRAMEBUFFER, backend_state.dir_light.shadow_data.fbo);
-    glViewport(0, 0, backend_state.dir_light.shadow_data.resolution, backend_state.dir_light.shadow_data.resolution);
+    glBindFramebuffer(GL_FRAMEBUFFER, backend_state.dir_light.gl_shadow.fbo);
+    glViewport(0, 0, backend_state.dir_light.gl_shadow.resolution, backend_state.dir_light.gl_shadow.resolution);
     glClear(GL_DEPTH_BUFFER_BIT);
 
     // cascades: [0.1, 10.0], [10.0, 30.0], [30.0, 100.0]
@@ -231,13 +231,16 @@ void Backend::step(AppState& app_state) {
     auto p2 = glm::perspective(glm::radians(app_state.camera.zoom), ar, c1_far, c2_far);
     auto p3 = glm::perspective(glm::radians(app_state.camera.zoom), ar, c2_far, app_state.camera.far_plane);
 
-    glm::mat4 c1_map = get_cascade_mat(p1, app_state.camera.view(), backend_state.dir_light);
-    glm::mat4 c2_map = get_cascade_mat(p2, app_state.camera.view(), backend_state.dir_light);
-    glm::mat4 c3_map = get_cascade_mat(p3, app_state.camera.view(), backend_state.dir_light);
+    glm::mat4 c1_map = get_cascade_mat(p1, app_state.camera.view(), backend_state.dir_light.direction,
+                                       backend_state.dir_light.gl_shadow.resolution);
+    glm::mat4 c2_map = get_cascade_mat(p2, app_state.camera.view(), backend_state.dir_light.direction,
+                                       backend_state.dir_light.gl_shadow.resolution);
+    glm::mat4 c3_map = get_cascade_mat(p3, app_state.camera.view(), backend_state.dir_light.direction,
+                                       backend_state.dir_light.gl_shadow.resolution);
 
-    glNamedBufferSubData(backend_state.dir_light.shadow_data.light_mats_ubo, 0, 64, glm::value_ptr(c1_map));
-    glNamedBufferSubData(backend_state.dir_light.shadow_data.light_mats_ubo, 64, 64, glm::value_ptr(c2_map));
-    glNamedBufferSubData(backend_state.dir_light.shadow_data.light_mats_ubo, 128, 64, glm::value_ptr(c3_map));
+    glNamedBufferSubData(backend_state.dir_light.gl_shadow.light_mats_ubo, 0, 64, glm::value_ptr(c1_map));
+    glNamedBufferSubData(backend_state.dir_light.gl_shadow.light_mats_ubo, 64, 64, glm::value_ptr(c2_map));
+    glNamedBufferSubData(backend_state.dir_light.gl_shadow.light_mats_ubo, 128, 64, glm::value_ptr(c3_map));
 
     glEnable(GL_DEPTH_CLAMP);
 
@@ -299,8 +302,7 @@ void Backend::step(AppState& app_state) {
                 translate(entities.models[obj_idx], entities.positions[obj_idx]);
                 scale(entities.models[obj_idx], entities.scales[obj_idx]);
                 rotate(entities.models[obj_idx], entities.rotations[obj_idx]);
-                // for now, not casting shadows from entities that have transparency
-                render(shaders.pt_shadow, entities.models[obj_idx], MeshFlags::TRANSPARENT, true);
+                render_opaque(shaders.pt_shadow, entities.models[obj_idx]);
                 entities.models[obj_idx].reset();
             }
         }
@@ -340,7 +342,7 @@ void Backend::step(AppState& app_state) {
             translate(entities.models[idx], entities.positions[idx]);
             scale(entities.models[idx], entities.scales[idx]);
             rotate(entities.models[idx], entities.rotations[idx]);
-            render(shaders.gbuf, entities.models[idx], MeshFlags::TRANSPARENT, true);
+            render_opaque(shaders.gbuf, entities.models[idx]);
             entities.models[idx].reset();
         }
     }
@@ -357,9 +359,9 @@ void Backend::step(AppState& app_state) {
     shaders.lighting_deferred.set_tex("gbuf_pos", 0, gbuf_fbuf.tex_bufs[0]);
     shaders.lighting_deferred.set_tex("gbuf_norms", 1, gbuf_fbuf.tex_bufs[1]);
     shaders.lighting_deferred.set_tex("gbuf_colors", 2, gbuf_fbuf.tex_bufs[2]);
-    shaders.lighting_deferred.set_tex("dir_shadow_maps", 11, backend_state.dir_light.shadow_data.tex);
+    shaders.lighting_deferred.set_tex("dir_shadow_maps", 11, backend_state.dir_light.gl_shadow.tex);
     shaders.lighting_deferred.set_tex("pt_shadow_map", 12, backend_state.pt_shadow_data.tex);
-    shaders.lighting_deferred.set_i32("n_cascades", backend_state.dir_light.shadow_data.n_cascades);
+    shaders.lighting_deferred.set_i32("n_cascades", backend_state.dir_light.gl_shadow.n_cascades);
     shaders.lighting_deferred.set_f32("cascade_depths[0]", c1_far);
     shaders.lighting_deferred.set_f32("cascade_depths[1]", c2_far);
     shaders.lighting_deferred.set_f32("cascade_depths[2]", app_state.camera.far_plane);
@@ -378,9 +380,9 @@ void Backend::step(AppState& app_state) {
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
 
-    shaders.lighting_forward.set_tex("dir_shadow_maps", 11, backend_state.dir_light.shadow_data.tex);
+    shaders.lighting_forward.set_tex("dir_shadow_maps", 11, backend_state.dir_light.gl_shadow.tex);
     shaders.lighting_forward.set_tex("pt_shadow_map", 12, backend_state.pt_shadow_data.tex);
-    shaders.lighting_forward.set_i32("n_cascades", backend_state.dir_light.shadow_data.n_cascades);
+    shaders.lighting_forward.set_i32("n_cascades", backend_state.dir_light.gl_shadow.n_cascades);
     shaders.lighting_forward.set_f32("cascade_depths[0]", c1_far);
     shaders.lighting_forward.set_f32("cascade_depths[1]", c2_far);
     shaders.lighting_forward.set_f32("cascade_depths[2]", app_state.camera.far_plane);
@@ -404,7 +406,7 @@ void Backend::step(AppState& app_state) {
             translate(entities.models[idx], entities.positions[idx]);
             scale(entities.models[idx], entities.scales[idx]);
             rotate(entities.models[idx], entities.rotations[idx]);
-            render(shaders.lighting_forward, entities.models[idx], MeshFlags::TRANSPARENT, false);
+            render_transparent(shaders.lighting_forward, entities.models[idx]);
             entities.models[idx].reset();
         }
     }
@@ -459,9 +461,10 @@ void Backend::step(AppState& app_state) {
 
     gui::GuiRet gui_ret = gui::imgui(app_state, *this);
 
+    // if a light was changed within the gui, we need to update our GPU buffers to reflect these changes
     if (gui_ret.light_changed) {
         
-        static std::vector<PtLightData> pt_light_data;
+        static std::vector<PtLight> pt_light_data;
         static std::vector<glm::vec4> pt_lights_pos;
         static std::vector<u32> pt_lights_ids;
 
@@ -475,8 +478,8 @@ void Backend::step(AppState& app_state) {
             }
         }
 
-        clusters.lights_ssbo.update(std::span(pt_light_data.begin(), pt_light_data.end()));
-        clusters.lights_pos_ssbo.update(std::span(pt_lights_pos.begin(), pt_lights_pos.end()));
+        clusters.gl_data.lights_ssbo.update(std::span(pt_light_data.begin(), pt_light_data.end()));
+        clusters.gl_data.lights_pos_ssbo.update(std::span(pt_lights_pos.begin(), pt_lights_pos.end()));
         lights_ids_ssbo.update(std::span(pt_lights_ids.begin(), pt_lights_ids.end()));
 
         pt_light_data.resize(0);

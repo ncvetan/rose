@@ -17,8 +17,6 @@
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
-// TODO: There is still a ton of unnecessary coupling going on here
-
 namespace gl {
 
 // state specific to the OpenGL backend
@@ -42,7 +40,7 @@ struct Backend {
     TextureManager texture_manager;
     BackendState backend_state;
     Shaders shaders;
-    ClusterData clusters;
+    Clusters clusters;
 
     SSBO lights_ids_ssbo;   // IDs for each point light
 

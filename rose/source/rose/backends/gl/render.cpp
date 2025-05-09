@@ -3,32 +3,28 @@
 
 namespace gl {
 
-void render(Shader& shader, const Model& model) {
+static void render_mesh(Shader& shader, const Mesh& mesh, const std::vector<TextureRef>& textures) {
 
-    shader.use();
-    shader.set_mat4("model", model.model_mat);
-    glBindVertexArray(model.render_data.vao);
-
-    for (const auto& mesh : model.meshes) {
         shader.set_bool("material.has_diffuse_map", false);
         shader.set_bool("material.has_normal_map", false);
         shader.set_bool("material.has_specular_map", false);
+
         for (u32 idx = mesh.matl_offset; idx < mesh.matl_offset + mesh.n_matls; ++idx) {
-            switch (model.textures[idx].ref->ty) {
+            switch (textures[idx].ref->ty) {
             case TextureType::DIFFUSE:
                 shader.set_bool("material.has_diffuse_map", true);
-                shader.set_tex("material.diffuse_map", 0, model.textures[idx].ref->id);
+                shader.set_tex("material.diffuse_map", 0, textures[idx].ref->id);
                 break;
             case TextureType::SPECULAR:
                 shader.set_bool("material.has_specular_map", true);
-                shader.set_tex("material.specular_map", 1, model.textures[idx].ref->id);
+                shader.set_tex("material.specular_map", 1, textures[idx].ref->id);
                 break;
             case TextureType::NORMAL:
                 shader.set_bool("material.has_normal_map", true);
-                shader.set_tex("material.normal_map", 2, model.textures[idx].ref->id);
+                shader.set_tex("material.normal_map", 2, textures[idx].ref->id);
                 break;
             case TextureType::DISPLACE:
-                shader.set_tex("material.displace_map", 3, model.textures[idx].ref->id);
+                shader.set_tex("material.displace_map", 3, textures[idx].ref->id);
                 break;
             default:
                 break;
@@ -37,49 +33,36 @@ void render(Shader& shader, const Model& model) {
 
         glDrawElementsBaseVertex(GL_TRIANGLES, mesh.n_indices, GL_UNSIGNED_INT, (void*)(sizeof(u32) * mesh.base_idx),
                                  mesh.base_vert);
+}
+
+void render(Shader& shader, const Model& model) {
+    shader.use();
+    shader.set_mat4("model", model.model_mat);
+    glBindVertexArray(model.render_data.vao);
+    for (const auto& mesh : model.meshes) {
+        render_mesh(shader, mesh, model.textures);
     }
 }
 
-void render(Shader& shader, const Model& model, MeshFlags test_flag, bool flag_on) {
+void render_opaque(Shader& shader, const Model& model) {
     shader.use();
     shader.set_mat4("model", model.model_mat);
     glBindVertexArray(model.render_data.vao);
-
     for (auto& mesh : model.meshes) {
-
-        if (!flag_on && !is_flag_set(mesh.flags, test_flag) || (flag_on && is_flag_set(mesh.flags, test_flag))) {
-            // do not render meshes that do not meet the provided condition
-            continue;
+        if (!is_flag_set(mesh.flags, MeshFlags::TRANSPARENT)) {
+            render_mesh(shader, mesh, model.textures);
         }
+    }
+}
 
-        shader.set_bool("material.has_diffuse_map", false);
-        shader.set_bool("material.has_normal_map", false);
-        shader.set_bool("material.has_specular_map", false);
-
-        for (u32 idx = mesh.matl_offset; idx < mesh.matl_offset + mesh.n_matls; ++idx) {
-            switch (model.textures[idx].ref->ty) {
-            case TextureType::DIFFUSE:
-                shader.set_bool("material.has_diffuse_map", true);
-                shader.set_tex("material.diffuse_map", 0, model.textures[idx].ref->id);
-                break;
-            case TextureType::SPECULAR:
-                shader.set_bool("material.has_specular_map", true);
-                shader.set_tex("material.specular_map", 1, model.textures[idx].ref->id);
-                break;
-            case TextureType::NORMAL:
-                shader.set_bool("material.has_normal_map", true);
-                shader.set_tex("material.normal_map", 2, model.textures[idx].ref->id);
-                break;
-            case TextureType::DISPLACE:
-                shader.set_tex("material.displace_map", 3, model.textures[idx].ref->id);
-                break;
-            default:
-                break;
-            }
+void render_transparent(Shader& shader, const Model& model) {
+    shader.use();
+    shader.set_mat4("model", model.model_mat);
+    glBindVertexArray(model.render_data.vao);
+    for (auto& mesh : model.meshes) {
+        if (is_flag_set(mesh.flags, MeshFlags::TRANSPARENT)) {
+            render_mesh(shader, mesh, model.textures);
         }
-
-        glDrawElementsBaseVertex(GL_TRIANGLES, mesh.n_indices, GL_UNSIGNED_INT, (void*)(sizeof(u32) * mesh.base_idx),
-                                 mesh.base_vert);
     }
 }
 
