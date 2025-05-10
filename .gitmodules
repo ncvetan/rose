@@ -7,9 +7,6 @@
 [submodule "deps/stb"]
 	path = deps/stb
 	url = https://github.com/ncvetan/stb
-[submodule "deps/spdlog"]
-	path = deps/spdlog
-	url = https://github.com/ncvetan/spdlog
 [submodule "deps/glew-cmake"]
 	path = deps/glew-cmake
 	url = https://github.com/Perlmint/glew-cmake

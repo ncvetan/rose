@@ -35,7 +35,7 @@ static char bottom_path[256] = "";
 static char front_path[256] = "";
 static char back_path[256] = "";
 
-std::vector<i64> ent_traverse = { 0, 1 }; // entity indices in order of object insertion
+std::vector<i64> ent_traverse = {}; // entity indices in order of object insertion
 
 } // namespace gui_state
 
@@ -77,14 +77,14 @@ GuiRet imgui(AppState& app_state, gl::Backend& backend) {
             if (ImGui::MenuItem("Import Model")) {
                 fs::path model_path = open_windows_explorer();
                 EntityCtx ent_def = { 
-                    .model_pth = model_path,
+                    .model_path = model_path,
                     .pos = { 0.0f, 0.0f, 0.0f },
                     .scale = { 1.0f, 1.0f, 1.0f }, 
                     .rotation = { 0.0f, 0.0f, 0.0f },
                     .light_data = PtLight(), 
                     .flags = EntityFlags::NONE 
                 };
-                app_state.entities.add_object(backend.texture_manager, ent_def);
+                gui_state::ent_traverse.push_back(app_state.entities.add_object(backend.texture_manager, ent_def));
             }
             if (ImGui::MenuItem("Import SkyBox")) {
                 ImGui::PushOverrideID(skybox_popup_id);
@@ -227,7 +227,7 @@ GuiRet imgui(AppState& app_state, gl::Backend& backend) {
                         light_changed = true;
                     }
                 }
-                if (ImGui::SliderFloat("scale", &app_state.entities.scales[ent_idx].x, 0.1f, 10.0f)) {
+                if (ImGui::SliderFloat("scale", &app_state.entities.scales[ent_idx].x, 0.025f, 10.0f)) {
                     // note: using a single float slider to set all values in a vec3
                     app_state.entities.scales[ent_idx] = { app_state.entities.scales[ent_idx].x,
                                                       app_state.entities.scales[ent_idx].x,

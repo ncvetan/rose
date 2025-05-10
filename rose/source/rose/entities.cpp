@@ -2,7 +2,7 @@
 
 i64 Entities::add_object(TextureManager& manager, const EntityCtx& ent_def) {
     Model model;
-    model.load(manager, ent_def.model_pth);
+    model.load(manager, ent_def.model_path);
     i64 ret = 0;
 
     if (free_idxs.empty()) {

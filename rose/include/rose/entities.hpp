@@ -24,7 +24,7 @@ ENABLE_ROSE_ENUM_OPS(EntityFlags);
 
 // context used to construct an entity
 struct EntityCtx {
-    fs::path model_pth;
+    fs::path model_path;
     glm::vec3 pos;
     glm::vec3 scale;
     glm::vec3 rotation;

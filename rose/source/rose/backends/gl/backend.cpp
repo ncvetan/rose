@@ -61,36 +61,8 @@ rses Backend::init(AppState& app_state) {
 
     texture_manager.init();
 
-    // object initialization ======================================================================
-
-    // note: these models are manually loaded here for my ease of use. if someone wanted to run the executable on their
-    // own, they need to modify these paths for their own system. eventually, I'd like a format for savings scenes as
-    // well as the ability to load models through the gui
-
     backend_state.skybox.init();
-    backend_state.skybox.load(
-            texture_manager, { SOURCE_DIR "/assets/skybox/right.jpg", SOURCE_DIR "/assets/skybox/left.jpg",
-                               SOURCE_DIR "/assets/skybox/top.jpg", SOURCE_DIR "/assets/skybox/bottom.jpg",
-                               SOURCE_DIR "/assets/skybox/front.jpg", SOURCE_DIR "/assets/skybox/back.jpg" });
-
-    // note: hard coding some model loading for testing, can be removed eventually
-    EntityCtx sponza_def = { .model_pth = SOURCE_DIR "/assets/Sponza/glTF/Sponza.gltf",
-                             .pos = { 0.0f, 0.0f, 0.0f },
-                             .scale = { 0.02f, 0.02f, 0.02f },
-                             .rotation = { 0.0f, 0.0f, 0.0f },
-                             .light_data = PtLight(),
-                             .flags = EntityFlags::NONE };
-
-    app_state.entities.add_object(texture_manager, sponza_def);
-
-    EntityCtx model2_def = { .model_pth = SOURCE_DIR "/assets/sphere/scene.gltf",
-                             .pos = { 0.0f, 3.5f, 0.0f },
-                             .scale = { 0.1f, 0.1f, 0.1f },
-                             .rotation = { 0.0f, 0.0f, 0.0f },
-                             .light_data = PtLight(),
-                             .flags = EntityFlags::NONE };
-
-    app_state.entities.add_object(texture_manager, model2_def);
+    backend_state.skybox.texture = texture_manager.default_cubemap_ref;
 
     // frame buf initialization ===================================================================
 
@@ -153,8 +125,8 @@ rses Backend::init(AppState& app_state) {
 
     shaders.brightness.set_f32("bloom_threshold", app_state.bloom_threshold);
     shaders.bloom.set_f32("bloom_threshold", app_state.bloom_threshold);
-    shaders.lighting_deferred.set_u32("pt_caster_id", app_state.entities.ids[app_state.entities.pt_caster_idx]);
-    shaders.lighting_forward.set_u32("pt_caster_id", app_state.entities.ids[app_state.entities.pt_caster_idx]);
+    shaders.lighting_deferred.set_u32("pt_caster_id", 0);
+    shaders.lighting_forward.set_u32("pt_caster_id", 0);
 
     return {};
 };
