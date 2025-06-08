@@ -38,8 +38,7 @@ struct AppState {
     Entities entities;
 
     bool bloom_enabled = true;
-    i32 n_bloom_passes = 5;
-    f32 bloom_threshold = 1.0f;
+    f32 bloom_factor = 0.03f;
 };
 
 #endif

@@ -25,7 +25,9 @@ struct BackendState {
     u32 global_ubo = 0; // ubo storing values available across shaders
     DirLight dir_light;
     PtShadowData pt_shadow_data;
+    std::vector<Mip> bloom_mip_chain;
 };
+
 
 struct Backend {
 

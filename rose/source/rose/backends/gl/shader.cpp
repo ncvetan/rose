@@ -140,12 +140,12 @@ rses Shaders::init() {
 
     rses err;
 
-    if (err = bloom.init({ { SOURCE_DIR "/rose/shaders/gl/quad.vert", GL_VERTEX_SHADER },
-                          { SOURCE_DIR "/rose/shaders/gl/bloom.frag", GL_FRAGMENT_SHADER } })) {
+    if (err = downsample.init({ { SOURCE_DIR "/rose/shaders/gl/quad.vert", GL_VERTEX_SHADER },
+                                { SOURCE_DIR "/rose/shaders/gl/bloom/downsample.frag", GL_FRAGMENT_SHADER } })) {
         return err;
     }
-    if (err = brightness.init({ { SOURCE_DIR "/rose/shaders/gl/quad.vert", GL_VERTEX_SHADER },
-                                { SOURCE_DIR "/rose/shaders/gl/brightness.frag", GL_FRAGMENT_SHADER } })) {
+    if (err = upsample.init({ { SOURCE_DIR "/rose/shaders/gl/quad.vert", GL_VERTEX_SHADER },
+                              { SOURCE_DIR "/rose/shaders/gl/bloom/upsample.frag", GL_FRAGMENT_SHADER } })) {
         return err;
     }
     if (err = clusters_build.init({ { SOURCE_DIR "/rose/shaders/gl/compute/clusters_build.comp", GL_COMPUTE_SHADER } })) {

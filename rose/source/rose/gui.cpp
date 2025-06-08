@@ -35,7 +35,7 @@ static char bottom_path[256] = "";
 static char front_path[256] = "";
 static char back_path[256] = "";
 
-std::vector<i64> ent_traverse = {}; // entity indices in order of object insertion
+std::vector<i64> ent_traverse = { 0, 1 }; // entity indices in order of object insertion
 
 } // namespace gui_state
 
@@ -169,11 +169,7 @@ GuiRet imgui(AppState& app_state, gl::Backend& backend) {
     }
     ImGui::Checkbox("toggle bloom", &app_state.bloom_enabled);
     ImGui::BeginDisabled(!app_state.bloom_enabled);
-    if (ImGui::SliderInt("num passes", &app_state.n_bloom_passes, 1, 10));
-    if (ImGui::SliderFloat("threshold", &app_state.bloom_threshold, 0.1f, 5.0f)) {
-        backend.shaders.brightness.set_f32("bloom_threshold", app_state.bloom_threshold);
-        backend.shaders.bloom.set_f32("bloom_threshold", app_state.bloom_threshold);
-    }
+    ImGui::SliderFloat("bloom factor", &app_state.bloom_factor, 0.005f, 0.25f);
     ImGui::EndDisabled();
 
     // directional light ==========================================================================

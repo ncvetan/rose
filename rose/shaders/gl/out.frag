@@ -15,13 +15,16 @@ uniform sampler2D bloom_tex;
 uniform float gamma;
 uniform float exposure;
 uniform bool bloom_enabled;
+uniform float bloom_factor;
 
 void main() {
 	
 	vec3 hdr_color = texture(tex, fs_in.tex_coords).rgb;
 
 	if (bloom_enabled) {
-		hdr_color += texture(bloom_tex, fs_in.tex_coords).rgb;
+		// mix bloom component
+		vec3 bloom_color = texture(bloom_tex, fs_in.tex_coords).rgb;
+		hdr_color = mix(hdr_color, bloom_color, bloom_factor);
 	}
 
 	// tone mapping

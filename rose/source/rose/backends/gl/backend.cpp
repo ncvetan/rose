@@ -62,7 +62,29 @@ rses Backend::init(AppState& app_state) {
     texture_manager.init();
 
     backend_state.skybox.init();
-    backend_state.skybox.texture = texture_manager.default_cubemap_ref;
+    backend_state.skybox.load(texture_manager,
+                            { SOURCE_DIR "/assets/skybox/right.jpg", SOURCE_DIR "/assets/skybox/left.jpg",
+                            SOURCE_DIR "/assets/skybox/top.jpg", SOURCE_DIR "/assets/skybox/bottom.jpg",
+                            SOURCE_DIR "/assets/skybox/front.jpg", SOURCE_DIR "/assets/skybox/back.jpg" });
+
+    // note: hard coding some model loading for testing, can be removed eventually
+    EntityCtx sponza_def = { .model_path = SOURCE_DIR "/assets/Sponza/glTF/Sponza.gltf",
+                             .pos = { 0.0f, 0.0f, 0.0f },
+                             .scale = { 0.02f, 0.02f, 0.02f },
+                             .rotation = { 0.0f, 0.0f, 0.0f },
+                             .light_data = PtLight(),
+                             .flags = EntityFlags::NONE };
+
+    app_state.entities.add_object(texture_manager, sponza_def);
+
+    EntityCtx model2_def = { .model_path = SOURCE_DIR "/assets/sphere/scene.gltf",
+                             .pos = { 0.0f, 3.5f, 0.0f },
+                             .scale = { 0.1f, 0.1f, 0.1f },
+                             .rotation = { 0.0f, 0.0f, 0.0f },
+                             .light_data = PtLight(),
+                             .flags = EntityFlags::NONE };
+
+    app_state.entities.add_object(texture_manager, model2_def);
 
     // frame buf initialization ===================================================================
 
@@ -123,10 +145,12 @@ rses Backend::init(AppState& app_state) {
 
     // remaining set up ===========================================================================
 
-    shaders.brightness.set_f32("bloom_threshold", app_state.bloom_threshold);
-    shaders.bloom.set_f32("bloom_threshold", app_state.bloom_threshold);
     shaders.lighting_deferred.set_u32("pt_caster_id", 0);
     shaders.lighting_forward.set_u32("pt_caster_id", 0);
+    backend_state.bloom_mip_chain = create_mip_chain(app_state.window_state.width, app_state.window_state.height, 5);
+    f32 ar = (f32)app_state.window_state.width / (f32)app_state.window_state.height;
+    glm::vec2 filter_sz = { 0.005f, 0.005f * ar };
+    shaders.upsample.set_vec2("filter_sz", filter_sz);
 
     return {};
 };
@@ -171,7 +195,7 @@ void Backend::step(AppState& app_state) {
     // clustered set-up ===========================================================================================
 
     // determine the AABB for each cluster
-    // note: this only needs to be called once if parameters do not change
+    // note: this does not need to be computed on every frame if parameters have not changed
     shaders.clusters_build.use();
     shaders.clusters_build.set_mat4("inv_proj", glm::inverse(projection));
 
@@ -245,7 +269,6 @@ void Backend::step(AppState& app_state) {
     shaders.pt_shadow.set_f32("far_plane", app_state.camera.far_plane);
 
     if (!entities.empty() && entities.is_alive(entities.pt_caster_idx) && entities.is_light(entities.pt_caster_idx)) {
-
         glm::vec3 light_pos = entities.positions[entities.pt_caster_idx];
 
         shadow_transforms[0] =
@@ -383,51 +406,69 @@ void Backend::step(AppState& app_state) {
         }
     }
 
-    // post processing passes =================================================================
+    // post processing ========================================================================
 
     // compute bloom
     if (app_state.bloom_enabled) {
-        glDisable(GL_DEPTH_TEST);
         gbuf_fbuf.bind();
+        glDisable(GL_BLEND);
+        glDisable(GL_DEPTH_TEST);
+        glClear(GL_COLOR_BUFFER_BIT);
         glNamedFramebufferDrawBuffer(gbuf_fbuf.frame_buf, GL_COLOR_ATTACHMENT0);
-        glClear(GL_COLOR_BUFFER_BIT);
 
-        // render colors that pass brightness test
-        glNamedFramebufferDrawBuffer(gbuf_fbuf.frame_buf, GL_COLOR_ATTACHMENT1);
-        glClear(GL_COLOR_BUFFER_BIT);
-        shaders.brightness.set_tex("tex", 0, int_fbuf.tex_bufs[0]);
-        gbuf_fbuf.draw(shaders.brightness);
+        glm::vec2 init_sz = { (f32)app_state.window_state.width, (f32)app_state.window_state.height };
+        shaders.downsample.set_tex("tex", 0, int_fbuf.tex_bufs[0]);
+        shaders.downsample.set_vec2("tex_sz", init_sz);
 
-        bool horizontal = true;
-        for (i32 idx = 0; idx < app_state.n_bloom_passes * 2; ++idx) {
-            if (horizontal) {
-                glNamedFramebufferDrawBuffer(gbuf_fbuf.frame_buf, GL_COLOR_ATTACHMENT0);
-                shaders.bloom.set_tex("tex", 0, gbuf_fbuf.tex_bufs[1]);
-                shaders.bloom.set_bool("horizontal", true);
-                gbuf_fbuf.draw(shaders.bloom);
-            } else {
-                glNamedFramebufferDrawBuffer(gbuf_fbuf.frame_buf, GL_COLOR_ATTACHMENT1);
-                shaders.bloom.set_tex("tex", 0, gbuf_fbuf.tex_bufs[0]);
-                shaders.bloom.set_bool("horizontal", false);
-                gbuf_fbuf.draw(shaders.bloom);
-            }
-            horizontal = !horizontal;
+        // downsample mips
+        for (size_t idx = 0; idx < backend_state.bloom_mip_chain.size(); ++idx) {
+            const Mip& mip = backend_state.bloom_mip_chain[idx];
+            glViewport(0, 0, (int)mip.sz.x, (int)mip.sz.y);
+            glNamedFramebufferTexture(gbuf_fbuf.frame_buf, GL_COLOR_ATTACHMENT0, mip.tex, 0);
+            gbuf_fbuf.draw(shaders.downsample);
+            shaders.downsample.set_tex("tex", 0, mip.tex);
+            shaders.downsample.set_vec2("texel_size", 1.0f / mip.sz);
         }
+
+        // upsample + blur mips
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_ONE, GL_ONE);
+        glBlendEquation(GL_FUNC_ADD);
+
+        for (size_t idx = backend_state.bloom_mip_chain.size() - 1; idx > 0; --idx) {
+            const Mip& mip = backend_state.bloom_mip_chain[idx];
+            const Mip& next_mip = backend_state.bloom_mip_chain[idx-1];
+            shaders.upsample.set_tex("tex", 0, mip.tex);
+            glViewport(0, 0, (int)next_mip.sz.x, (int)next_mip.sz.y);
+            glNamedFramebufferTexture(gbuf_fbuf.frame_buf, GL_COLOR_ATTACHMENT0, next_mip.tex, 0);
+            gbuf_fbuf.draw(shaders.upsample);
+        }
+
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDisable(GL_BLEND);
+
+        shaders.upsample.set_tex("tex", 0, backend_state.bloom_mip_chain[0].tex);
+        glViewport(0, 0, app_state.window_state.width, app_state.window_state.height);
+        glNamedFramebufferTexture(gbuf_fbuf.frame_buf, GL_COLOR_ATTACHMENT0, gbuf_fbuf.tex_bufs[0], 0);
+        gbuf_fbuf.draw(shaders.upsample);
     }
 
+    // render final image
     out_fbuf.bind();
     glClear(GL_DEPTH_BUFFER_BIT);
     glDisable(GL_DEPTH_TEST);
-
-    shaders.out.set_tex("bloom_tex", 0, gbuf_fbuf.tex_bufs[1]);
-    shaders.out.set_tex("tex", 1, int_fbuf.tex_bufs[0]);
+    
+    shaders.out.set_tex("tex", 0, int_fbuf.tex_bufs[0]);
+    shaders.out.set_tex("bloom_tex", 1, gbuf_fbuf.tex_bufs[0]);
     shaders.out.set_bool("bloom_enabled", app_state.bloom_enabled);
+    shaders.out.set_f32("bloom_factor", app_state.bloom_factor);
     shaders.out.set_f32("gamma", app_state.window_state.gamma);
     shaders.out.set_f32("exposure", app_state.window_state.exposure);
 
     out_fbuf.draw(shaders.out);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glNamedFramebufferTexture(gbuf_fbuf.frame_buf, GL_COLOR_ATTACHMENT0, gbuf_fbuf.tex_bufs[0], 0);
     
     // gui pass ===================================================================================
 
@@ -435,7 +476,6 @@ void Backend::step(AppState& app_state) {
 
     // if a light was changed within the gui, we need to update our GPU buffers to reflect these changes
     if (gui_ret.light_changed) {
-        
         static std::vector<PtLight> pt_light_data;
         static std::vector<glm::vec4> pt_lights_pos;
         static std::vector<u32> pt_lights_ids;

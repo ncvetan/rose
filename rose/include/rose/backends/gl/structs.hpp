@@ -109,6 +109,16 @@ struct SSBO {
     u32 base = 0;     // bind idx
 };
 
+// represents a single mip
+struct Mip {
+    u32 tex = 0;
+    glm::vec2 sz;
+};
+
+// generates a mip chain, where the width and height of each mips is halved
+// for each mip within the chain
+std::vector<Mip> create_mip_chain(u32 w, u32 h, u32 n_mips);
+
 } // namespace gl
 
 #endif

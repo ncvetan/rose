@@ -51,7 +51,8 @@ struct Shaders {
 
     rses init();
 
-    Shader bloom;
+    Shader downsample;
+    Shader upsample;
     Shader brightness;
     Shader clusters_build;
     Shader clusters_cull;

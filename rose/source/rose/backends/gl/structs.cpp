@@ -151,4 +151,26 @@ bool SSBO::init(u32 size, u32 base) {
 
 SSBO::~SSBO() { glDeleteBuffers(1, &ssbo); }
 
+std::vector<Mip> create_mip_chain(u32 w, u32 h, u32 n_mips) {
+
+    glm::vec2 mip_sz = { w, h };
+    std::vector<Mip> ret;
+    ret.reserve(n_mips);
+
+    for (u32 i = 0; i < n_mips; ++i) {
+        Mip mip;
+        mip_sz *= 0.5f;
+        mip.sz = mip_sz;
+        glCreateTextures(GL_TEXTURE_2D, 1, &mip.tex);
+        glTextureStorage2D(mip.tex, 1, GL_RGBA16F, (i32)mip.sz.x, (i32)mip.sz.y);
+        glTextureParameteri(mip.tex, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTextureParameteri(mip.tex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTextureParameteri(mip.tex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTextureParameteri(mip.tex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        ret.push_back(mip);
+    }
+
+    return ret;
+}
+
 } // namespace gl
