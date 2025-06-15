@@ -167,7 +167,12 @@ GuiRet imgui(AppState& app_state, gl::Backend& backend) {
     if (ImGui::Checkbox("toggle vsync", &app_state.window_state.vsync_enabled)) {
         (app_state.window_state.vsync_enabled) ? glfwSwapInterval(1) : glfwSwapInterval(0);
     }
-    ImGui::Checkbox("toggle bloom", &app_state.bloom_enabled);
+    if (ImGui::Checkbox("ambient occlusion", &app_state.ssao_enabled)) {
+        backend.shaders.lighting_deferred.set_bool("ao_enabled", app_state.ssao_enabled);
+    }
+    if (ImGui::Checkbox("bloom", &app_state.bloom_enabled)) {
+        backend.shaders.out.set_bool("bloom_enabled", app_state.bloom_enabled);
+    }
     ImGui::BeginDisabled(!app_state.bloom_enabled);
     ImGui::SliderFloat("bloom factor", &app_state.bloom_factor, 0.005f, 0.25f);
     ImGui::EndDisabled();

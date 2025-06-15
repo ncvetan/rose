@@ -16,6 +16,7 @@
 #include <format>
 #include <iostream>
 #include <print>
+#include <random>
 
 namespace gl {
 
@@ -92,7 +93,7 @@ rses Backend::init(AppState& app_state) {
 
     // (position, normal, albedo)
     if (auto err = gbuf_fbuf.init(app_state.window_state.width, app_state.window_state.height, true,
-                             { { GL_RGBA16F }, { GL_RGBA16F }, { GL_RGBA8 } })) {
+                             { { GL_RGBA16F }, { GL_RGB16F }, { GL_RGBA8 } })) {
         return err;
     }
 
@@ -103,6 +104,10 @@ rses Backend::init(AppState& app_state) {
     // note: pp1 uses the render buffer of gbuf to perform masking with the stencil buffer
     glNamedFramebufferRenderbuffer(int_fbuf.frame_buf, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER,
                                    gbuf_fbuf.render_buf);
+
+    if (auto err = ssao_fbuf.init(app_state.window_state.width, app_state.window_state.height, false, {{ GL_R16F }, { GL_R16F }})) {
+        return err;
+    }
 
     if (auto err = out_fbuf.init(app_state.window_state.width, app_state.window_state.height, false, { { GL_RGBA8 } })) {
         return err;
@@ -143,14 +148,42 @@ rses Backend::init(AppState& app_state) {
         return err;
     }
 
+    // SSAO initialization ========================================================================
+
+    // create random noise to rotate SSAO hemisphere along tangest space z-axis
+    std::random_device rd;
+    std::mt19937 rng(rd());
+    std::uniform_real_distribution<f32> dist(0.0f, 1.0f);
+
+    std::vector<glm::vec4> ssao_noise;
+    ssao_noise.resize(16);
+
+    for (u32 idx = 0; idx < ssao_noise.size(); ++idx) {
+        glm::vec4 noise = glm::vec4(dist(rng) * 2.0f - 1.0f, dist(rng) * 2.0f - 1.0f, 0.0f, 1.0f);
+        ssao_noise[idx] = noise;
+    }
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &backend_state.ssao_noise_tex);
+    glTextureStorage2D(backend_state.ssao_noise_tex, 1, GL_RGBA16F, 4, 4);
+    glTextureSubImage2D(backend_state.ssao_noise_tex, 0, 0, 0, 4, 4, GL_RGBA, GL_FLOAT, ssao_noise.data());
+    glTextureParameteri(backend_state.ssao_noise_tex, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(backend_state.ssao_noise_tex, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(backend_state.ssao_noise_tex, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTextureParameteri(backend_state.ssao_noise_tex, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+    backend_state.ssao_samples_ssbo.init(sizeof(glm::vec4) * app_state.ssao_kernel.size(), 10);
+    backend_state.ssao_samples_ssbo.update(std::span(app_state.ssao_kernel.begin(), app_state.ssao_kernel.end()));
+
     // remaining set up ===========================================================================
 
     shaders.lighting_deferred.set_u32("pt_caster_id", 0);
+    shaders.lighting_deferred.set_bool("ao_enabled", app_state.ssao_enabled);
     shaders.lighting_forward.set_u32("pt_caster_id", 0);
     backend_state.bloom_mip_chain = create_mip_chain(app_state.window_state.width, app_state.window_state.height, 5);
     f32 ar = (f32)app_state.window_state.width / (f32)app_state.window_state.height;
     glm::vec2 filter_sz = { 0.005f, 0.005f * ar };
     shaders.upsample.set_vec2("filter_sz", filter_sz);
+    shaders.out.set_bool("bloom_enabled", app_state.bloom_enabled);
 
     return {};
 };
@@ -342,6 +375,25 @@ void Backend::step(AppState& app_state) {
         }
     }
 
+    // compute ambient occlusion ==============================================================
+    
+    if (app_state.ssao_enabled) {
+        // render occlusion texture
+        ssao_fbuf.bind();
+        glNamedFramebufferDrawBuffer(ssao_fbuf.frame_buf, GL_COLOR_ATTACHMENT0);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glm::vec2 noise_scale = glm::vec2((f32)app_state.window_state.width / 4.0f, (f32)app_state.window_state.height / 4.0f);
+        shaders.ssao.set_tex("gbuf_pos", 0, gbuf_fbuf.tex_bufs[0]);
+        shaders.ssao.set_tex("gbuf_norms", 1, gbuf_fbuf.tex_bufs[1]);
+        shaders.ssao.set_tex("noise_tex", 2, backend_state.ssao_noise_tex);
+        shaders.ssao.set_vec2("noise_scale", noise_scale);
+        ssao_fbuf.draw(shaders.ssao);
+        // blur the output
+        glNamedFramebufferDrawBuffer(ssao_fbuf.frame_buf, GL_COLOR_ATTACHMENT1);
+        shaders.blur.set_tex("occlusion_tex", 0, ssao_fbuf.tex_bufs[0]);
+        ssao_fbuf.draw(shaders.blur);
+    }
+
     // deferred pass ==========================================================================
 
     int_fbuf.bind();
@@ -354,6 +406,7 @@ void Backend::step(AppState& app_state) {
     shaders.lighting_deferred.set_tex("gbuf_pos", 0, gbuf_fbuf.tex_bufs[0]);
     shaders.lighting_deferred.set_tex("gbuf_norms", 1, gbuf_fbuf.tex_bufs[1]);
     shaders.lighting_deferred.set_tex("gbuf_colors", 2, gbuf_fbuf.tex_bufs[2]);
+    shaders.lighting_deferred.set_tex("occlusion_tex", 3, ssao_fbuf.tex_bufs[1]);
     shaders.lighting_deferred.set_tex("dir_shadow_maps", 11, backend_state.dir_light.gl_shadow.tex);
     shaders.lighting_deferred.set_tex("pt_shadow_map", 12, backend_state.pt_shadow_data.tex);
     shaders.lighting_deferred.set_i32("n_cascades", backend_state.dir_light.gl_shadow.n_cascades);
@@ -460,7 +513,6 @@ void Backend::step(AppState& app_state) {
     
     shaders.out.set_tex("tex", 0, int_fbuf.tex_bufs[0]);
     shaders.out.set_tex("bloom_tex", 1, gbuf_fbuf.tex_bufs[0]);
-    shaders.out.set_bool("bloom_enabled", app_state.bloom_enabled);
     shaders.out.set_f32("bloom_factor", app_state.bloom_factor);
     shaders.out.set_f32("gamma", app_state.window_state.gamma);
     shaders.out.set_f32("exposure", app_state.window_state.exposure);

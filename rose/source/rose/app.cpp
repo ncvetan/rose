@@ -147,47 +147,47 @@ rses init_imgui(WindowState& window_state) {
 void RoseApp::update() {
 
     ImGuiIO& io = ImGui::GetIO();
-    app_data.window_state.mouse_xy = { io.MousePos.x, io.MousePos.y };
+    app_state.window_state.mouse_xy = { io.MousePos.x, io.MousePos.y };
 
     if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-        if (app_data.window_state.vp_rect.contains(app_data.window_state.mouse_xy) && app_data.window_state.vp_focused) {
-            app_data.window_state.vp_captured = true;
-            glfwSetInputMode(app_data.window_state.window_handle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        if (app_state.window_state.vp_rect.contains(app_state.window_state.mouse_xy) && app_state.window_state.vp_focused) {
+            app_state.window_state.vp_captured = true;
+            glfwSetInputMode(app_state.window_state.window_handle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         }
     }
 
     if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
-        app_data.window_state.vp_captured = false;
-        glfwSetInputMode(app_data.window_state.window_handle, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        app_state.window_state.vp_captured = false;
+        glfwSetInputMode(app_state.window_state.window_handle, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     }
 
-    if (app_data.window_state.vp_captured) {
-        if (app_data.window_state.last_xy != app_data.window_state.mouse_xy) {
-            f32 xoffset = app_data.window_state.mouse_xy.x - app_data.window_state.last_xy.x;
-            f32 yoffset = app_data.window_state.last_xy.y - app_data.window_state.mouse_xy.y;
-            app_data.camera.handle_mouse(xoffset, yoffset);
-            app_data.window_state.last_xy = app_data.window_state.mouse_xy;
+    if (app_state.window_state.vp_captured) {
+        if (app_state.window_state.last_xy != app_state.window_state.mouse_xy) {
+            f32 xoffset = app_state.window_state.mouse_xy.x - app_state.window_state.last_xy.x;
+            f32 yoffset = app_state.window_state.last_xy.y - app_state.window_state.mouse_xy.y;
+            app_state.camera.handle_mouse(xoffset, yoffset);
+            app_state.window_state.last_xy = app_state.window_state.mouse_xy;
         }
 
         f32 delta_time = io.DeltaTime;
 
         if (ImGui::IsKeyDown(ImGuiKey_W)) {
-            app_data.camera.handle_keyboard(CameraMovement::FORWARD, delta_time);
+            app_state.camera.handle_keyboard(CameraMovement::FORWARD, delta_time);
         }
         if (ImGui::IsKeyDown(ImGuiKey_A)) {
-            app_data.camera.handle_keyboard(CameraMovement::LEFT, delta_time);
+            app_state.camera.handle_keyboard(CameraMovement::LEFT, delta_time);
         }
         if (ImGui::IsKeyDown(ImGuiKey_S)) {
-            app_data.camera.handle_keyboard(CameraMovement::BACKWARD, delta_time);
+            app_state.camera.handle_keyboard(CameraMovement::BACKWARD, delta_time);
         }
         if (ImGui::IsKeyDown(ImGuiKey_D)) {
-            app_data.camera.handle_keyboard(CameraMovement::RIGHT, delta_time);
+            app_state.camera.handle_keyboard(CameraMovement::RIGHT, delta_time);
         }
         if (ImGui::IsKeyDown(ImGuiKey_LeftShift)) {
-            app_data.camera.handle_keyboard(CameraMovement::DOWN, delta_time);
+            app_state.camera.handle_keyboard(CameraMovement::DOWN, delta_time);
         }
         if (ImGui::IsKeyDown(ImGuiKey_Space)) {
-            app_data.camera.handle_keyboard(CameraMovement::UP, delta_time);
+            app_state.camera.handle_keyboard(CameraMovement::UP, delta_time);
         }
     }
 }

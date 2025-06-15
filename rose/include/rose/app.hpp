@@ -17,18 +17,19 @@ rses init_glfw(WindowState& window_state);
 rses init_imgui(WindowState& window_state);
 
 struct RoseApp {
-    AppState app_data;
+    AppState app_state;
 
     template <typename T>
     rses init(T& backend) {
         rses err;
-        if (err = init_glfw(app_data.window_state)) {
+        app_state.init();
+        if (err = init_glfw(app_state.window_state)) {
             return err.general("unable to initialize GLFW");
         }
-        if (err = init_imgui(app_data.window_state)) {
+        if (err = init_imgui(app_state.window_state)) {
             return err.general("unable to initialize Dear ImGui");
         }
-        if (err = backend.init(app_data)) {
+        if (err = backend.init(app_state)) {
             return err.general("unable to initialize application");
         }
         return {};
@@ -36,13 +37,13 @@ struct RoseApp {
     
     template <typename T>
     void run(T& backend) {
-        while (!glfwWindowShouldClose(app_data.window_state.window_handle)) {
+        while (!glfwWindowShouldClose(app_state.window_state.window_handle)) {
             glfwPollEvents();
-            backend.new_frame(app_data);
+            backend.new_frame(app_state);
             update();
-            backend.step(app_data);
-            backend.end_frame(app_data.window_state.window_handle);
-            glfwSwapBuffers(app_data.window_state.window_handle);
+            backend.step(app_state);
+            backend.end_frame(app_state.window_state.window_handle);
+            glfwSwapBuffers(app_state.window_state.window_handle);
         }
     }
 
@@ -51,7 +52,7 @@ struct RoseApp {
         backend.finish();
         ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();
-        glfwDestroyWindow(app_data.window_state.window_handle);
+        glfwDestroyWindow(app_state.window_state.window_handle);
         glfwTerminate();    
     }
     

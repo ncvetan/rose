@@ -148,6 +148,14 @@ rses Shaders::init() {
                               { SOURCE_DIR "/rose/shaders/gl/bloom/upsample.frag", GL_FRAGMENT_SHADER } })) {
         return err;
     }
+    if (err = ssao.init({ { SOURCE_DIR "/rose/shaders/gl/quad.vert", GL_VERTEX_SHADER },
+                          { SOURCE_DIR "/rose/shaders/gl/ssao.frag", GL_FRAGMENT_SHADER } })) {
+        return err;
+    }
+    if (err = blur.init({ { SOURCE_DIR "/rose/shaders/gl/quad.vert", GL_VERTEX_SHADER },
+                          { SOURCE_DIR "/rose/shaders/gl/blur.frag", GL_FRAGMENT_SHADER } })) {
+        return err;
+    }
     if (err = clusters_build.init({ { SOURCE_DIR "/rose/shaders/gl/compute/clusters_build.comp", GL_COMPUTE_SHADER } })) {
         return err;
     }

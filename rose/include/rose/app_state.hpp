@@ -33,12 +33,18 @@ struct WindowState {
 };
 
 struct AppState {
+    
+    void init();
+    
     WindowState window_state;
     Camera camera;
     Entities entities;
 
     bool bloom_enabled = true;
     f32 bloom_factor = 0.03f;
+
+    bool ssao_enabled = true;
+    std::vector<glm::vec4> ssao_kernel;
 };
 
 #endif

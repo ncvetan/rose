@@ -26,6 +26,8 @@ struct BackendState {
     DirLight dir_light;
     PtShadowData pt_shadow_data;
     std::vector<Mip> bloom_mip_chain;
+    u32 ssao_noise_tex = 0;
+    SSBO ssao_samples_ssbo;
 };
 
 
@@ -48,6 +50,7 @@ struct Backend {
 
     FrameBuf gbuf_fbuf;     // gbuffers
     FrameBuf int_fbuf;      // intermediate
+    FrameBuf ssao_fbuf;     // occlusion factor
     FrameBuf out_fbuf;      // output
 };
 

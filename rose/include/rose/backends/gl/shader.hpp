@@ -53,6 +53,8 @@ struct Shaders {
 
     Shader downsample;
     Shader upsample;
+    Shader ssao;
+    Shader blur;
     Shader brightness;
     Shader clusters_build;
     Shader clusters_cull;

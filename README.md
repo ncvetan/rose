@@ -34,6 +34,7 @@ Some features that Rose supports...
 - Clustered deferred rendering
 - Bloom
 - HDR
+- Ambient Occlusion
 
 ## Roadmap
 
@@ -41,9 +42,7 @@ Some future features and improvements to be made...
 
 - Linux support (there is very little right now that isn't compatible with Linux, just a few small changes need to be made)
 - Support for additional graphics APIs
-- Improved bloom algorithm
 - PBR
-- Ambient Occlusion
 - And plenty of improvements to existing systems...
 
 ## Contributing
@@ -60,3 +59,4 @@ Some of the resources used that helped me develop Rose. I'd like to give a huge 
 - [Clustered Shading](https://github.com/DaveH355/clustered-shading)
 - [Shadow Mapping](https://alextardif.com/shadowmapping.html)
 - [Bloom](https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare/)
+- [Ambient Occlusion](https://john-chapman-graphics.blogspot.com/2013/01/ssao-tutorial.html)

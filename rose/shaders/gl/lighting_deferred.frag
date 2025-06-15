@@ -43,6 +43,8 @@ uniform int n_cascades;					 // number of shadow cascades
 uniform float cascade_depths[3];		 // far depth of each shadow cascade
 uniform samplerCube pt_shadow_map;		 // shadow map for point lights
 uniform uint pt_caster_id;				 // id of the current shadow casting point light
+uniform bool ao_enabled;				 // indicates whether ambient occlusion is enabled	
+uniform sampler2D occlusion_tex;		 // per-fragment occlusion values
 
 // light parameters for a particular point light
 struct PointLight {
@@ -50,7 +52,6 @@ struct PointLight {
     float radius;
     float intensity;
 };
-
 
 struct Cluster {
     uint count;			// number of lights affecting the cluster
@@ -114,7 +115,7 @@ float calc_dir_shadow(DirLight light, vec3 pos, float frag_depth, vec3 normal) {
 	return shadow;
 }
 
-vec3 calc_dir_light(DirLight light, vec3 pos, float frag_depth, vec3 normal, float spec_factor) {
+vec3 calc_dir_light(DirLight light, vec3 pos, float frag_depth, vec3 normal, float spec_factor, float occlusion) {
 	
 	float ambient_strength = 0.1;
 	float diffuse_strength = max(dot(-normalize(light.direction), normal), 0.0);
@@ -127,7 +128,7 @@ vec3 calc_dir_light(DirLight light, vec3 pos, float frag_depth, vec3 normal, flo
 	}
 
 	float shadow = calc_dir_shadow(dir_light, pos, frag_depth, normal);
-	return (ambient_strength + (1.0 - shadow) * (diffuse_strength + spec_factor * specular_strength)) * light.color;
+	return (ambient_strength * occlusion + (1.0 - shadow) * (diffuse_strength + spec_factor * specular_strength)) * light.color;
 }
 
 float calc_pt_shadow(vec3 pos, vec3 light_pos, samplerCube shadow_map, float far_plane) {
@@ -139,7 +140,7 @@ float calc_pt_shadow(vec3 pos, vec3 light_pos, samplerCube shadow_map, float far
 	return shadow;
 }
 
-vec3 calc_pt_light(PointLight light, vec3 light_pos, uint light_id, vec3 pos, vec3 normal, float spec_factor, samplerCube shadow_map) {
+vec3 calc_pt_light(PointLight light, vec3 light_pos, uint light_id, vec3 pos, vec3 normal, float spec_factor, samplerCube shadow_map, float occlusion) {
 	// calculate attenuation
 	float dist = length(light_pos - pos);
 	float window = pow((max(1 - pow(dist / light.radius, 4), 0.0)), 2);
@@ -158,7 +159,7 @@ vec3 calc_pt_light(PointLight light, vec3 light_pos, uint light_id, vec3 pos, ve
 	}
 
 	float shadow = (light_id == pt_caster_id) ? calc_pt_shadow(pos, light_pos, shadow_map, far_z) : 0.0; // TODO: refactor this fn to avoid this hacky check
-	return (ambient_strength + (1.0 - shadow) * (diffuse_strength + spec_factor * specular_strength)) * light.color.xyz * attenuation * light.intensity;
+	return (ambient_strength * occlusion + (1.0 - shadow) * (diffuse_strength + spec_factor * specular_strength)) * light.color.xyz * attenuation * light.intensity;
 }
 
 void main() {
@@ -171,6 +172,8 @@ void main() {
 	vec3 color = texture(gbuf_colors, fs_in.tex_coords).rgb;
 	float spec_factor = texture(gbuf_colors, fs_in.tex_coords).w;
 
+	float occlusion = (ao_enabled) ? texture(occlusion_tex, fs_in.tex_coords).r : 1.0f;
+
 	// determine the cluster this fragment belongs in
 	uint cluster_z = uint((log(abs(pos_z_vs) / near_z) * float(grid_sz.z)) / log(far_z / near_z));
 	vec2 cluster_sz = screen_dims / grid_sz.xy;
@@ -178,12 +181,12 @@ void main() {
 	uint cluster_idx = cluster_coord.x + (cluster_coord.y * grid_sz.x) + (cluster_coord.z * grid_sz.x * grid_sz.y);
 
 	// compute directional light contribution
-	vec3 result = color * calc_dir_light(dir_light, pos, pos_z_vs, norm, spec_factor);
+	vec3 result = color * calc_dir_light(dir_light, pos, pos_z_vs, norm, spec_factor, occlusion);
 
 	// compute contributions from point lights
 	for (uint idx = 0; idx < clusters[cluster_idx].count; ++idx) {
 		uint light_idx = clusters[cluster_idx].indices[idx];
-		result += color * calc_pt_light(light_data[light_idx], light_positions[light_idx].xyz, light_ids[light_idx], pos, norm, spec_factor, pt_shadow_map);
+		result += color * calc_pt_light(light_data[light_idx], light_positions[light_idx].xyz, light_ids[light_idx], pos, norm, spec_factor, pt_shadow_map, occlusion);
 	}
 	
 	frag_color = vec4(result, 1.0);

@@ -14,6 +14,7 @@ set(SOURCES
     "include/rose/core/types.hpp"
 
     "source/rose/app.cpp"
+    "source/rose/app_state.cpp"
     "source/rose/camera.cpp"
     "source/rose/entities.cpp"
     "source/rose/gui.cpp"
