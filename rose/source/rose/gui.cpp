@@ -184,8 +184,20 @@ GuiRet imgui(AppState& app_state, gl::Backend& backend) {
         backend.backend_state.dir_light.direction.y = -std::sin(gui_state::dir_angle) * 1.0f;
         backend.backend_state.dir_light.direction.z = std::cos(gui_state::dir_angle) * 1.0f;
         backend.backend_state.dir_light.direction = glm::normalize(backend.backend_state.dir_light.direction);
+        backend.shaders.skybox.set_vec3("dir_light.direction", backend.backend_state.dir_light.direction);
+        backend.shaders.lighting_deferred.set_vec3("dir_light.direction", backend.backend_state.dir_light.direction);
+        backend.shaders.lighting_forward.set_vec3("dir_light.direction", backend.backend_state.dir_light.direction);
     }
-    ImGui::ColorEdit3("color", glm::value_ptr(backend.backend_state.dir_light.color));
+    if (ImGui::SliderFloat("ambient strength", &backend.backend_state.dir_light.ambient_strength, 0.0f, 1.0f)) {
+        backend.shaders.skybox.set_f32("dir_light.ambient_strength", backend.backend_state.dir_light.ambient_strength);
+        backend.shaders.lighting_deferred.set_f32("dir_light.ambient_strength", backend.backend_state.dir_light.ambient_strength);
+        backend.shaders.lighting_forward.set_f32("dir_light.ambient_strength", backend.backend_state.dir_light.ambient_strength);
+    }
+    if (ImGui::ColorEdit3("color", glm::value_ptr(backend.backend_state.dir_light.color))) {
+        backend.shaders.skybox.set_vec3("dir_light.color", backend.backend_state.dir_light.color);
+        backend.shaders.lighting_deferred.set_vec3("dir_light.color", backend.backend_state.dir_light.color);
+        backend.shaders.lighting_forward.set_vec3("dir_light.color", backend.backend_state.dir_light.color);
+    }
     
     // entities ===================================================================================
 

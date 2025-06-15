@@ -34,7 +34,6 @@ static rses init_gl() {
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_STENCIL_TEST);
-    glEnable(GL_MULTISAMPLE);
     glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_CULL_FACE);
@@ -116,14 +115,13 @@ rses Backend::init(AppState& app_state) {
     // uniform buffer initialization ==============================================================
 
     glCreateBuffers(1, &backend_state.global_ubo);
-    glNamedBufferStorage(backend_state.global_ubo, 208, nullptr, GL_DYNAMIC_STORAGE_BIT);
+    glNamedBufferStorage(backend_state.global_ubo, 176, nullptr, GL_DYNAMIC_STORAGE_BIT);
     glBindBufferBase(GL_UNIFORM_BUFFER, 1, backend_state.global_ubo);
-
-    glm::uvec2 screen_dims = { app_state.window_state.width, app_state.window_state.height };
-    glNamedBufferSubData(backend_state.global_ubo, 176, 16, glm::value_ptr(clusters.grid_sz));
-    glNamedBufferSubData(backend_state.global_ubo, 192, 8, glm::value_ptr(screen_dims));
-    glNamedBufferSubData(backend_state.global_ubo, 200, 4, &app_state.camera.far_plane);
-    glNamedBufferSubData(backend_state.global_ubo, 204, 4, &app_state.camera.near_plane);
+    glm::uvec2 screen_dims = { app_state.window_state.width, app_state.window_state.height };    
+    glNamedBufferSubData(backend_state.global_ubo, 144, 16, glm::value_ptr(clusters.grid_sz));
+    glNamedBufferSubData(backend_state.global_ubo, 160, 8, glm::value_ptr(screen_dims));
+    glNamedBufferSubData(backend_state.global_ubo, 168, 4, &app_state.camera.far_plane);
+    glNamedBufferSubData(backend_state.global_ubo, 172, 4, &app_state.camera.near_plane);
 
     // ssbo initialization ========================================================================
 
@@ -176,9 +174,21 @@ rses Backend::init(AppState& app_state) {
 
     // remaining set up ===========================================================================
 
+    shaders.skybox.set_vec3("dir_light.direction", backend_state.dir_light.direction);
+    shaders.skybox.set_vec3("dir_light.color", backend_state.dir_light.color);
+    shaders.skybox.set_f32("dir_light.ambient_strength", backend_state.dir_light.ambient_strength);
+
     shaders.lighting_deferred.set_u32("pt_caster_id", 0);
     shaders.lighting_deferred.set_bool("ao_enabled", app_state.ssao_enabled);
+    shaders.lighting_deferred.set_vec3("dir_light.direction", backend_state.dir_light.direction);
+    shaders.lighting_deferred.set_vec3("dir_light.color", backend_state.dir_light.color);
+    shaders.lighting_deferred.set_f32("dir_light.ambient_strength", backend_state.dir_light.ambient_strength);
+    
     shaders.lighting_forward.set_u32("pt_caster_id", 0);
+    shaders.lighting_forward.set_vec3("dir_light.direction", backend_state.dir_light.direction);
+    shaders.lighting_forward.set_vec3("dir_light.color", backend_state.dir_light.color);
+    shaders.lighting_forward.set_f32("dir_light.ambient_strength", backend_state.dir_light.ambient_strength);
+
     backend_state.bloom_mip_chain = create_mip_chain(app_state.window_state.width, app_state.window_state.height, 5);
     f32 ar = (f32)app_state.window_state.width / (f32)app_state.window_state.height;
     glm::vec2 filter_sz = { 0.005f, 0.005f * ar };
@@ -222,8 +232,6 @@ void Backend::step(AppState& app_state) {
     glNamedBufferSubData(backend_state.global_ubo, 0, 64, glm::value_ptr(projection));
     glNamedBufferSubData(backend_state.global_ubo, 64, 64, glm::value_ptr(view));
     glNamedBufferSubData(backend_state.global_ubo, 128, 16, glm::value_ptr(app_state.camera.position));
-    glNamedBufferSubData(backend_state.global_ubo, 144, 16, glm::value_ptr(backend_state.dir_light.direction));
-    glNamedBufferSubData(backend_state.global_ubo, 160, 16, glm::value_ptr(backend_state.dir_light.color));
 
     // clustered set-up ===========================================================================================
 

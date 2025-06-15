@@ -19,11 +19,6 @@ out vs_data {
 	float spec_factor;
 } vs_out;
 
-struct DirLight {
-	vec3 direction;
-	vec3 color;
-};
-
 struct Material {
 	sampler2D	diffuse_map;
 	sampler2D	specular_map;
@@ -39,7 +34,6 @@ layout (std140, binding = 1) uniform globals_ubo {
 	mat4 projection;
 	mat4 view;
 	vec3 camera_pos;
-	DirLight dir_light;
 	uvec3 grid_sz;				// cluster dimensions (xyz)
 	uvec2 screen_dims;			// screen [ width, height ]
 	float far_z;

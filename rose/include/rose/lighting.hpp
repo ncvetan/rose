@@ -19,6 +19,7 @@ static_assert("no backend selected");
 struct DirLight {
     glm::vec3 direction = { 0.0f, -0.999848f, -0.0174525f };
     glm::vec3 color = { 0.55f, 0.55f, 0.55f };
+    f32 ambient_strength = 0.1f;
     
 #ifdef USE_OPENGL
     gl::DirShadowData gl_shadow;

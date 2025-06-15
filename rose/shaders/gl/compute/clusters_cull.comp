@@ -17,6 +17,7 @@ struct AABB {
 struct DirLight {
 	vec3 direction;
 	vec3 color;
+	float ambient_strength;
 };
 
 // light parameters for a particular point light

@@ -93,7 +93,6 @@ void TextureManager::init() {
     glTextureParameteri(default_texture.id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTextureStorage2D(default_texture.id, 1, GL_RGBA8, 1024, 1024);
     glTextureSubImage2D(default_texture.id, 0, 0, 0, 1024, 1024, GL_RGBA, GL_UNSIGNED_BYTE, default_data.data());
-    glGenerateTextureMipmap(default_texture.id);
 
     GL_Texture default_cubemap;
     default_cubemap.ty = TextureType::CUBE_MAP;
@@ -137,12 +136,13 @@ TextureRef TextureManager::load_texture(const fs::path& path, TextureType ty) {
     }
 
     if (texture_data) {
+        i32 n_levels = 1 + (int)std::floor(std::log2((double)std::max(width, height)));
         glCreateTextures(GL_TEXTURE_2D, 1, &texture.id);
         glTextureParameteri(texture.id, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTextureParameteri(texture.id, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTextureParameteri(texture.id, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTextureParameteri(texture.id, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         glTextureParameteri(texture.id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTextureStorage2D(texture.id, 1, GL_RGBA8, width, height);
+        glTextureStorage2D(texture.id, n_levels, GL_RGBA8, width, height);
         glTextureSubImage2D(texture.id, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, texture_data);
         glGenerateTextureMipmap(texture.id);
         stbi_image_free(texture_data);

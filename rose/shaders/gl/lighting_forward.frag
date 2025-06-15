@@ -24,6 +24,7 @@ in vs_data {
 struct DirLight {
 	vec3 direction;
 	vec3 color;
+	float ambient_strength;
 };
 
 struct Material {
@@ -46,9 +47,9 @@ struct PointLight {
 
 // uniforms =======================================================================================
 
-uniform Material material;
-
 uniform sampler2DArray dir_shadow_maps;	 // shadow map for each cascade
+uniform DirLight dir_light;				 // directional light properties
+uniform Material material;				 // material properties
 uniform int n_cascades;					 // number of shadow cascades
 uniform float cascade_depths[3];		 // far depth of each shadow cascade
 uniform samplerCube pt_shadow_map;		 // shadow map for point lights
@@ -58,7 +59,6 @@ layout (std140, binding = 1) uniform globals_ubo {
 	mat4 projection;
 	mat4 view;
 	vec3 camera_pos;
-	DirLight dir_light;
 	uvec3 grid_sz;				// cluster dimensions (xyz)
 	uvec2 screen_dims;			// screen [ width, height ]
 	float far_z;
@@ -99,7 +99,7 @@ layout(std430, binding=7) buffer lights_ids {
 
 // functions ======================================================================================
 
-float calc_dir_shadow(DirLight light, vec3 pos, float frag_depth, vec3 normal) {
+float calc_dir_shadow(vec3 pos, float frag_depth, vec3 normal) {
 
 	vec3 res = step(vec3(cascade_depths[0], cascade_depths[1], cascade_depths[2]), vec3(abs(frag_depth)));
 	int cascade_idx = int(res.x + res.y + res.z);
@@ -112,7 +112,7 @@ float calc_dir_shadow(DirLight light, vec3 pos, float frag_depth, vec3 normal) {
 
 	float shadow = 0.0;
 	vec2 tex_sz = 1.0 / vec2(textureSize(dir_shadow_maps, 0));
-	float bias = max(0.05 * (1.0 - dot(normal, light.direction)), 0.005);
+	float bias = max(0.05 * (1.0 - dot(normal, dir_light.direction)), 0.005);
 	bias *= 1 / (cascade_depths[cascade_idx] * 0.5f);
 
 	// pcf
@@ -127,20 +127,18 @@ float calc_dir_shadow(DirLight light, vec3 pos, float frag_depth, vec3 normal) {
 	return shadow;
 }
 
-vec3 calc_dir_light(DirLight light, vec3 pos, float frag_depth, vec3 normal, float spec_factor) {
-	
-	float ambient_strength = 0.1;
-	float diffuse_strength = max(dot(-normalize(light.direction), normal), 0.0);
+vec3 calc_dir_light(vec3 pos, float frag_depth, vec3 normal, float spec_factor) {
+	float diffuse_strength = max(dot(-normalize(dir_light.direction), normal), 0.0);
 	float specular_strength = 0.0;
 
 	if (diffuse_strength != 0.0) {
 		vec3 view_dir = normalize(camera_pos - pos);
-		vec3 half_dir = normalize(light.direction + view_dir);
+		vec3 half_dir = normalize(dir_light.direction + view_dir);
 		specular_strength = pow(max(dot(view_dir, half_dir), 0.0), 16);
 	}
 
-	float shadow = calc_dir_shadow(dir_light, pos, frag_depth, normal);
-	return (ambient_strength + (1.0 - shadow) * (diffuse_strength + spec_factor * specular_strength)) * light.color;
+	float shadow = calc_dir_shadow(pos, frag_depth, normal);
+	return (dir_light.ambient_strength + (1.0 - shadow) * (diffuse_strength + spec_factor * specular_strength)) * dir_light.color;
 }
 
 float calc_pt_shadow(vec3 pos, vec3 light_pos, samplerCube shadow_map, float far_plane) {
@@ -190,7 +188,7 @@ void main() {
 	uint cluster_idx = cluster_coord.x + (cluster_coord.y * grid_sz.x) + (cluster_coord.z * grid_sz.x * grid_sz.y);
 
 	// compute directional light contribution
-	vec3 result = color.rgb * calc_dir_light(dir_light, fs_in.frag_pos_ws, fs_in.frag_pos_z_vs, fs_in.normal, fs_in.spec_factor);
+	vec3 result = color.rgb * calc_dir_light(fs_in.frag_pos_ws, fs_in.frag_pos_z_vs, fs_in.normal, fs_in.spec_factor);
 
 	// compute contributions from point lights
 	for (uint idx = 0; idx < clusters[cluster_idx].count; ++idx) {
