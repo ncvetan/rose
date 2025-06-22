@@ -39,28 +39,43 @@ std::vector<i64> ent_traverse = { 0, 1 }; // entity indices in order of object i
 
 } // namespace gui_state
 
-static fs::path open_windows_explorer() {
+static fs::path WIN32_open_gltf() {
     OPENFILENAME ofn; 
     TCHAR szFile[260] = { 0 };
-
     ZeroMemory(&ofn, sizeof(ofn));
-
     ofn.lStructSize = sizeof(ofn);
     ofn.hwndOwner = NULL;
     ofn.lpstrFile = szFile;
     ofn.nMaxFile = sizeof(szFile);
-
-    ofn.lpstrFilter = "All\0*.*\0Text\0*.TXT\0";
+    ofn.lpstrFilter = "Supported Files(*.gltf)\0*.gltf\0";
     ofn.nFilterIndex = 1;
     ofn.lpstrFileTitle = NULL;
     ofn.nMaxFileTitle = 0;
     ofn.lpstrInitialDir = NULL;
     ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
-
     if (GetOpenFileName(&ofn) == TRUE) {
         return fs::path(ofn.lpstrFile);
     }
+    return "";
+}
 
+static fs::path WIN32_open_any() {
+    OPENFILENAME ofn;
+    TCHAR szFile[260] = { 0 };
+    ZeroMemory(&ofn, sizeof(ofn));
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = NULL;
+    ofn.lpstrFile = szFile;
+    ofn.nMaxFile = sizeof(szFile);
+    ofn.lpstrFilter = ofn.lpstrFilter = "All\0*.*\0Text\0*.TXT\0";
+    ofn.nFilterIndex = 1;
+    ofn.lpstrFileTitle = NULL;
+    ofn.nMaxFileTitle = 0;
+    ofn.lpstrInitialDir = NULL;
+    ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+    if (GetOpenFileName(&ofn) == TRUE) {
+        return fs::path(ofn.lpstrFile);
+    }
     return "";
 }
 
@@ -75,7 +90,7 @@ GuiRet imgui(AppState& app_state, gl::Backend& backend) {
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("Import Model")) {
-                fs::path model_path = open_windows_explorer();
+                fs::path model_path = WIN32_open_gltf();
                 EntityCtx ent_def = { 
                     .model_path = model_path,
                     .pos = { 0.0f, 0.0f, 0.0f },
@@ -101,42 +116,42 @@ GuiRet imgui(AppState& app_state, gl::Backend& backend) {
         ImGui::InputText("left##skybox", gui_state::left_path, IM_ARRAYSIZE(gui_state::left_path));
         ImGui::SameLine();
         if (ImGui::Button("browse##1", ImVec2(50, 0))) {
-            if (auto ret = open_windows_explorer(); ret != "") {
+            if (auto ret = WIN32_open_any(); ret != "") {
                 std::strncat(gui_state::left_path, ret.string().c_str(), 255);
             }
         }
         ImGui::InputText("right##skybox", gui_state::right_path, IM_ARRAYSIZE(gui_state::right_path));
         ImGui::SameLine();
         if (ImGui::Button("browse##2", ImVec2(50, 0))) {
-            if (auto ret = open_windows_explorer(); ret != "") {
+            if (auto ret = WIN32_open_any(); ret != "") {
                 std::strncat(gui_state::right_path, ret.string().c_str(), 255);
             }
         }
         ImGui::InputText("top##skybox", gui_state::top_path, IM_ARRAYSIZE(gui_state::top_path));
         ImGui::SameLine();
         if (ImGui::Button("browse##3", ImVec2(50, 0))) {
-            if (auto ret = open_windows_explorer(); ret != "") {
+            if (auto ret = WIN32_open_any(); ret != "") {
                 std::strncat(gui_state::top_path, ret.string().c_str(), 255);
             }
         }
         ImGui::InputText("bottom##skybox", gui_state::bottom_path, IM_ARRAYSIZE(gui_state::bottom_path));
         ImGui::SameLine();
         if (ImGui::Button("browse##4", ImVec2(50, 0))) {
-            if (auto ret = open_windows_explorer(); ret != "") {
+            if (auto ret = WIN32_open_any(); ret != "") {
                 std::strncat(gui_state::bottom_path, ret.string().c_str(), 255);
             }
         }
         ImGui::InputText("front##skybox", gui_state::front_path, IM_ARRAYSIZE(gui_state::front_path));
         ImGui::SameLine();
         if (ImGui::Button("browse##5", ImVec2(50, 0))) {
-            if (auto ret = open_windows_explorer(); ret != "") {
+            if (auto ret = WIN32_open_any(); ret != "") {
                 std::strncat(gui_state::front_path, ret.string().c_str(), 255);
             }
         }
         ImGui::InputText("back##skybox", gui_state::back_path, IM_ARRAYSIZE(gui_state::back_path));
         ImGui::SameLine();
         if (ImGui::Button("browse##6", ImVec2(50, 0))) {
-            if (auto ret = open_windows_explorer(); ret != "") {
+            if (auto ret = WIN32_open_any(); ret != "") {
                 std::strncat(gui_state::back_path, ret.string().c_str(), 255);
             }
         }
@@ -168,7 +183,7 @@ GuiRet imgui(AppState& app_state, gl::Backend& backend) {
         (app_state.window_state.vsync_enabled) ? glfwSwapInterval(1) : glfwSwapInterval(0);
     }
     if (ImGui::Checkbox("ambient occlusion", &app_state.ssao_enabled)) {
-        backend.shaders.lighting_deferred.set_bool("ao_enabled", app_state.ssao_enabled);
+        backend.shaders.lighting_deferred.set_bool("ssao_enabled", app_state.ssao_enabled);
     }
     if (ImGui::Checkbox("bloom", &app_state.bloom_enabled)) {
         backend.shaders.out.set_bool("bloom_enabled", app_state.bloom_enabled);

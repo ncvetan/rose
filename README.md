@@ -35,6 +35,7 @@ Some features that Rose supports...
 - Bloom
 - HDR
 - Ambient Occlusion
+- PBR
 
 ## Roadmap
 
@@ -42,7 +43,7 @@ Some future features and improvements to be made...
 
 - Linux support (there is very little right now that isn't compatible with Linux, just a few small changes need to be made)
 - Support for additional graphics APIs
-- PBR
+- More robust model loader (currently only supporting GLTF 2.0)
 - And plenty of improvements to existing systems...
 
 ## Contributing

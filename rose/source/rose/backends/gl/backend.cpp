@@ -77,12 +77,12 @@ rses Backend::init(AppState& app_state) {
 
     app_state.entities.add_object(texture_manager, sponza_def);
 
-    EntityCtx model2_def = { .model_path = SOURCE_DIR "/assets/sphere/scene.gltf",
+    EntityCtx model2_def = { .model_path = SOURCE_DIR "/assets/glTF-Sample-Models-main/2.0/DamagedHelmet/glTF/DamagedHelmet.gltf",
                              .pos = { 0.0f, 3.5f, 0.0f },
                              .scale = { 0.1f, 0.1f, 0.1f },
                              .rotation = { 0.0f, 0.0f, 0.0f },
                              .light_data = PtLight(),
-                             .flags = EntityFlags::NONE };
+                             .flags = EntityFlags::NONE }; 
 
     app_state.entities.add_object(texture_manager, model2_def);
 
@@ -92,7 +92,7 @@ rses Backend::init(AppState& app_state) {
 
     // (position, normal, albedo)
     if (auto err = gbuf_fbuf.init(app_state.window_state.width, app_state.window_state.height, true,
-                             { { GL_RGBA16F }, { GL_RGB16F }, { GL_RGBA8 } })) {
+                                  { { GL_RGBA16F }, { GL_RGBA16F }, { GL_RGBA8 }, { GL_R16F } })) {
         return err;
     }
 
@@ -179,7 +179,7 @@ rses Backend::init(AppState& app_state) {
     shaders.skybox.set_f32("dir_light.ambient_strength", backend_state.dir_light.ambient_strength);
 
     shaders.lighting_deferred.set_u32("pt_caster_id", 0);
-    shaders.lighting_deferred.set_bool("ao_enabled", app_state.ssao_enabled);
+    shaders.lighting_deferred.set_bool("ssao_enabled", app_state.ssao_enabled);
     shaders.lighting_deferred.set_vec3("dir_light.direction", backend_state.dir_light.direction);
     shaders.lighting_deferred.set_vec3("dir_light.color", backend_state.dir_light.color);
     shaders.lighting_deferred.set_f32("dir_light.ambient_strength", backend_state.dir_light.ambient_strength);
@@ -349,7 +349,7 @@ void Backend::step(AppState& app_state) {
     // geometry pass ==========================================================================
 
     gbuf_fbuf.bind();
-    glNamedFramebufferDrawBuffers(gbuf_fbuf.frame_buf, 3, gbuf_fbuf.attachments.data());
+    glNamedFramebufferDrawBuffers(gbuf_fbuf.frame_buf, 4, gbuf_fbuf.attachments.data());
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
@@ -414,7 +414,8 @@ void Backend::step(AppState& app_state) {
     shaders.lighting_deferred.set_tex("gbuf_pos", 0, gbuf_fbuf.tex_bufs[0]);
     shaders.lighting_deferred.set_tex("gbuf_norms", 1, gbuf_fbuf.tex_bufs[1]);
     shaders.lighting_deferred.set_tex("gbuf_colors", 2, gbuf_fbuf.tex_bufs[2]);
-    shaders.lighting_deferred.set_tex("occlusion_tex", 3, ssao_fbuf.tex_bufs[1]);
+    shaders.lighting_deferred.set_tex("gbuf_metallic", 3, gbuf_fbuf.tex_bufs[3]);
+    shaders.lighting_deferred.set_tex("occlusion_tex", 4, ssao_fbuf.tex_bufs[1]);
     shaders.lighting_deferred.set_tex("dir_shadow_maps", 11, backend_state.dir_light.gl_shadow.tex);
     shaders.lighting_deferred.set_tex("pt_shadow_map", 12, backend_state.pt_shadow_data.tex);
     shaders.lighting_deferred.set_i32("n_cascades", backend_state.dir_light.gl_shadow.n_cascades);
@@ -480,6 +481,7 @@ void Backend::step(AppState& app_state) {
         glm::vec2 init_sz = { (f32)app_state.window_state.width, (f32)app_state.window_state.height };
         shaders.downsample.set_tex("tex", 0, int_fbuf.tex_bufs[0]);
         shaders.downsample.set_vec2("tex_sz", init_sz);
+        shaders.downsample.set_i32("mip_level", 0);
 
         // downsample mips
         for (size_t idx = 0; idx < backend_state.bloom_mip_chain.size(); ++idx) {
@@ -489,6 +491,7 @@ void Backend::step(AppState& app_state) {
             gbuf_fbuf.draw(shaders.downsample);
             shaders.downsample.set_tex("tex", 0, mip.tex);
             shaders.downsample.set_vec2("texel_size", 1.0f / mip.sz);
+            shaders.downsample.set_i32("mip_level", idx + 1);
         }
 
         // upsample + blur mips

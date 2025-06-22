@@ -28,14 +28,15 @@ layout (std140, binding = 1) uniform globals_ubo {
 };
 
 struct Material {
-	sampler2D	diffuse_map;
-	sampler2D	specular_map;
+	sampler2D	albedo_map;
 	sampler2D	normal_map;
 	sampler2D	displace_map;
-	float		shine;
-	bool		has_diffuse_map;
+	sampler2D   pbr_map;
+	sampler2D   ao_map;
+	bool		has_albedo_map;
 	bool		has_normal_map;
-	bool		has_specular_map;
+	bool		has_pbr_map;
+	bool		has_ao_map;
 };
 
 uniform mat4 model;

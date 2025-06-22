@@ -11,6 +11,8 @@ static_assert("no backend selected");
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
+#include <assimp/GltfMaterial.h>
+#include <assimp/material.h>
 
 #include <format>
 #include <unordered_map>
@@ -47,12 +49,18 @@ static void load_matl_textures(TextureManager& manager, Model& model, aiMaterial
         TextureRef texture;
 
         switch (ty) {
-        case aiTextureType_DIFFUSE:
-            texture = manager.load_texture(texture_path, TextureType::DIFFUSE);
+        case aiTextureType_BASE_COLOR:
+            texture = manager.load_texture(texture_path, TextureType::ALBEDO);
             model.textures.push_back(texture);
             break;
-        case aiTextureType_SPECULAR:
-            texture = manager.load_texture(texture_path, TextureType::SPECULAR);
+        case aiTextureType_GLTF_METALLIC_ROUGHNESS:
+            // NOTE: in the GLTF file format, ao (R), roughness (G) and metallic values (B) are combined
+            // into a single texture
+            texture = manager.load_texture(texture_path, TextureType::GLTF_PBR);
+            model.textures.push_back(texture);
+            break;
+        case aiTextureType_AMBIENT_OCCLUSION:
+            texture = manager.load_texture(texture_path, TextureType::AMBIENT_OCCLUSION);
             model.textures.push_back(texture);
             break;
         case aiTextureType_HEIGHT:
@@ -105,9 +113,9 @@ static void init_meshes(aiNode* ai_node, const aiScene* ai_scene, Model& model, 
         if (ai_mesh->mMaterialIndex >= 0) {
             aiMaterial* matl = ai_scene->mMaterials[ai_mesh->mMaterialIndex];
             model.meshes.back().n_matls =
-                matl->GetTextureCount(aiTextureType_DIFFUSE) + matl->GetTextureCount(aiTextureType_SPECULAR) +
-                matl->GetTextureCount(aiTextureType_HEIGHT) + matl->GetTextureCount(aiTextureType_NORMALS) +
-                matl->GetTextureCount(aiTextureType_DISPLACEMENT);
+                matl->GetTextureCount(aiTextureType_BASE_COLOR) + matl->GetTextureCount(aiTextureType_GLTF_METALLIC_ROUGHNESS) + 
+                matl->GetTextureCount(aiTextureType_HEIGHT) + matl->GetTextureCount(aiTextureType_NORMALS) + 
+                matl->GetTextureCount(aiTextureType_DISPLACEMENT) + matl->GetTextureCount(aiTextureType_AMBIENT_OCCLUSION);
             n_textures += model.meshes.back().n_matls;
         }
     }
@@ -149,8 +157,9 @@ static void process_assimp_node(TextureManager& manager, aiNode* ai_node, const 
         // Loading material textures
         if (ai_mesh->mMaterialIndex >= 0) {
             aiMaterial* matl = ai_scene->mMaterials[ai_mesh->mMaterialIndex];
-            load_matl_textures(manager, model, matl, aiTextureType_DIFFUSE, root_path, mesh_offset + mesh_idx);
-            load_matl_textures(manager, model, matl, aiTextureType_SPECULAR, root_path, mesh_offset + mesh_idx);
+            load_matl_textures(manager, model, matl, aiTextureType_BASE_COLOR, root_path, mesh_offset + mesh_idx);
+            load_matl_textures(manager, model, matl, aiTextureType_GLTF_METALLIC_ROUGHNESS, root_path, mesh_offset + mesh_idx);
+            load_matl_textures(manager, model, matl, aiTextureType_AMBIENT_OCCLUSION, root_path, mesh_offset + mesh_idx);
             load_matl_textures(manager, model, matl, aiTextureType_HEIGHT, root_path, mesh_offset + mesh_idx);
             load_matl_textures(manager, model, matl, aiTextureType_NORMALS, root_path, mesh_offset + mesh_idx);
             load_matl_textures(manager, model, matl, aiTextureType_DISPLACEMENT, root_path, mesh_offset + mesh_idx);

@@ -31,12 +31,15 @@ layout (std140, binding = 1) uniform globals_ubo {
 	float near_z;
 };
 
+const float pi = 3.14159265359;
+
 // uniforms =======================================================================================
 
 // g-buffers
-uniform sampler2D gbuf_pos;
-uniform sampler2D gbuf_norms;
-uniform sampler2D gbuf_colors;
+uniform sampler2D gbuf_pos;				 // xyz = world space pos,  w = view space z 
+uniform sampler2D gbuf_norms;			 // xyz = world space norm, w = roughness
+uniform sampler2D gbuf_colors;			 // xyz = albedo,			w = ambient occlusion
+uniform sampler2D gbuf_metallic;		 // x = metallic
 
 uniform DirLight dir_light;				 // directional light properties
 uniform sampler2DArray dir_shadow_maps;	 // shadow map for each cascade
@@ -45,7 +48,7 @@ uniform int n_cascades;					 // number of shadow cascades
 uniform float cascade_depths[3];		 // far depth of each shadow cascade
 uniform samplerCube pt_shadow_map;		 // shadow map for point lights
 uniform uint pt_caster_id;				 // id of the current shadow casting point light
-uniform bool ao_enabled;				 // indicates whether ambient occlusion is enabled	
+uniform bool ssao_enabled;				 // indicates whether ambient occlusion is enabled	
 uniform sampler2D occlusion_tex;		 // per-fragment occlusion values
 
 // light parameters for a particular point light
@@ -89,14 +92,48 @@ layout(std430, binding=7) buffer lights_ids {
 
 // functions ======================================================================================
 
-float calc_dir_shadow(vec3 pos, float frag_depth, vec3 normal) {
+// computes fraction of incoming light that is reflected as opposed to refracted
+// for a given lighting angle between the light and halfway vectors
+// uses the Schlick approximation
+vec3 fresnel(vec3 color, float metalness, float angle)
+{
+	vec3 F0 = vec3(0.04);	// default for dielectrics
+	F0 = mix(F0, color, metalness);
+    return F0 + (1.0 - F0) * pow(clamp(1.0 - angle, 0.0, 1.0), 5.0);
+}
+
+// computes the distribution of microfacet orientations using the GGX model
+float distribution(vec3 norm, vec3 halfway, float roughness) {
+    float a2   = pow(roughness, 4);
+    float ndh  = max(dot(norm, halfway), 0.0);
+    float ndh2 = ndh * ndh;
+    return a2 / (pi * pow((ndh2 * (a2 - 1.0) + 1.0), 2));
+}
+
+float geo_shlick_ggx(float ndv, float roughness) {
+    float r = (roughness + 1.0);
+    float k = (r * r) / 8.0;
+    return ndv / (ndv * (1.0 - k) + k);
+}
+
+// geometry function for computing the probability that a microfacet is visible from the 
+// view direction and light direction using the Smith model
+float geometry(vec3 norm, vec3 view_dir, vec3 light_dir, float roughness) {
+	float ndv = max(dot(norm, view_dir), 0.0);
+	float ndl = max(dot(norm, light_dir), 0.0);
+	float light_shadowing = geo_shlick_ggx(ndl, roughness);
+	float view_shadowing  = geo_shlick_ggx(ndv, roughness);
+	return light_shadowing * view_shadowing;
+}
+
+float calc_dir_shadow(vec3 frag_pos, float frag_depth, vec3 normal) {
 
 	vec3 res = step(vec3(cascade_depths[0], cascade_depths[1], cascade_depths[2]), vec3(abs(frag_depth)));
 	int cascade_idx = int(res.x + res.y + res.z);
 
 	// [ world space -> light space ]
-	vec4 pos_ls = ls_mats[cascade_idx] * vec4(pos, 1.0);
-	vec3 proj_coords = pos_ls.xyz / pos_ls.w;
+	vec4 frag_pos_ls = ls_mats[cascade_idx] * vec4(frag_pos, 1.0);
+	vec3 proj_coords = frag_pos_ls.xyz / frag_pos_ls.w;
 	proj_coords = proj_coords * 0.5 + 0.5;  // [ -1, 1 ] -> [ 0, 1 ]
 	float curr_depth = proj_coords.z;
 
@@ -117,23 +154,8 @@ float calc_dir_shadow(vec3 pos, float frag_depth, vec3 normal) {
 	return shadow;
 }
 
-vec3 calc_dir_light(vec3 pos, float frag_depth, vec3 normal, float spec_factor, float occlusion) {
-	
-	float diffuse_strength = max(dot(-normalize(dir_light.direction), normal), 0.0);
-	float specular_strength = 0.0;
-
-	if (diffuse_strength != 0.0) {
-		vec3 view_dir = normalize(camera_pos - pos);
-		vec3 half_dir = normalize(dir_light.direction + view_dir);
-		specular_strength = pow(max(dot(view_dir, half_dir), 0.0), 16);
-	}
-
-	float shadow = calc_dir_shadow(pos, frag_depth, normal);
-	return (dir_light.ambient_strength * occlusion + (1.0 - shadow) * (diffuse_strength + spec_factor * specular_strength)) * dir_light.color;
-}
-
-float calc_pt_shadow(vec3 pos, vec3 light_pos, samplerCube shadow_map, float far_plane) {
-	vec3 frag_to_light = pos - light_pos;
+float calc_pt_shadow(vec3 frag_pos, vec3 light_pos, samplerCube shadow_map, float far_plane) {
+	vec3 frag_to_light = frag_pos - light_pos;
 	float closest = texture(shadow_map, frag_to_light).r * far_plane;
 	float depth = length(frag_to_light);
 	float bias = 0.05;
@@ -141,54 +163,87 @@ float calc_pt_shadow(vec3 pos, vec3 light_pos, samplerCube shadow_map, float far
 	return shadow;
 }
 
-vec3 calc_pt_light(PointLight light, vec3 light_pos, uint light_id, vec3 pos, vec3 normal, float spec_factor, samplerCube shadow_map, float occlusion) {
-	// calculate attenuation
-	float dist = length(light_pos - pos);
-	float window = pow((max(1 - pow(dist / light.radius, 4), 0.0)), 2);
-	float attenuation = window * (1.0 / (dist * dist + 0.001));
+float calc_attenuation(float dist, float radius) {
+	float window = pow((max(1 - pow(dist / radius, 4), 0.0)), 2);
+	return window * (1.0 / (dist * dist + 0.001));
+}
 
-	// TODO: ambient component should probably be configurable
-	float ambient_strength = 0.1;
-	vec3 light_dir = normalize(light_pos - pos);
-	float diffuse_strength = max(dot(light_dir, normal), 0.0);
-	float specular_strength = 0.0;
+vec3 calc_dir_light(vec3 frag_pos, float frag_depth, vec3 normal, vec3 albedo, float roughness, float metallic) {
+	
+	vec3 light_dir = -dir_light.direction;
+	vec3 view_dir = normalize(camera_pos - frag_pos);
+	vec3 half_dir = normalize(light_dir + view_dir);
+	float ndotl = max(dot(normal, light_dir), 0.0);
+	
+	float ndf = distribution(normal, half_dir, roughness);
+	float geo = geometry(normal, view_dir, light_dir, roughness);
+	vec3 fres = fresnel(dir_light.color.xyz, metallic, max(dot(half_dir, view_dir), 0.0));
+	vec3 specular = (ndf * geo * fres) / (4.0 * max(dot(normal, view_dir), 0.0) * ndotl + 0.0001);
 
-	if (diffuse_strength != 0.0) {
-		vec3 view_dir = normalize(camera_pos - pos);
-		vec3 half_dir = normalize(light_dir + view_dir);
-		specular_strength = pow(max(dot(view_dir, half_dir), 0.0), 16);
-	}
+	vec3 kd = (vec3(1.0) - fres) * (1.0 - metallic);
+	vec3 radiance_out = (kd * albedo / pi + specular) * (dir_light.color.rgb) * ndotl;
 
-	float shadow = (light_id == pt_caster_id) ? calc_pt_shadow(pos, light_pos, shadow_map, far_z) : 0.0; // TODO: refactor this fn to avoid this hacky check
-	return (ambient_strength * occlusion + (1.0 - shadow) * (diffuse_strength + spec_factor * specular_strength)) * light.color.xyz * attenuation * light.intensity;
+	float shadow = calc_dir_shadow(frag_pos, frag_depth, normal);
+
+	return (1.0 - shadow) * radiance_out;
+}
+
+vec3 calc_pt_light(PointLight light, vec3 light_pos, uint light_id, vec3 frag_pos, vec3 albedo, vec3 normal, float roughness, float metallic, samplerCube shadow_map) {
+
+	float attenuation = calc_attenuation(length(light_pos - frag_pos), light.radius);
+
+	vec3 light_dir = normalize(light_pos - frag_pos);
+	vec3 view_dir = normalize(camera_pos - frag_pos);
+	vec3 half_dir = normalize(light_dir + view_dir);
+	float ndl = max(dot(normal, light_dir), 0.0);
+	
+	float ndf = distribution(normal, half_dir, roughness);
+	float geo = geometry(normal, view_dir, light_dir, roughness);
+	vec3 fres = fresnel(light.color.xyz, metallic, max(dot(half_dir, view_dir), 0.0));
+	vec3 specular = (ndf * geo * fres) / (4.0 * max(dot(normal, view_dir), 0.0) * ndl + 0.0001);
+
+	vec3 kd = (vec3(1.0) - fres) * (1.0 - metallic);
+	vec3 radiance_out = (kd * albedo / pi + specular) * (light.color.rgb * attenuation) * ndl;
+
+	float shadow = (light_id == pt_caster_id) ? calc_pt_shadow(frag_pos, light_pos, shadow_map, far_z) : 0.0;
+	return (1.0 - shadow) * radiance_out;
 }
 
 void main() {
-	// retrive gbuf values
-	vec4 gbuf_pos = texture(gbuf_pos, fs_in.tex_coords);
-	vec3 pos = gbuf_pos.xyz;									// world space
-	float pos_z_vs = gbuf_pos.w;								// view space z-coord
+	
+	// retrive parameters
+	vec4 frag_gbuf_pos = texture(gbuf_pos, fs_in.tex_coords);
+	vec4 frag_gbuf_norm = texture(gbuf_norms, fs_in.tex_coords);
+	vec4 frag_gbuf_albedo = texture(gbuf_colors, fs_in.tex_coords);
+	float metallic = texture(gbuf_metallic, fs_in.tex_coords).r;
 
-	vec3 norm = texture(gbuf_norms, fs_in.tex_coords).rgb;		// world space
-	vec3 color = texture(gbuf_colors, fs_in.tex_coords).rgb;
-	float spec_factor = texture(gbuf_colors, fs_in.tex_coords).w;
+	vec3 frag_pos = frag_gbuf_pos.xyz;
+	float frag_pos_z_vs = frag_gbuf_pos.w;
+	vec3 norm = frag_gbuf_norm.rgb;
+	float roughness = frag_gbuf_norm.a;
+	vec3 albedo = frag_gbuf_albedo.rgb;
+	float occlusion = frag_gbuf_albedo.a;
 
-	float occlusion = (ao_enabled) ? texture(occlusion_tex, fs_in.tex_coords).r : 1.0f;
+	float ssao = (ssao_enabled) ? texture(occlusion_tex, fs_in.tex_coords).r : 1.0f;
 
 	// determine the cluster this fragment belongs in
-	uint cluster_z = uint((log(abs(pos_z_vs) / near_z) * float(grid_sz.z)) / log(far_z / near_z));
+	uint cluster_z = uint((log(abs(frag_pos_z_vs) / near_z) * float(grid_sz.z)) / log(far_z / near_z));
 	vec2 cluster_sz = screen_dims / grid_sz.xy;
 	uvec3 cluster_coord = uvec3(gl_FragCoord.xy / cluster_sz, cluster_z);
 	uint cluster_idx = cluster_coord.x + (cluster_coord.y * grid_sz.x) + (cluster_coord.z * grid_sz.x * grid_sz.y);
 
 	// compute directional light contribution
-	vec3 result = color * calc_dir_light(pos, pos_z_vs, norm, spec_factor, occlusion);
+	vec3 result = calc_dir_light(frag_pos, frag_pos_z_vs, norm, albedo, roughness, metallic);
 
 	// compute contributions from point lights
 	for (uint idx = 0; idx < clusters[cluster_idx].count; ++idx) {
 		uint light_idx = clusters[cluster_idx].indices[idx];
-		result += color * calc_pt_light(light_data[light_idx], light_positions[light_idx].xyz, light_ids[light_idx], pos, norm, spec_factor, pt_shadow_map, occlusion);
+		result += calc_pt_light(light_data[light_idx], light_positions[light_idx].xyz, light_ids[light_idx], frag_pos, albedo, norm, roughness, metallic, pt_shadow_map);
 	}
 	
+	// add ambient component
+	vec3 ambient = dir_light.ambient_strength * ssao * occlusion * albedo;
+	result += ambient;
+
 	frag_color = vec4(result, 1.0);
 }

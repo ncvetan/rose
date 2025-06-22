@@ -17,9 +17,14 @@
 enum class TextureType { 
     NONE = 0, 
     DIFFUSE, 
+    ALBEDO, 
     SPECULAR, 
     NORMAL, 
-    DISPLACE, 
+    DISPLACE,
+    GLTF_PBR,
+    ROUGHNESS,
+    METALLIC,
+    AMBIENT_OCCLUSION,
     CUBE_MAP, 
     INTERNAL,
     TEXTURE_COUNT

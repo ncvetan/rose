@@ -4,9 +4,18 @@
 
 #version 460 core
 
-layout (location = 0) out vec4 gbuf_pos;
-layout (location = 1) out vec3 gbuf_norm;
-layout (location = 2) out vec4 gbuf_color;
+// gbuffer layout:
+//
+// [     R     ] [     G     ] [     B     ] [     A     ]	
+// [                Position               ] [   VS Z    ]
+// [                 Normal                ] [ Roughness ]
+// [                 Color                 ] [    AO     ]
+// [ Metalness ]
+
+layout (location = 0) out vec4  gbuf_pos;
+layout (location = 1) out vec4  gbuf_norm;
+layout (location = 2) out vec4  gbuf_color;
+layout (location = 3) out float gbuf_metallic;
 
 in vs_data {
 	mat3  tbn;
@@ -17,28 +26,47 @@ in vs_data {
 } fs_in;
 
 struct Material {
-	sampler2D	diffuse_map;
-	sampler2D	specular_map;
+	sampler2D	albedo_map;
 	sampler2D	normal_map;
 	sampler2D	displace_map;
-	float		shine;
-	bool		has_diffuse_map;
+	sampler2D   pbr_map;
+	sampler2D   ao_map;
+	bool		has_albedo_map;
 	bool		has_normal_map;
-	bool		has_specular_map;
+	bool		has_pbr_map;
+	bool		has_ao_map;
 };
 
 uniform Material material;
 
 void main() {
-	// if no normal map is present use surface normal otherwise convert normal to world space
-	vec3 norm = (material.has_normal_map) ? fs_in.tbn * (texture(material.normal_map, fs_in.tex_coords).rgb * 2.0 - 1.0) : fs_in.normal;
-	float spec = (material.has_specular_map) ? texture(material.specular_map, fs_in.tex_coords).r : 0.0;
-	// TODO: reimplement displacement mapping
 
-	// write positions, normals, colors, and specular instensities to the g-buffer
+	vec3 norm = (material.has_normal_map) ? fs_in.tbn * (texture(material.normal_map, fs_in.tex_coords).rgb * 2.0f - 1.0f) : fs_in.normal;
+	
+	float roughness = 1.0f;
+	float ambient_occ = 1.0f;
+	float metallic = 0.0f;
+
+	if (material.has_pbr_map) {
+		vec3 pbr = texture(material.pbr_map, fs_in.tex_coords).rgb;
+		roughness = pbr.g;
+		metallic = pbr.b;
+	}
+
+	if (material.has_ao_map) { 
+		ambient_occ = texture(material.ao_map, fs_in.tex_coords).r;
+	}
+	
+	// TODO: reimplement displacement mapping
 	gbuf_pos.rgb = fs_in.frag_pos_ws;
 	gbuf_pos.a = fs_in.frag_pos_z_vs;
-	gbuf_norm = normalize(norm);
-	gbuf_color.rgb = (material.has_diffuse_map) ? texture(material.diffuse_map, fs_in.tex_coords).rgb : vec3(0.5, 0.5, 0.5);
-	gbuf_color.a = spec;
+	
+	gbuf_norm.rgb = normalize(norm);
+	gbuf_norm.a = roughness;
+	
+	// [ sRGB -> Linear ]
+	gbuf_color.rgb = (material.has_albedo_map) ? pow(texture(material.albedo_map, fs_in.tex_coords).rgb, vec3(2.2f, 2.2f, 2.2f)) : vec3(0.5f, 0.5f, 0.5f);
+	gbuf_color.a = ambient_occ;
+
+	gbuf_metallic = metallic;
 }

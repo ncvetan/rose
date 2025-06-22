@@ -5,19 +5,19 @@ namespace gl {
 
 static void render_mesh(Shader& shader, const Mesh& mesh, const std::vector<TextureRef>& textures) {
 
-        shader.set_bool("material.has_diffuse_map", false);
+        shader.set_bool("material.has_albedo_map", false);
         shader.set_bool("material.has_normal_map", false);
-        shader.set_bool("material.has_specular_map", false);
+        shader.set_bool("material.has_pbr_map", false);
 
         for (u32 idx = mesh.matl_offset; idx < mesh.matl_offset + mesh.n_matls; ++idx) {
             switch (textures[idx].ref->ty) {
-            case TextureType::DIFFUSE:
-                shader.set_bool("material.has_diffuse_map", true);
-                shader.set_tex("material.diffuse_map", 0, textures[idx].ref->id);
+            case TextureType::ALBEDO:
+                shader.set_bool("material.has_albedo_map", true);
+                shader.set_tex("material.albedo_map", 0, textures[idx].ref->id);
                 break;
-            case TextureType::SPECULAR:
-                shader.set_bool("material.has_specular_map", true);
-                shader.set_tex("material.specular_map", 1, textures[idx].ref->id);
+            case TextureType::GLTF_PBR:
+                shader.set_bool("material.has_pbr_map", true);
+                shader.set_tex("material.pbr_map", 1, textures[idx].ref->id);
                 break;
             case TextureType::NORMAL:
                 shader.set_bool("material.has_normal_map", true);
@@ -25,6 +25,10 @@ static void render_mesh(Shader& shader, const Mesh& mesh, const std::vector<Text
                 break;
             case TextureType::DISPLACE:
                 shader.set_tex("material.displace_map", 3, textures[idx].ref->id);
+                break;
+            case TextureType::AMBIENT_OCCLUSION:
+                shader.set_bool("material.has_ao_map", true);
+                shader.set_tex("material.ao_map", 4, textures[idx].ref->id);
                 break;
             default:
                 break;

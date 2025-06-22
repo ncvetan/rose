@@ -15,7 +15,6 @@ in vs_data {
 	vec3  normal;			// tangent space
 	vec2  tex_coords;
 	float frag_pos_z_vs;	// view space z coordinate, used for clustered shading
-	float spec_factor;
 } fs_in;
 
 // struct definitions =============================================================================
@@ -28,14 +27,15 @@ struct DirLight {
 };
 
 struct Material {
-	sampler2D	diffuse_map;
-	sampler2D	specular_map;
+	sampler2D	albedo_map;
 	sampler2D	normal_map;
 	sampler2D	displace_map;
-	float		shine;
-	bool		has_diffuse_map;
+	sampler2D   pbr_map;
+	sampler2D   ao_map;
+	bool		has_albedo_map;
 	bool		has_normal_map;
-	bool		has_specular_map;
+	bool		has_pbr_map;
+	bool		has_ao_map;
 };
 
 // light parameters for a particular point light
@@ -64,6 +64,8 @@ layout (std140, binding = 1) uniform globals_ubo {
 	float far_z;
 	float near_z;
 };
+
+const float pi = 3.14159265359f;
 
 // buffers ========================================================================================
 
@@ -99,27 +101,61 @@ layout(std430, binding=7) buffer lights_ids {
 
 // functions ======================================================================================
 
+// computes fraction of incoming light that is reflected as opposed to refracted
+// for a given lighting angle between the light and halfway vectors
+// uses the Schlick approximation
+vec3 fresnel(vec3 color, float metalness, float angle)
+{
+	vec3 F0 = vec3(0.04f);	// default for dielectrics
+	F0 = mix(F0, color, metalness);
+    return F0 + (1.0f - F0) * pow(clamp(1.0f - angle, 0.0f, 1.0f), 5.0f);
+}
+
+// computes the distribution of microfacet orientations using the GGX model
+float distribution(vec3 norm, vec3 halfway, float roughness) {
+    float a2   = pow(roughness, 4);
+    float ndh  = max(dot(norm, halfway), 0.0f);
+    float ndh2 = ndh * ndh;
+    return a2 / (pi * pow((ndh2 * (a2 - 1.0f) + 1.0f), 2));
+}
+
+float geo_shlick_ggx(float ndv, float roughness) {
+    float r = (roughness + 1.0f);
+    float k = (r * r) / 8.0f;
+    return ndv / (ndv * (1.0f - k) + k);
+}
+
+// geometry function for computing the probability that a microfacet is visible from the 
+// view direction and light direction using the Smith model
+float geometry(vec3 norm, vec3 view_dir, vec3 light_dir, float roughness) {
+	float ndv = max(dot(norm, view_dir), 0.0f);
+	float ndl = max(dot(norm, light_dir), 0.0f);
+	float light_shadowing = geo_shlick_ggx(ndl, roughness);
+	float view_shadowing  = geo_shlick_ggx(ndv, roughness);
+	return light_shadowing * view_shadowing;
+}
+
 float calc_dir_shadow(vec3 pos, float frag_depth, vec3 normal) {
 
 	vec3 res = step(vec3(cascade_depths[0], cascade_depths[1], cascade_depths[2]), vec3(abs(frag_depth)));
 	int cascade_idx = int(res.x + res.y + res.z);
 
 	// [ world space -> light space ]
-	vec4 pos_ls = ls_mats[cascade_idx] * vec4(pos, 1.0);
+	vec4 pos_ls = ls_mats[cascade_idx] * vec4(pos, 1.0f);
 	vec3 proj_coords = pos_ls.xyz / pos_ls.w;
-	proj_coords = proj_coords * 0.5 + 0.5;  // [ -1, 1 ] -> [ 0, 1 ]
+	proj_coords = proj_coords * 0.5f + 0.5f;  // [ -1, 1 ] -> [ 0, 1 ]
 	float curr_depth = proj_coords.z;
 
-	float shadow = 0.0;
-	vec2 tex_sz = 1.0 / vec2(textureSize(dir_shadow_maps, 0));
-	float bias = max(0.05 * (1.0 - dot(normal, dir_light.direction)), 0.005);
+	float shadow = 0.0f;
+	vec2 tex_sz = 1.0f / vec2(textureSize(dir_shadow_maps, 0));
+	float bias = max(0.05f * (1.0f - dot(normal, dir_light.direction)), 0.005f);
 	bias *= 1 / (cascade_depths[cascade_idx] * 0.5f);
 
 	// pcf
 	for (int x = -1; x <= 1; ++x) {
 		for (int y = -1; y <= 1; ++y) {
 			float closest_depth = texture(dir_shadow_maps, vec3(proj_coords.xy + tex_sz * vec2(x, y), cascade_idx)).r;
-			shadow += (curr_depth - bias) > closest_depth ? 1.0 : 0.0;
+			shadow += (curr_depth - bias) > closest_depth ? 1.0f : 0.0f;
 		}
 	}
 
@@ -127,57 +163,81 @@ float calc_dir_shadow(vec3 pos, float frag_depth, vec3 normal) {
 	return shadow;
 }
 
-vec3 calc_dir_light(vec3 pos, float frag_depth, vec3 normal, float spec_factor) {
-	float diffuse_strength = max(dot(-normalize(dir_light.direction), normal), 0.0);
-	float specular_strength = 0.0;
-
-	if (diffuse_strength != 0.0) {
-		vec3 view_dir = normalize(camera_pos - pos);
-		vec3 half_dir = normalize(dir_light.direction + view_dir);
-		specular_strength = pow(max(dot(view_dir, half_dir), 0.0), 16);
-	}
-
-	float shadow = calc_dir_shadow(pos, frag_depth, normal);
-	return (dir_light.ambient_strength + (1.0 - shadow) * (diffuse_strength + spec_factor * specular_strength)) * dir_light.color;
-}
-
 float calc_pt_shadow(vec3 pos, vec3 light_pos, samplerCube shadow_map, float far_plane) {
 	vec3 frag_to_light = pos - light_pos;
 	float closest = texture(shadow_map, frag_to_light).r * far_plane;
 	float depth = length(frag_to_light);
-	float bias = 0.05;
-	float shadow = ((depth - bias) > closest) ? 1.0 : 0.0;
+	float bias = 0.05f;
+	float shadow = ((depth - bias) > closest) ? 1.0f : 0.0f;
 	return shadow;
 }
 
-vec3 calc_pt_light(PointLight light, vec3 light_pos, uint light_id, vec3 pos, vec3 normal, float spec_factor, samplerCube shadow_map) {
+float calc_attenuation(float dist, float radius) {
+	float window = pow((max(1 - pow(dist / radius, 4), 0.0f)), 2);
+	return window * (1.0f / (dist * dist + 0.001f));
+}
+
+vec3 calc_dir_light(vec3 frag_pos, float frag_depth, vec3 normal, vec3 albedo, float metallic, float roughness, float ao) {
 	
-	// calculate attenuation
-	float dist = length(light_pos - pos);
-	float window = pow((max(1 - pow(dist / light.radius, 4), 0.0)), 2);
-	float attenuation = window * (1.0 / (dist * dist + 0.001));
+	vec3 light_dir = -dir_light.direction;
+	vec3 view_dir = normalize(camera_pos - frag_pos);
+	vec3 half_dir = normalize(light_dir + view_dir);
+	float ndotl = max(dot(normal, light_dir), 0.0f);
+	
+	float ndf = distribution(normal, half_dir, roughness);
+	float geo = geometry(normal, view_dir, light_dir, roughness);
+	vec3 fres = fresnel(dir_light.color.xyz, metallic, max(dot(half_dir, view_dir), 0.0f));
+	vec3 specular = (ndf * geo * fres) / (4.0f * max(dot(normal, view_dir), 0.0f) * ndotl + 0.0001f);
+	vec3 kd = (vec3(1.0f) - fres) * (1.0f - metallic);
+	vec3 radiance_out = (kd * albedo / pi + specular) * (dir_light.color.rgb) * ndotl;
+	float shadow = calc_dir_shadow(frag_pos, frag_depth, normal);
 
-	float ambient_strength = 0.1;
-	vec3 light_dir = normalize(light_pos - pos);
-	float diffuse_strength = max(dot(light_dir, normal), 0.0);
-	float specular_strength = 0.0;
+	return (1.0f - shadow) * radiance_out;
+}
 
-	if (diffuse_strength != 0.0) {
-		vec3 view_dir = normalize(camera_pos - pos);
-		vec3 half_dir = normalize(light_dir + view_dir);
-		specular_strength = pow(max(dot(view_dir, half_dir), 0.0), 16);
-	}
+vec3 calc_pt_light(PointLight light, vec3 light_pos, uint light_id, vec3 frag_pos, vec3 normal, vec3 albedo, samplerCube shadow_map, float metallic, float roughness) {
+	
+	float attenuation = calc_attenuation(length(light_pos - frag_pos), light.radius);
 
-	float shadow = (light_id == pt_caster_id) ? calc_pt_shadow(pos, light_pos, shadow_map, far_z) : 0.0;
-	return (ambient_strength + (1.0 - shadow) * (diffuse_strength + spec_factor * specular_strength)) * light.color.xyz * attenuation * light.intensity;
+	vec3 light_dir = normalize(light_pos - frag_pos);
+	vec3 view_dir = normalize(camera_pos - frag_pos);
+	vec3 half_dir = normalize(light_dir + view_dir);
+	float ndl = max(dot(normal, light_dir), 0.0);
+	
+	float ndf = distribution(normal, half_dir, roughness);
+	float geo = geometry(normal, view_dir, light_dir, roughness);
+	vec3 fres = fresnel(light.color.xyz, metallic, max(dot(half_dir, view_dir), 0.0f));
+	vec3 specular = (ndf * geo * fres) / (4.0f * max(dot(normal, view_dir), 0.0f) * ndl + 0.0001f);
+
+	vec3 kd = (vec3(1.0) - fres) * (1.0f - metallic);
+	vec3 radiance_out = (kd * albedo / pi + specular) * light.color.rgb * attenuation * ndl;
+
+	float shadow = (light_id == pt_caster_id) ? calc_pt_shadow(frag_pos, light_pos, shadow_map, far_z) : 0.0f;
+	return (1.0 - shadow) * radiance_out;
 }
 
 void main() {
 
-	vec4 color = (material.has_diffuse_map) ? texture(material.diffuse_map, fs_in.tex_coords) : vec4(0.5, 0.5, 0.5, 1.0);
+	vec4 albedo = (material.has_albedo_map) ? pow(texture(material.albedo_map, fs_in.tex_coords), vec4(2.2f, 2.2f, 2.2f, 1.0f)) : vec4(0.5f, 0.5f, 0.5f, 1.0f);
+	vec3 norm = (material.has_normal_map) ? fs_in.tbn * (texture(material.normal_map, fs_in.tex_coords).rgb * 2.0f - 1.0f) : fs_in.normal;
+	norm = normalize(norm);
+
+	float roughness = 1.0f;
+	float ambient_occ = 1.0f;
+	float metallic = 0.0f;
+
+	if (material.has_pbr_map) {
+		vec3 pbr = texture(material.pbr_map, fs_in.tex_coords).rgb;
+		roughness = pbr.g;
+		metallic = pbr.b;
+	}
+
+	if (material.has_ao_map) { 
+		ambient_occ = texture(material.ao_map, fs_in.tex_coords).r;
+	}
 
 	// discard fragments with low alpha
-	if (color.a < 0.1) {
+	if (albedo.a < 0.1f) {
 		discard;
 	}
 	
@@ -188,13 +248,17 @@ void main() {
 	uint cluster_idx = cluster_coord.x + (cluster_coord.y * grid_sz.x) + (cluster_coord.z * grid_sz.x * grid_sz.y);
 
 	// compute directional light contribution
-	vec3 result = color.rgb * calc_dir_light(fs_in.frag_pos_ws, fs_in.frag_pos_z_vs, fs_in.normal, fs_in.spec_factor);
+	vec3 result = calc_dir_light(fs_in.frag_pos_ws, fs_in.frag_pos_z_vs, norm, albedo.rgb, metallic, roughness, ambient_occ);
 
 	// compute contributions from point lights
 	for (uint idx = 0; idx < clusters[cluster_idx].count; ++idx) {
 		uint light_idx = clusters[cluster_idx].indices[idx];
-		result += color.rgb * calc_pt_light(light_data[light_idx], light_positions[light_idx].xyz, light_ids[light_idx], fs_in.frag_pos_ws, fs_in.normal, fs_in.spec_factor, pt_shadow_map);
+		result += calc_pt_light(light_data[light_idx], light_positions[light_idx].xyz, light_ids[light_idx], fs_in.frag_pos_ws, norm, albedo.rgb, pt_shadow_map, metallic, roughness);
 	}
 	
-	frag_color = vec4(result, 1.0);
+	// add ambient component
+	vec3 ambient = dir_light.ambient_strength * ambient_occ * albedo.rgb;
+	result += ambient;
+
+	frag_color = vec4(result, 1.0f);
 }
