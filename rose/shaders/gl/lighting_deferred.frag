@@ -206,7 +206,7 @@ vec3 calc_pt_light(PointLight light, vec3 light_pos, uint light_id, vec3 frag_po
 	vec3 radiance_out = (kd * albedo / pi + specular) * (light.color.rgb * attenuation) * ndl;
 
 	float shadow = (light_id == pt_caster_id) ? calc_pt_shadow(frag_pos, light_pos, shadow_map, far_z) : 0.0;
-	return (1.0 - shadow) * radiance_out;
+	return (1.0 - shadow) * radiance_out * light.intensity;
 }
 
 void main() {

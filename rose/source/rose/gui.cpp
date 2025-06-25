@@ -35,7 +35,7 @@ static char bottom_path[256] = "";
 static char front_path[256] = "";
 static char back_path[256] = "";
 
-std::vector<i64> ent_traverse = { 0, 1 }; // entity indices in order of object insertion
+std::vector<i64> ent_traverse = { }; // entity indices in order of object insertion
 
 } // namespace gui_state
 

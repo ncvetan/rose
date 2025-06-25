@@ -25,7 +25,8 @@ static void GLAPIENTRY gl_debug_callback(GLenum source, GLenum type, GLuint id, 
     std::println("GL ERROR: type = {}, severity = {}, message = {}\n", type, severity, msg);
 }
 
-static rses init_gl() {
+rses Backend::init(AppState& app_state) {
+
     if (GLenum glew_success = glewInit(); glew_success != GLEW_OK) {
         return rses().gl(std::format("GLEW failed to initialize: {}", (const char*)glewGetErrorString(glew_success)));
     }
@@ -46,45 +47,13 @@ static rses init_gl() {
     glDebugMessageCallback(gl_debug_callback, nullptr);
 #endif
 
-    return {};
-}
-
-rses Backend::init(AppState& app_state) {
-
-    if (auto err = init_gl()) {
-        return err.general("unable to initialize GLEW and OpenGL");
-    }
-
     if (auto err = shaders.init()) {
         return err.general("unable to initialize shaders");
     }
 
     texture_manager.init();
-
     backend_state.skybox.init();
-    backend_state.skybox.load(texture_manager,
-                            { SOURCE_DIR "/assets/skybox/right.jpg", SOURCE_DIR "/assets/skybox/left.jpg",
-                            SOURCE_DIR "/assets/skybox/top.jpg", SOURCE_DIR "/assets/skybox/bottom.jpg",
-                            SOURCE_DIR "/assets/skybox/front.jpg", SOURCE_DIR "/assets/skybox/back.jpg" });
-
-    // note: hard coding some model loading for testing, can be removed eventually
-    EntityCtx sponza_def = { .model_path = SOURCE_DIR "/assets/Sponza/glTF/Sponza.gltf",
-                             .pos = { 0.0f, 0.0f, 0.0f },
-                             .scale = { 0.02f, 0.02f, 0.02f },
-                             .rotation = { 0.0f, 0.0f, 0.0f },
-                             .light_data = PtLight(),
-                             .flags = EntityFlags::NONE };
-
-    app_state.entities.add_object(texture_manager, sponza_def);
-
-    EntityCtx model2_def = { .model_path = SOURCE_DIR "/assets/glTF-Sample-Models-main/2.0/DamagedHelmet/glTF/DamagedHelmet.gltf",
-                             .pos = { 0.0f, 3.5f, 0.0f },
-                             .scale = { 0.1f, 0.1f, 0.1f },
-                             .rotation = { 0.0f, 0.0f, 0.0f },
-                             .light_data = PtLight(),
-                             .flags = EntityFlags::NONE }; 
-
-    app_state.entities.add_object(texture_manager, model2_def);
+    backend_state.skybox.texture = texture_manager.default_cubemap_ref;
 
     // frame buf initialization ===================================================================
 

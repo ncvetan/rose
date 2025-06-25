@@ -1,5 +1,7 @@
 # Rose - A Graphics Engine
 
+![image](./images/img_1.png)
+
 ## Introduction
 
 The goal of this project is to provide myself with a platform to learn and experiment with different graphics techniques. When I started Rose, my knowledge of computer graphics was limited. I still have plently to learn, but have been able to grow immensely throughout the development of this project. 
@@ -27,15 +29,14 @@ The graphics API used can be selected through rose/CMakeLists.txt. However, supp
 
 Some features that Rose supports...
 
-- Phong illumination
-- Skyboxes
-- Cascaded shadow mapping
-- Normal & parallax mapping
+- Physically based rendering
 - Clustered deferred rendering
+- Skyboxes
+- Cascaded shadow maps
+- Normal & parallax mapping
 - Bloom
-- HDR
 - Ambient Occlusion
-- PBR
+- HDR
 
 ## Roadmap
 
@@ -45,6 +46,7 @@ Some future features and improvements to be made...
 - Support for additional graphics APIs
 - More robust model loader (currently only supporting GLTF 2.0)
 - And plenty of improvements to existing systems...
+- Optimization
 
 ## Contributing
 
