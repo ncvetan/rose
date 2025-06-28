@@ -14,20 +14,20 @@ struct DirShadowData {
 
     rses init();
 
-    u32 fbo = 0;
-    u32 tex = 0;
-    u32 light_mats_ubo = 0; // transform matrices to directional light space
-    u16 resolution = 2048;
-    u8 n_cascades = 3;
+    u32 fbo = 0;                // shadow map frame buffer
+    u32 tex = 0;                // shadow map texture
+    UBO light_mats_ubo;         // transform matrices to directional light space
+    u16 resolution = 2048;      // resolution of each shadow map
+    u8 n_cascades = 3;          // number of cascades
 };
 
 struct PtShadowData {
 
     rses init();
 
-    u32 fbo = 0;
-    u32 tex = 0;
-    u16 resolution = 2048;
+    u32 fbo = 0;                // shadow map frame buffer
+    u32 tex = 0;                // shadow map texture
+    u16 resolution = 2048;      // resolution of shadow map
 };
 
 struct ClustersData {

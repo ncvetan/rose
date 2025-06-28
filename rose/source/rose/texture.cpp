@@ -207,3 +207,32 @@ TextureRef TextureManager::load_cubemap(const std::array<fs::path, 6>& paths) {
     loaded_textures[texture.id] = { texture, 1 };
     return TextureRef(&loaded_textures[texture.id].texture, this);
 }
+
+TextureRef TextureManager::gen_texture(u32 width, u32 height, TextureFormat format) {
+    
+    GL_Texture texture;
+    texture.ty = TextureType::INTERNAL;
+    GLenum gl_format;
+
+    switch (format) { 
+    case TextureFormat::RGBA8:
+        gl_format = GL_RGBA8;
+        break;
+    case TextureFormat::RGBA16F:
+        gl_format = GL_RGBA16F;
+        break;
+    default:
+        assert(false);
+        return default_tex_ref;
+    }
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &texture.id);
+    glTextureStorage2D(texture.id, 1, gl_format, width, height);
+    glTextureParameteri(texture.id, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTextureParameteri(texture.id, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTextureParameteri(texture.id, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(texture.id, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    loaded_textures[texture.id] = { texture, 1 };
+    return TextureRef(&loaded_textures[texture.id].texture, this);
+}

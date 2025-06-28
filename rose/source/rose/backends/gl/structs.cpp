@@ -75,7 +75,7 @@ RenderData::~RenderData() {
     }
 }
 
-rses FrameBuf::init(i32 w, i32 h, bool has_depth_buf, const std::vector<FrameBufTexCtx>& texs) {
+rses FBuf::init(i32 w, i32 h, bool has_depth_buf, const std::vector<FrameBufTexCtx>& texs) {
 
     glCreateFramebuffers(1, &frame_buf);
 
@@ -87,7 +87,7 @@ rses FrameBuf::init(i32 w, i32 h, bool has_depth_buf, const std::vector<FrameBuf
 
     for (size_t idx = 0; idx < tex_bufs.size(); ++idx) {
         glCreateTextures(GL_TEXTURE_2D, 1, &tex_bufs[idx]);
-        glTextureStorage2D(tex_bufs[idx], 1, texs[idx].intern_format, w, h);
+        glTextureStorage2D(tex_bufs[idx], 1, texs[idx].intern_fmt, w, h);
         glTextureParameteri(tex_bufs[idx], GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTextureParameteri(tex_bufs[idx], GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTextureParameteri(tex_bufs[idx], GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -123,13 +123,13 @@ rses FrameBuf::init(i32 w, i32 h, bool has_depth_buf, const std::vector<FrameBuf
     return {};
 }
 
-void FrameBuf::draw(Shader& shader) {
+void FBuf::draw(Shader& shader) {
     shader.use();
     glBindVertexArray(vertex_arr);
     glDrawArrays(GL_TRIANGLES, 0, verts.size());
 }
 
-FrameBuf::~FrameBuf() {
+FBuf::~FBuf() {
     glDeleteFramebuffers(1, &frame_buf);
     if (render_buf) {
         glDeleteRenderbuffers(1, &render_buf);
@@ -139,19 +139,37 @@ FrameBuf::~FrameBuf() {
     }
 }
 
+bool UBO::init(u32 size, u32 base) {
+    glCreateBuffers(1, &ubo);
+    glNamedBufferStorage(ubo, size, nullptr, GL_DYNAMIC_STORAGE_BIT);
+    glBindBufferBase(GL_UNIFORM_BUFFER, base, ubo);
+    this->capacity = size;
+    this->base = base;
+    return true;
+}
+
+void UBO::realloc(u32 size) {
+    glDeleteBuffers(1, &ubo);
+    glNamedBufferStorage(ubo, size, nullptr, GL_DYNAMIC_STORAGE_BIT);
+    glBindBufferBase(GL_UNIFORM_BUFFER, base, ubo);
+    capacity = size;
+}
+
+UBO::~UBO() { glDeleteBuffers(1, &ubo); }
+
 bool SSBO::init(u32 size, u32 base) { 
 	glCreateBuffers(1, &ssbo);
     glNamedBufferStorage(ssbo, size, nullptr, GL_DYNAMIC_STORAGE_BIT);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, base, ssbo);
     this->capacity = size;
-    this->n_elems = 0;
+    this->count = 0;
     this->base = base;
     return true;
 }
 
 SSBO::~SSBO() { glDeleteBuffers(1, &ssbo); }
 
-std::vector<Mip> create_mip_chain(u32 w, u32 h, u32 n_mips) {
+std::vector<Mip> create_mip_chain(TextureManager& texture_manager, u32 w, u32 h, u32 n_mips) {
 
     glm::vec2 mip_sz = { w, h };
     std::vector<Mip> ret;
@@ -161,12 +179,10 @@ std::vector<Mip> create_mip_chain(u32 w, u32 h, u32 n_mips) {
         Mip mip;
         mip_sz *= 0.5f;
         mip.sz = mip_sz;
-        glCreateTextures(GL_TEXTURE_2D, 1, &mip.tex);
-        glTextureStorage2D(mip.tex, 1, GL_RGBA16F, (i32)mip.sz.x, (i32)mip.sz.y);
-        glTextureParameteri(mip.tex, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTextureParameteri(mip.tex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTextureParameteri(mip.tex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTextureParameteri(mip.tex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        mip.tex = texture_manager.gen_texture(mip.sz.x, mip.sz.y, TextureFormat::RGBA16F);
+        mip.tex->set_mag_filter(GL_LINEAR);
+        mip.tex->set_min_filter(GL_LINEAR);
+        mip.tex->set_wrap(GL_CLAMP_TO_EDGE);
         ret.push_back(mip);
     }
 

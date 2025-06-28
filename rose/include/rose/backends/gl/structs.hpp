@@ -5,6 +5,7 @@
 #ifndef ROSE_INCLUDE_BACKENDS_GL_STRUCTS
 #define ROSE_INCLUDE_BACKENDS_GL_STRUCTS
 
+#include <rose/texture.hpp>
 #include <rose/backends/gl/shader.hpp>
 #include <rose/core/core.hpp>
 #include <rose/core/err.hpp>
@@ -39,22 +40,22 @@ struct RenderData {
 };
 
 struct FrameBufTexCtx {
-    GLenum intern_format = 0;
+    GLenum intern_fmt = 0;
 };
 
-struct FrameBuf {
+struct FBuf {
 
     struct Vertex {
         glm::vec3 pos;
         glm::vec2 tex;
     };
 
-    ~FrameBuf();
-
     inline void bind() {
         glBindFramebuffer(GL_FRAMEBUFFER, frame_buf);
         glViewport(0, 0, width, height);
     }
+    
+    ~FBuf();
 
     rses init(i32 w, i32 h, bool has_depth_buf, const std::vector<FrameBufTexCtx>& texs);
     void draw(Shader& shader);
@@ -78,6 +79,30 @@ struct FrameBuf {
     };
 };
 
+struct UBO {
+    // constructs ubo of given size in bytes and a binding point
+    bool init(u32 size, u32 base);
+
+    // clear and resize the buffer
+    void realloc(u32 size);
+
+    // copy data into the ubo at the given offset
+    template <typename T>
+    void update(u32 offset, std::span<T> data) {
+        if (offset + data.size_bytes() > capacity) {
+            assert(false);
+            return;
+        }
+        glNamedBufferSubData(ubo, offset, data.size_bytes(), static_cast<void*>(data.data()));
+    }
+
+    ~UBO();
+
+    u32 ubo = 0;        // ubo identifier
+    u32 capacity = 0;   // size of the ubo in bytes
+    u32 base = 0;       // bind idx
+};
+
 struct SSBO {
 
     // constructs ssbo given size in bytes and a binding point
@@ -97,27 +122,27 @@ struct SSBO {
             ssbo = realloced_ssbo;
         }
 
-        n_elems = data.size();
+        count = data.size();
         glNamedBufferSubData(ssbo, 0, data.size_bytes(), static_cast<void*>(data.data()));
     }
 
     ~SSBO();
 
-    u32 ssbo = 0;     // ssbo identifier
-    u32 n_elems = 0;  // number of elements
-    u32 capacity = 0; // size of the ssbo in bytes
-    u32 base = 0;     // bind idx
+    u32 ssbo = 0;       // ssbo identifier
+    u32 count = 0;      // number of elements
+    u32 capacity = 0;   // size of the ssbo in bytes
+    u32 base = 0;       // bind idx
 };
 
 // represents a single mip
 struct Mip {
-    u32 tex = 0;
+    TextureRef tex;
     glm::vec2 sz;
 };
 
 // generates a mip chain, where the width and height of each mips is halved
 // for each mip within the chain
-std::vector<Mip> create_mip_chain(u32 w, u32 h, u32 n_mips);
+std::vector<Mip> create_mip_chain(TextureManager& texture_manager, u32 w, u32 h, u32 n_mips);
 
 } // namespace gl
 

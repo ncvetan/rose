@@ -21,15 +21,14 @@ namespace gl {
 
 // state specific to the OpenGL backend
 struct BackendState {
-    SkyBox skybox;
-    u32 global_ubo = 0; // ubo storing values available across shaders
-    DirLight dir_light;
-    PtShadowData pt_shadow_data;
-    std::vector<Mip> bloom_mip_chain;
-    u32 ssao_noise_tex = 0;
-    SSBO ssao_samples_ssbo;
+    SkyBox skybox;                      // skybox model state
+    UBO global_ubo;                     // ubo storing values available across shaders
+    DirLight dir_light;                 // directional light parameters
+    PtShadowData pt_shadow_data;        // render data associated with a point light shadow
+    std::vector<Mip> bloom_mip_chain;   // chain of mip data
+    TextureRef ssao_noise_tex;          // texture of noise used in SSAO
+    SSBO ssao_samples_ssbo;             // SSBO containing samples for SSAO
 };
-
 
 struct Backend {
 
@@ -39,8 +38,7 @@ struct Backend {
     void step(AppState& app_state);
     void finish();
 
-    // note: destruction order is important
-    // entities must be destructed before texture managers
+    // note: texture manager must be destructed last
     TextureManager texture_manager;
     BackendState backend_state;
     Shaders shaders;
@@ -48,10 +46,10 @@ struct Backend {
 
     SSBO lights_ids_ssbo;   // IDs for each point light
 
-    FrameBuf gbuf_fbuf;     // gbuffers
-    FrameBuf int_fbuf;      // intermediate
-    FrameBuf ssao_fbuf;     // occlusion factor
-    FrameBuf out_fbuf;      // output
+    FBuf gbuf_fbuf;     // gbuffers
+    FBuf int_fbuf;      // intermediate
+    FBuf ssao_fbuf;     // occlusion factor
+    FBuf out_fbuf;      // output
 };
 
 } // namespace gl

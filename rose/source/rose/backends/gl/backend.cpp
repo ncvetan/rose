@@ -83,14 +83,14 @@ rses Backend::init(AppState& app_state) {
 
     // uniform buffer initialization ==============================================================
 
-    glCreateBuffers(1, &backend_state.global_ubo);
-    glNamedBufferStorage(backend_state.global_ubo, 176, nullptr, GL_DYNAMIC_STORAGE_BIT);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 1, backend_state.global_ubo);
+
     glm::uvec2 screen_dims = { app_state.window_state.width, app_state.window_state.height };    
-    glNamedBufferSubData(backend_state.global_ubo, 144, 16, glm::value_ptr(clusters.grid_sz));
-    glNamedBufferSubData(backend_state.global_ubo, 160, 8, glm::value_ptr(screen_dims));
-    glNamedBufferSubData(backend_state.global_ubo, 168, 4, &app_state.camera.far_plane);
-    glNamedBufferSubData(backend_state.global_ubo, 172, 4, &app_state.camera.near_plane);
+
+    backend_state.global_ubo.init(176, 1);
+    backend_state.global_ubo.update(144, std::span(&clusters.grid_sz, 1));
+    backend_state.global_ubo.update(160, std::span(&screen_dims, 1));
+    backend_state.global_ubo.update(168, std::span(&app_state.camera.far_plane, 1));
+    backend_state.global_ubo.update(172, std::span(&app_state.camera.near_plane, 1));
 
     // ssbo initialization ========================================================================
 
@@ -130,13 +130,8 @@ rses Backend::init(AppState& app_state) {
         ssao_noise[idx] = noise;
     }
 
-    glCreateTextures(GL_TEXTURE_2D, 1, &backend_state.ssao_noise_tex);
-    glTextureStorage2D(backend_state.ssao_noise_tex, 1, GL_RGBA16F, 4, 4);
-    glTextureSubImage2D(backend_state.ssao_noise_tex, 0, 0, 0, 4, 4, GL_RGBA, GL_FLOAT, ssao_noise.data());
-    glTextureParameteri(backend_state.ssao_noise_tex, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(backend_state.ssao_noise_tex, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTextureParameteri(backend_state.ssao_noise_tex, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTextureParameteri(backend_state.ssao_noise_tex, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    backend_state.ssao_noise_tex = texture_manager.gen_texture(4, 4, TextureFormat::RGBA16F);
+    glTextureSubImage2D(backend_state.ssao_noise_tex->id, 0, 0, 0, 4, 4, GL_RGBA, GL_FLOAT, ssao_noise.data());
 
     backend_state.ssao_samples_ssbo.init(sizeof(glm::vec4) * app_state.ssao_kernel.size(), 10);
     backend_state.ssao_samples_ssbo.update(std::span(app_state.ssao_kernel.begin(), app_state.ssao_kernel.end()));
@@ -158,7 +153,7 @@ rses Backend::init(AppState& app_state) {
     shaders.lighting_forward.set_vec3("dir_light.color", backend_state.dir_light.color);
     shaders.lighting_forward.set_f32("dir_light.ambient_strength", backend_state.dir_light.ambient_strength);
 
-    backend_state.bloom_mip_chain = create_mip_chain(app_state.window_state.width, app_state.window_state.height, 5);
+    backend_state.bloom_mip_chain = create_mip_chain(texture_manager, app_state.window_state.width, app_state.window_state.height, 5);
     f32 ar = (f32)app_state.window_state.width / (f32)app_state.window_state.height;
     glm::vec2 filter_sz = { 0.005f, 0.005f * ar };
     shaders.upsample.set_vec2("filter_sz", filter_sz);
@@ -197,10 +192,9 @@ void Backend::step(AppState& app_state) {
     glm::mat4 projection = app_state.camera.projection(ar);
     glm::mat4 view = app_state.camera.view();
 
-    // update ubo state
-    glNamedBufferSubData(backend_state.global_ubo, 0, 64, glm::value_ptr(projection));
-    glNamedBufferSubData(backend_state.global_ubo, 64, 64, glm::value_ptr(view));
-    glNamedBufferSubData(backend_state.global_ubo, 128, 16, glm::value_ptr(app_state.camera.position));
+    backend_state.global_ubo.update(0, std::span(&projection, 1));
+    backend_state.global_ubo.update(64, std::span(&view, 1));
+    backend_state.global_ubo.update(128, std::span(&app_state.camera.position, 1));
 
     // clustered set-up ===========================================================================================
 
@@ -214,7 +208,7 @@ void Backend::step(AppState& app_state) {
 
     // build light lists for each cluster
     shaders.clusters_cull.use();
-    shaders.clusters_cull.set_i32("n_lights", clusters.gl_data.lights_ssbo.n_elems);
+    shaders.clusters_cull.set_i32("n_lights", clusters.gl_data.lights_ssbo.count);
 
     glDispatchCompute(27, 1, 1);
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
@@ -244,9 +238,9 @@ void Backend::step(AppState& app_state) {
     glm::mat4 c3_map = get_cascade_mat(p3, app_state.camera.view(), backend_state.dir_light.direction,
                                        backend_state.dir_light.gl_shadow.resolution);
 
-    glNamedBufferSubData(backend_state.dir_light.gl_shadow.light_mats_ubo, 0, 64, glm::value_ptr(c1_map));
-    glNamedBufferSubData(backend_state.dir_light.gl_shadow.light_mats_ubo, 64, 64, glm::value_ptr(c2_map));
-    glNamedBufferSubData(backend_state.dir_light.gl_shadow.light_mats_ubo, 128, 64, glm::value_ptr(c3_map));
+    backend_state.dir_light.gl_shadow.light_mats_ubo.update(0, std::span(&c1_map, 1));
+    backend_state.dir_light.gl_shadow.light_mats_ubo.update(64, std::span(&c2_map, 1));
+    backend_state.dir_light.gl_shadow.light_mats_ubo.update(128, std::span(&c3_map, 1));
 
     glEnable(GL_DEPTH_CLAMP);
 
@@ -362,7 +356,7 @@ void Backend::step(AppState& app_state) {
         glm::vec2 noise_scale = glm::vec2((f32)app_state.window_state.width / 4.0f, (f32)app_state.window_state.height / 4.0f);
         shaders.ssao.set_tex("gbuf_pos", 0, gbuf_fbuf.tex_bufs[0]);
         shaders.ssao.set_tex("gbuf_norms", 1, gbuf_fbuf.tex_bufs[1]);
-        shaders.ssao.set_tex("noise_tex", 2, backend_state.ssao_noise_tex);
+        shaders.ssao.set_tex("noise_tex", 2, backend_state.ssao_noise_tex->id);
         shaders.ssao.set_vec2("noise_scale", noise_scale);
         ssao_fbuf.draw(shaders.ssao);
         // blur the output
@@ -456,9 +450,9 @@ void Backend::step(AppState& app_state) {
         for (size_t idx = 0; idx < backend_state.bloom_mip_chain.size(); ++idx) {
             const Mip& mip = backend_state.bloom_mip_chain[idx];
             glViewport(0, 0, (int)mip.sz.x, (int)mip.sz.y);
-            glNamedFramebufferTexture(gbuf_fbuf.frame_buf, GL_COLOR_ATTACHMENT0, mip.tex, 0);
+            glNamedFramebufferTexture(gbuf_fbuf.frame_buf, GL_COLOR_ATTACHMENT0, mip.tex.ref->id, 0);
             gbuf_fbuf.draw(shaders.downsample);
-            shaders.downsample.set_tex("tex", 0, mip.tex);
+            shaders.downsample.set_tex("tex", 0, mip.tex.ref->id);
             shaders.downsample.set_vec2("texel_size", 1.0f / mip.sz);
             shaders.downsample.set_i32("mip_level", idx + 1);
         }
@@ -471,16 +465,16 @@ void Backend::step(AppState& app_state) {
         for (size_t idx = backend_state.bloom_mip_chain.size() - 1; idx > 0; --idx) {
             const Mip& mip = backend_state.bloom_mip_chain[idx];
             const Mip& next_mip = backend_state.bloom_mip_chain[idx-1];
-            shaders.upsample.set_tex("tex", 0, mip.tex);
+            shaders.upsample.set_tex("tex", 0, mip.tex.ref->id);
             glViewport(0, 0, (int)next_mip.sz.x, (int)next_mip.sz.y);
-            glNamedFramebufferTexture(gbuf_fbuf.frame_buf, GL_COLOR_ATTACHMENT0, next_mip.tex, 0);
+            glNamedFramebufferTexture(gbuf_fbuf.frame_buf, GL_COLOR_ATTACHMENT0, next_mip.tex.ref->id, 0);
             gbuf_fbuf.draw(shaders.upsample);
         }
 
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glDisable(GL_BLEND);
 
-        shaders.upsample.set_tex("tex", 0, backend_state.bloom_mip_chain[0].tex);
+        shaders.upsample.set_tex("tex", 0, backend_state.bloom_mip_chain[0].tex.ref->id);
         glViewport(0, 0, app_state.window_state.width, app_state.window_state.height);
         glNamedFramebufferTexture(gbuf_fbuf.frame_buf, GL_COLOR_ATTACHMENT0, gbuf_fbuf.tex_bufs[0], 0);
         gbuf_fbuf.draw(shaders.upsample);
@@ -532,6 +526,8 @@ void Backend::step(AppState& app_state) {
     }
  };
 
-void Backend::finish() { ImGui_ImplOpenGL3_Shutdown(); };
+void Backend::finish() { 
+    ImGui_ImplOpenGL3_Shutdown(); 
+};
 
 } // namespace gl

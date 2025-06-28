@@ -12,8 +12,8 @@ rses DirShadowData::init() {
     if (tex) {
         glDeleteTextures(1, &tex);
     }
-    if (light_mats_ubo) {
-        glDeleteBuffers(1, &light_mats_ubo);
+    if (light_mats_ubo.ubo) {
+        glDeleteBuffers(1, &light_mats_ubo.ubo);
     }
 
     glCreateFramebuffers(1, &fbo);
@@ -41,9 +41,7 @@ rses DirShadowData::init() {
         return rses().gl("directional shadow framebuffer is incomplete");
     }
 
-    glCreateBuffers(1, &light_mats_ubo);
-    glNamedBufferStorage(light_mats_ubo, 192, nullptr, GL_DYNAMIC_STORAGE_BIT);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 6, light_mats_ubo);
+    light_mats_ubo.init(192, 6);
 
     return {};
 }

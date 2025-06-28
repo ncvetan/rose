@@ -30,6 +30,13 @@ enum class TextureType {
     TEXTURE_COUNT
 };
 
+enum class TextureFormat { 
+    NONE = 0,
+    RGBA8,
+    RGBA16F,
+    FORMAT_COUNT
+};
+
 enum class TextureFlags : u32 {
     NONE = 0,            // no effect
     TRANSPARENT = bit1   // this texture has some degree of transparency
@@ -41,6 +48,19 @@ struct GL_Texture {
     u32 id = 0;
     TextureType ty = TextureType::NONE;
     TextureFlags flags = TextureFlags::NONE;
+
+    inline void set_min_filter(i32 param) {
+        glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, param);
+    }
+
+    inline void set_mag_filter(i32 param) {
+        glTextureParameteri(id, GL_TEXTURE_MAG_FILTER, param);
+    }
+
+    inline void set_wrap(i32 param) {
+        glTextureParameteri(id, GL_TEXTURE_WRAP_S, param);
+        glTextureParameteri(id, GL_TEXTURE_WRAP_T, param);    
+    }
 
     inline void free() { glDeleteTextures(1, &id); }
 };
@@ -76,6 +96,8 @@ struct TextureManager {
     
     TextureRef load_texture(const fs::path& path, TextureType ty);
     TextureRef load_cubemap(const std::array<fs::path, 6>& paths);
+
+    TextureRef gen_texture(u32 w, u32 h, TextureFormat format);
 
     TextureRef get_ref(const fs::path& path);
     TextureRef get_ref(u32 id);
